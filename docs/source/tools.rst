@@ -1,13 +1,7 @@
 tools package
 =============
 
-Module contents
----------------
 
-.. automodule:: tools
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 Submodules
 ----------
@@ -19,6 +13,7 @@ tools.file_utils module
     :members:
     :undoc-members:
     :show-inheritance:
+
 
 tools.test_fixtures module
 --------------------------
