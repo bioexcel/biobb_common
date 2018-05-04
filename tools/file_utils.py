@@ -11,7 +11,10 @@ def create_dir(dir_path):
     """Returns the directory **dir_path** and create it if path does not exist.
 
     Args:
-        dir_path (str): Path to the directory that will be created
+        dir_path (str): Path to the directory that will be created.
+
+    Returns:
+        str: Directory dir path.
     """
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
@@ -23,7 +26,10 @@ def get_workflow_path(workflow_path):
     is added to the end of the **workflow_path** and is returned.
 
     Args:
-        workflow_path (str): Path to the workflow results
+        workflow_path (str): Path to the workflow results.
+
+    Returns:
+        str: Path to the workflow results directory.
     """
     if not os.path.exists(dir_path):
         return dir_path
@@ -58,8 +64,8 @@ def zip_list(zip_file, file_list):
     """ Compress all files listed in **file_list** into **zip_file** zip file.
 
     Args:
-        zip_file: Output compressed zip file.
-        file_list: Input list of files to be compressed.
+        zip_file (str): Output compressed zip file.
+        file_list (:obj:`list` of :obj:`str`): Input list of files to be compressed.
     """
     with zipfile.ZipFile(zip_file, 'w') as zip:
         for f in file_list:
@@ -86,6 +92,9 @@ def get_logs(path=None, prefix=None, step=None, console=False, level='INFO'):
         step (str):  String added between the **prefix** arg and the name of the log file.
         console (bool): (False) If True, show log in the execution terminal.
         level (str): ('INFO') Set Logging level. ['CRITICAL','ERROR','WARNING','INFO','DEBUG','NOTSET']
+
+    Returns:
+        :obj:`tuple` of :obj:`Logger` and :obj:`Logger`: Out and err Logger objects.
     """
     path = path if path else os.getcwd()
     out_log_path = create_name(path=path, prefix=prefix, step=step, name='log.out')
@@ -131,6 +140,9 @@ def human_readable_time(time_ps):
 
     Args:
         time_ps (int): Time in pico seconds.
+
+    Returns:
+        str: Human readable time.
     """
     time_units = ['femto seconds','pico seconds','nano seconds','micro seconds','mili seconds']
     time = time_ps * 1000
@@ -149,6 +161,9 @@ def create_name(path=None, prefix=None, step=None, name=None):
         prefix (str): Prefix added to the name of the file.
         step (str):  String added between the **prefix** arg and the **name** arg of the file.
         name (str): Name of the file.
+
+    Returns:
+        str: Composed file name.
     """
     name = '' if name is None else name.strip()
     if step:
