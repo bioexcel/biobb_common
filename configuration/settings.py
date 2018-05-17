@@ -9,24 +9,24 @@ configuration files.
 import yaml
 import os
 from os.path import join as opj
-from tools import file_utils as fu
+from biobb_common.tools import file_utils as fu
 
 class YamlReader(object):
     """Configuration file loader for yaml format files.
 
     Args:
-        yaml_path (str): Path to the configuration YAML file.
+        conf_file_path (str): Path to the configuration YAML file.
         system (str): System name from the systems section in the configuration file.
     """
 
-    def __init__(self, yaml_path, system):
-        self.yaml_path= os.path.abspath(yaml_path)
+    def __init__(self, conf_file_path, system):
+        self.conf_file_path= os.path.abspath(conf_file_path)
         self.system = system
         self.properties = self._read_yaml()
         self.properties[system]['workflow_path'] = fu.get_workflow_path(self.properties[system]['workflow_path'])
 
     def _read_yaml(self):
-        with open(self.yaml_path, 'r') as stream:
+        with open(self.conf_file_path, 'r') as stream:
             return yaml.safe_load(stream)
 
     def get_prop_dic(self, prefix=None, global_log=None):
@@ -60,6 +60,7 @@ class YamlReader(object):
                     prop_dic[key]['step']= key
                     prop_dic[key]['prefix']= prefix
                     prop_dic[key]['global_log']= global_log
+                    prop_dic[key]['system']= self.system
                 if 'properties' in self.properties[key] and isinstance(self.properties[key]['properties'], dict):
                     if self.properties[self.system].get('rm_tmp', None):
                         prop_dic[key]['rm_tmp']= self.properties[self.system]['rm_tmp']

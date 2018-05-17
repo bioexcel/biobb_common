@@ -17,7 +17,10 @@ def create_dir(dir_path):
         str: Directory dir path.
     """
     if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
+        try:
+            os.makedirs(dir_path)
+        except:
+            pass
     return dir_path
 
 def get_workflow_path(workflow_path):
@@ -31,14 +34,14 @@ def get_workflow_path(workflow_path):
     Returns:
         str: Path to the workflow results directory.
     """
-    if not os.path.exists(dir_path):
-        return dir_path
+    if not os.path.exists(workflow_path):
+        return workflow_path
 
     cont = 1
-    while os.path.exists(dir_path):
-        dir_path = dir_path.rstrip('\\/0123456789_') + '_' + str(cont)
+    while os.path.exists(workflow_path):
+        workflow_path = workflow_path.rstrip('\\/0123456789_') + '_' + str(cont)
         cont += 1
-    return dir_path
+    return workflow_path
 
 def remove_temp_files(endswith_list, source_dir=None):
     removed_list = []
@@ -99,6 +102,9 @@ def get_logs(path=None, prefix=None, step=None, console=False, level='INFO'):
     path = path if path else os.getcwd()
     out_log_path = create_name(path=path, prefix=prefix, step=step, name='log.out')
     err_log_path = create_name(path=path, prefix=prefix, step=step, name='log.err')
+
+    # Create dir if it not exists
+    create_dir(os.path.dirname(os.path.abspath(out_log_path)))
 
     # Create logging format
     logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
