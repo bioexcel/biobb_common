@@ -74,6 +74,19 @@ def zip_list(zip_file, file_list):
         for f in file_list:
             zip.write(f, arcname=os.path.basename(f))
 
+def unzip_list(zip_file):
+    """ Compress all files listed in **file_list** into **zip_file** zip file.
+
+    Args:
+        zip_file (str): Output compressed zip file.
+
+    Returns:
+        :obj:`list` of :obj:`str`: List of paths of the extracted files.
+    """
+    with zipfile.ZipFile(zip_file, 'r') as zip:
+        zip.extractall()
+        return [os.path.abspath(f) for f in zip.namelist()]
+
 def unzip_top(zip_file, dest_dir=None, top_file=None):
     if dest_dir is None:
         dest_dir = os.getcwd()
