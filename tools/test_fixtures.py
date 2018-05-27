@@ -27,7 +27,7 @@ def test_setup(test_object, dict_key):
         test_object.system='linux'
     conf = settings.YamlReader(test_object.conf_file_path, test_object.system)
     test_object.properties = conf.get_prop_dic()[dict_key]
-    test_object.paths = conf.get_paths_dic()[dict_key]
+    test_object.paths = {k:v.replace('test_data_dir', test_object.data_dir, 1) for k, v in conf.get_paths_dic()[dict_key].iteritems()}
     fu.create_dir(test_object.properties['path'])
     os.chdir(test_object.properties['path'])
 
