@@ -98,8 +98,6 @@ com_crashlytics_export_strings.xml
 test/data/temp_results/
 testworkflow/
 testworkflow*
-# PyCOMPSs
-pycompss*/
 
 # Gromacs
 \#*
