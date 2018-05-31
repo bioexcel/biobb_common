@@ -43,8 +43,6 @@ class YamlReader(object):
         Args:
             prefix (str): Prefix if provided.
             global_log (:obj:Logger): Log from the main workflow.
-            rm_tmp (bool): Remove temporal files if provided in the system section of the YAML file.
-            log_level (bool): Remove temporal files if provided in the system section of the YAML file.
 
         Returns:
             dict: Dictionary of properties.
@@ -61,13 +59,12 @@ class YamlReader(object):
                     prop_dic[key]['prefix']= prefix
                     prop_dic[key]['global_log']= global_log
                     prop_dic[key]['system']= self.system
+                    prop_dic[key].update(self.properties[self.system].copy())
                 if 'properties' in self.properties[key] and isinstance(self.properties[key]['properties'], dict):
-                    if self.properties[self.system].get('rm_tmp', None):
-                        prop_dic[key]['rm_tmp']= self.properties[self.system]['rm_tmp']
+                    prop_dic[key].update(self.properties[key]['properties'].copy())
                     if self.properties[self.system].get('log_level', None):
                         prop_dic[key]['log_level']= self.properties[self.system]['log_level']
-                    prop_dic[key].update(self.properties[self.system].copy())
-                    prop_dic[key].update(self.properties[key]['properties'].copy())
+
 
         return prop_dic
 

@@ -43,26 +43,6 @@ def get_workflow_path(workflow_path):
         cont += 1
     return workflow_path
 
-def remove_temp_files(endswith_list, source_dir=None):
-    removed_list = []
-    source_dir = os.getcwd() if source_dir is None else os.path.abspath(source_dir)
-    files = [f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))]
-    for f in files:
-        if f.endswith(tuple(endswith_list)):
-            os.remove(f)
-            removed_list.append(f)
-    return removed_list
-
-def zip_top(top_file, zip_file):
-    top_dir = os.path.abspath(os.path.dirname(top_file))
-    files = glob.iglob(os.path.join(top_dir, "*.itp"))
-    if os.path.abspath(os.getcwd()) != top_dir:
-        files = glob.iglob(os.path.join(os.getcwd(), "*.itp"))
-    with zipfile.ZipFile(zip_file, 'w') as zip:
-        for f in files:
-            zip.write(f, arcname=os.path.basename(f))
-        zip.write(top_file, arcname=os.path.basename(top_file))
-
 def zip_list(zip_file, file_list):
     """ Compress all files listed in **file_list** into **zip_file** zip file.
 
@@ -86,6 +66,16 @@ def unzip_list(zip_file):
     with zipfile.ZipFile(zip_file, 'r') as zip:
         zip.extractall()
         return [os.path.abspath(f) for f in zip.namelist()]
+
+def zip_top(zip_file):
+    """ Compress all *.itp and *.top files in the cwd into **zip_file** zip file.
+
+    Args:
+        zip_file (str): Output compressed zip file.
+    """
+    ext_list = [".itp", ".top"]
+    file_list = [f for f in os.listdir(os.getcwd()) if os.path.isfile(f) and os.path.splitext(f)[1] in ext_list]
+    zip_list(zip_file, file_list)
 
 def unzip_top(zip_file, dest_dir=None, top_file=None):
     if dest_dir is None:
@@ -201,3 +191,7 @@ def create_name(path=None, prefix=None, step=None, name=None):
         else:
             name = path
     return name
+
+def write_failed_output(file_name):
+    with open(file_name, 'w') as f:
+        f.write('Error\n')

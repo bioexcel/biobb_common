@@ -9,11 +9,12 @@ class CmdWrapper(object):
     """Command line wrapper using subprocess library
     """
 
-    def __init__(self, cmd, out_log=None, err_log=None):
+    def __init__(self, cmd, out_log=None, err_log=None, global_log=None):
 
         self.cmd = cmd
         self.out_log = out_log
         self.err_log = err_log
+        self.global_log = global_log
 
     def launch(self):
         cmd = " ".join(self.cmd)
@@ -36,6 +37,10 @@ class CmdWrapper(object):
             self.out_log.info("Exit code {}".format(process.returncode)+'\n')
             if out is not None:
                 self.out_log.info(out)
+
+        if self.global_log is not None:
+            self.global_log.info(22*' Executing: '+cmd)
+            self.global_log.info(22*' '+"Exit code {}".format(process.returncode))
 
         if self.err_log is not None:
             if err is not None:
