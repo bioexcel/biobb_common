@@ -40,7 +40,7 @@ class CmdWrapper(object):
 
         if self.global_log is not None:
             self.global_log.info(22*' Executing: '+cmd)
-            self.global_log.info(22*' '+"Exit code {}".format(process.returncode))
+            self.global_log.info(fu.get_logs_prefix()+"Exit code {}".format(process.returncode))
 
         if self.err_log is not None:
             if err is not None:

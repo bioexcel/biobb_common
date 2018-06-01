@@ -88,6 +88,8 @@ def unzip_top(zip_file, dest_dir=None, top_file=None):
         return top_file
     return zip_name
 
+def get_logs_prefix():
+    return 22*' '
 
 def get_logs(path=None, prefix=None, step=None, console=False, level='INFO'):
     """ Get the error and and out Python Logger objects.
