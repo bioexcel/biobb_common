@@ -55,10 +55,11 @@ def zip_list(zip_file, file_list):
             zip.write(f, arcname=os.path.basename(f))
 
 def unzip_list(zip_file):
-    """ Compress all files listed in **file_list** into **zip_file** zip file.
+    """ Extract all files in the zipball file and return a list containing the
+        absolute path of the extracted files.
 
     Args:
-        zip_file (str): Output compressed zip file.
+        zip_file (str): Input compressed zip file.
 
     Returns:
         :obj:`list` of :obj:`str`: List of paths of the extracted files.
@@ -77,16 +78,17 @@ def zip_top(zip_file):
     file_list = [f for f in os.listdir(os.getcwd()) if os.path.isfile(f) and os.path.splitext(f)[1] in ext_list]
     zip_list(zip_file, file_list)
 
-def unzip_top(zip_file, dest_dir=None, top_file=None):
-    if dest_dir is None:
-        dest_dir = os.getcwd()
-    with zipfile.ZipFile(zip_file) as zip:
-        zip_name = next(name for name in zip.namelist() if name.endswith(".top"))
-        zip.extractall(path=dest_dir)
-    if top_file is not None:
-        shutil.copyfile(os.path.join(dest_dir, zip_name), os.path.basename(top_file))
-        return top_file
-    return zip_name
+def unzip_top(zip_file, top_file):
+    """ Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
+
+    Args:
+        zip_file (str): Input topology zipball file path.
+        top_file (str): Output ".top" file where the extracted ".top" file will be copied.
+    """
+    top_list = unzip_list(zip_file)
+    original_top = next(name for name in top_list if name.endswith(".top"))
+    shutil.move(original_top, top_file)
+
 
 def get_logs_prefix():
     return 22*' '
