@@ -95,12 +95,17 @@ def unzip_top(zip_file, top_file, out_log=None):
     Args:
         zip_file (str): Input topology zipball file path.
         top_file (str): Output ".top" file where the extracted ".top" file will be copied.
+
+    Returns:
+        :obj:`list` of :obj:`str`: List of extracted files paths.
     """
     top_list = unzip_list(zip_file, out_log)
     original_top = next(name for name in top_list if name.endswith(".top"))
     shutil.move(original_top, top_file)
     if out_log:
         out_log.info("Moving: "+ os.path.abspath(original_top) +' to: '+ os.path.abspath(top_file))
+
+    return top_list
 
 
 def get_logs_prefix():
