@@ -43,7 +43,7 @@ def get_workflow_path(workflow_path):
         cont += 1
     return workflow_path
 
-def zip_list(zip_file, file_list):
+def zip_list(zip_file, file_list, out_log=None):
     """ Compress all files listed in **file_list** into **zip_file** zip file.
 
     Args:
@@ -53,8 +53,12 @@ def zip_list(zip_file, file_list):
     with zipfile.ZipFile(zip_file, 'w') as zip:
         for f in file_list:
             zip.write(f, arcname=os.path.basename(f))
+    if out_log:
+        out_log.info("Adding:")
+        out_log.info(str(file_list))
+        out_log.info("to: "+ os.path.abspath(zip_file))
 
-def unzip_list(zip_file):
+def unzip_list(zip_file, out_log=None):
     """ Extract all files in the zipball file and return a list containing the
         absolute path of the extracted files.
 
@@ -66,9 +70,16 @@ def unzip_list(zip_file):
     """
     with zipfile.ZipFile(zip_file, 'r') as zip:
         zip.extractall()
-        return [os.path.abspath(f) for f in zip.namelist()]
+        file_list = [os.path.abspath(f) for f in zip.namelist()]
 
-def zip_top(zip_file):
+    if out_log:
+        out_log.info("Extracting: "+ os.path.abspath(zip_file))
+        out_log.info("to:")
+        out_log.info(str(file_list))
+
+    return file_list
+
+def zip_top(zip_file, out_log=None):
     """ Compress all *.itp and *.top files in the cwd into **zip_file** zip file.
 
     Args:
@@ -76,18 +87,20 @@ def zip_top(zip_file):
     """
     ext_list = [".itp", ".top"]
     file_list = [f for f in os.listdir(os.getcwd()) if os.path.isfile(f) and os.path.splitext(f)[1] in ext_list]
-    zip_list(zip_file, file_list)
+    zip_list(zip_file, file_list, out_log)
 
-def unzip_top(zip_file, top_file):
+def unzip_top(zip_file, top_file, out_log=None):
     """ Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
 
     Args:
         zip_file (str): Input topology zipball file path.
         top_file (str): Output ".top" file where the extracted ".top" file will be copied.
     """
-    top_list = unzip_list(zip_file)
+    top_list = unzip_list(zip_file, out_log)
     original_top = next(name for name in top_list if name.endswith(".top"))
     shutil.move(original_top, top_file)
+    if out_log:
+        out_log.info("Moving: "+ os.path.abspath(original_top) +' to: '+ os.path.abspath(top_file))
 
 
 def get_logs_prefix():
