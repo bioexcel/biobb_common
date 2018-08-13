@@ -92,13 +92,13 @@ class YamlReader(object):
 
         #Solving dependencies and adding workflow and step path
         for key in prop_dic:
-            for key2, value in prop_dic[key].iteritems():
-                if isinstance(value, basestring) and value.startswith('dependency'):
-                    while isinstance(value, basestring) and value.startswith('dependency'):
+            for key2, value in prop_dic[key].items():
+                if isinstance(value, str) and value.startswith('dependency'):
+                    while isinstance(value, str) and value.startswith('dependency'):
                         dependency_step=value.split('/')[1]
                         value = prop_dic[value.split('/')[1]][value.split('/')[2]]
                     prop_dic[key][key2] = opj(self.properties[self.system]['workflow_path'], prefix, dependency_step, value)
-                elif isinstance(value, basestring) and value.startswith('file:'):
+                elif isinstance(value, str) and value.startswith('file:'):
                     prop_dic[key][key2] = value.split(':')[1]
                 else:
                     prop_dic[key][key2] = opj(self.properties[self.system]['workflow_path'], prefix, key, value)
