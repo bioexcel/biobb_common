@@ -1,5 +1,5 @@
 [![Documentation Status](https://readthedocs.org/projects/biobb-common/badge/?version=latest)](https://biobb-common.readthedocs.io/en/latest/?badge=latest)
-
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/8e5c5537c6234bff958171e273471879)](https://www.codacy.com/app/andriopau/biobb_common?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=bioexcel/biobb_common&amp;utm_campaign=Badge_Grade)
 
 # biobb_common
 
