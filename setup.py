@@ -18,12 +18,13 @@ setuptools.setup(
         "Bioexcel": "https://bioexcel.eu/"
     },
     packages=setuptools.find_packages(exclude=['docs']),
-    install_requires=['pyyaml'],
-    python_requires='~=3.0',
+    install_requires=['pyyaml', 'nose', 'jupyter'],
+    python_requires='~=3.6',
     classifiers=(
         "Development Status :: 3 - Alpha",
-        "Programming Language :: Python :: 3.0",
+        "Programming Language :: Python :: 3.6",
         "License :: OSI Approved :: Apache Software License",
-        "Operating System :: OS Independent",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: POSIX",
     ),
 )
