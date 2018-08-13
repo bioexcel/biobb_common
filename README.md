@@ -13,7 +13,7 @@ The latest documentation of this package can be found in our readthedocs site:
 [latest API documentation](http://biobb_common.readthedocs.io/en/latest/).
 
 ### Version 0.0.3
-This version is the third Alpha.
+This software is in Alpha version.
 
 ### Copyright & Licensing
 This software has been developed in the MMB group (http://mmb.pcb.ub.es) at the
