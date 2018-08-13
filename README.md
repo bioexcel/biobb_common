@@ -1,3 +1,6 @@
+[![Documentation Status](https://readthedocs.org/projects/biobb-common/badge/?version=latest)](https://biobb-common.readthedocs.io/en/latest/?badge=latest)
+
+
 # biobb_common
 
 ### Introduction

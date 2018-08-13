@@ -2,7 +2,6 @@
 """
 import os
 import shutil
-import glob
 import zipfile
 import logging
 from os.path import join as opj
@@ -17,10 +16,7 @@ def create_dir(dir_path):
         str: Directory dir path.
     """
     if not os.path.exists(dir_path):
-        try:
-            os.makedirs(dir_path)
-        except:
-            pass
+        os.makedirs(dir_path)
     return dir_path
 
 def get_workflow_path(workflow_path):
@@ -50,9 +46,9 @@ def zip_list(zip_file, file_list, out_log=None):
         zip_file (str): Output compressed zip file.
         file_list (:obj:`list` of :obj:`str`): Input list of files to be compressed.
     """
-    with zipfile.ZipFile(zip_file, 'w') as zip:
+    with zipfile.ZipFile(zip_file, 'w') as zip_f:
         for f in file_list:
-            zip.write(f, arcname=os.path.basename(f))
+            zip_f.write(f, arcname=os.path.basename(f))
     if out_log:
         out_log.info("Adding:")
         out_log.info(str(file_list))
@@ -68,9 +64,9 @@ def unzip_list(zip_file, out_log=None):
     Returns:
         :obj:`list` of :obj:`str`: List of paths of the extracted files.
     """
-    with zipfile.ZipFile(zip_file, 'r') as zip:
-        zip.extractall()
-        file_list = [os.path.abspath(f) for f in zip.namelist()]
+    with zipfile.ZipFile(zip_file, 'r') as zip_f:
+        zip_f.extractall()
+        file_list = [os.path.abspath(f) for f in zip_f.namelist()]
 
     if out_log:
         out_log.info("Extracting: "+ os.path.abspath(zip_file))
