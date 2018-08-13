@@ -18,7 +18,7 @@ setuptools.setup(
         "Bioexcel": "https://bioexcel.eu/"
     },
     packages=setuptools.find_packages(exclude=['docs']),
-    install_requires=['pyyaml', 'nose', 'jupyter'],
+    install_requires=['pyyaml', 'nose', 'jupyter', 'requests', 'Sphinx', 'sphinx-rtd-theme', 'recommonmark', 'biopython', 'cwltool'],
     python_requires='~=3.6',
     classifiers=(
         "Development Status :: 3 - Alpha",
