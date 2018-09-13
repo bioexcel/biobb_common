@@ -11,9 +11,9 @@ import json
 import os
 from os.path import join as opj
 from biobb_common.tools import file_utils as fu
+from pprint import pprint as pp
 
-
-class ConfigReader(object):
+class ConfReader(object):
     """Configuration file loader for yaml format files.
 
     Args:
@@ -75,7 +75,7 @@ class ConfigReader(object):
             if self.system:
                 prop_dic.update(self.properties[self.system].copy())
             else:
-                prop_dic.update(self.properties.copy())
+                prop_dic['workflow_path']=self.properties.get('workflow_path')
 
             if 'properties' in self.properties and isinstance(self.properties['properties'], dict):
                 prop_dic.update(self.properties['properties'].copy())
@@ -100,7 +100,7 @@ class ConfigReader(object):
                     if self.system:
                         prop_dic[key].update(self.properties[self.system].copy())
                     else:
-                        prop_dic[key].update(self.properties.copy())
+                        prop_dic[key]['workflow_path']=self.properties.get('workflow_path')
 
                 if 'properties' in self.properties[key] and isinstance(self.properties[key]['properties'], dict):
                     prop_dic[key].update(self.properties[key]['properties'].copy())
@@ -155,7 +155,7 @@ class ConfigReader(object):
                     if self.system:
                         prop_dic[key2] = opj(self.properties[self.system]['workflow_path'], prefix, key, value)
                     else:
-                        prop_dic[key2] = opj(self.properties['workflow_path'], prefix, key, value)
+                        prop_dic[key2] = opj(self.properties['workflow_path'], prefix, value)
 
         #Properties with step name
         else:

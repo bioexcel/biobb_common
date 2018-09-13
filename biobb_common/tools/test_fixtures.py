@@ -7,7 +7,7 @@ from os.path import join as opj
 from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
 
-def test_setup(test_object, dict_key):
+def test_setup(test_object, dict_key=None, config=None):
     """Add the unitest_dir, test_dir, conf_file_path, system, properties and path as
     attributes to the **test_object** and create a directory to launch the unitest.
 
@@ -19,15 +19,21 @@ def test_setup(test_object, dict_key):
     test_object.unitest_dir = os.path.dirname(test_object.testfile_dir)
     test_object.test_dir = os.path.dirname(test_object.unitest_dir)
     test_object.data_dir = opj(test_object.test_dir,'data')
-    test_object.conf_file_path= opj(test_object.test_dir, 'conf.yml')
+    if config:
+        test_object.conf_file_path= config
+    else:
+        test_object.conf_file_path= opj(test_object.test_dir, 'conf.yml')
+
     test_object.system=os.getenv('testsys')
-    if test_object.system is None:
-        print ('WARNING: "testsys" env variable should be set, "linux" will be used by default value.')
-        print ('     Please, try: "export testsys=linux"')
-        test_object.system='linux'
-    conf = settings.YamlReader(test_object.conf_file_path, test_object.system)
-    test_object.properties = conf.get_prop_dic()[dict_key]
-    test_object.paths = {k:v.replace('test_data_dir', test_object.data_dir, 1) for k, v in conf.get_paths_dic()[dict_key].items()}
+    conf = settings.ConfReader(test_object.conf_file_path, test_object.system)
+
+    if dict_key:
+        test_object.properties = conf.get_prop_dic()[dict_key]
+        test_object.paths = {k:v.replace('test_data_dir', test_object.data_dir, 1) for k, v in conf.get_paths_dic()[dict_key].items()}
+    else:
+        test_object.properties = conf.get_prop_dic()
+        test_object.paths = {k:v.replace('test_data_dir', test_object.data_dir, 1) for k, v in conf.get_paths_dic().items()}
+
     fu.create_dir(test_object.properties['path'])
     os.chdir(test_object.properties['path'])
 

@@ -31,7 +31,7 @@ def get_workflow_path(workflow_path=None):
         str: Path to the workflow results directory.
     """
     if not workflow_path:
-        get_workflow_path(opj(os.getcwd(),"workflow"))
+        workflow_path = get_workflow_path(opj("/tmp","workflow"))
 
     if not os.path.exists(workflow_path):
         return workflow_path
