@@ -11,7 +11,6 @@ import json
 import os
 from os.path import join as opj
 from biobb_common.tools import file_utils as fu
-from pprint import pprint as pp
 
 class ConfReader(object):
     """Configuration file loader for yaml format files.
