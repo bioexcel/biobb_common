@@ -19,7 +19,7 @@ def create_dir(dir_path):
         os.makedirs(dir_path)
     return dir_path
 
-def get_workflow_path(workflow_path):
+def get_workflow_path(workflow_path=None):
     """Return the directory **workflow_path** and create it if workflow_path
     does not exist. If **workflow_path** exists a consecutive numerical suffix
     is added to the end of the **workflow_path** and is returned.
@@ -30,6 +30,9 @@ def get_workflow_path(workflow_path):
     Returns:
         str: Path to the workflow results directory.
     """
+    if not workflow_path:
+        get_workflow_path(opj(os.getcwd(),"workflow"))
+
     if not os.path.exists(workflow_path):
         return workflow_path
 
