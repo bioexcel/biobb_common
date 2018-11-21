@@ -35,15 +35,15 @@ class CmdWrapper(object):
         if self.out_log is not None:
             self.out_log.info(cmd+'\n')
             self.out_log.info("Exit code {}".format(process.returncode)+'\n')
-            if out is not None:
-                self.out_log.info(out)
+            if out:
+                self.out_log.info(out.decode("utf-8"))
 
         if self.global_log is not None:
             self.global_log.info(22*' Executing: '+cmd)
             self.global_log.info(fu.get_logs_prefix()+"Exit code {}".format(process.returncode))
 
         if self.err_log is not None:
-            if err is not None:
-                self.err_log.info(err)
+            if err:
+                self.err_log.info(err.decode("utf-8"))
 
         return process.returncode
