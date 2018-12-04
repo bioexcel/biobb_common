@@ -61,6 +61,7 @@ class ConfReader(object):
         prop_dic = dict()
         prefix = '' if prefix is None else prefix.strip()
 
+        # There is no step
         if 'paths' in self.properties or 'properties' in self.properties:
             prop_dic = dict()
             if self.system:
@@ -84,6 +85,7 @@ class ConfReader(object):
                 else:
                     if self.properties.get('log_level', None):
                         prop_dic['log_level']= self.properties['log_level']
+        # There is step name
         else:
             for key in self.properties:
                 if 'paths' in self.properties[key] or 'properties' in self.properties[key]:
@@ -109,6 +111,22 @@ class ConfReader(object):
                     else:
                         if self.properties.get('log_level', None):
                             prop_dic[key]['log_level']= self.properties['log_level']
+        # There is no step name and there is no properties or paths key return input
+        if not prop_dic:
+            prop_dic = dict()
+            prop_dic.update(self.properties)
+            if self.system:
+                prop_dic['path']=fu.create_name(path=self.properties[self.system]['workflow_path'], prefix=prefix, step=None)
+            else:
+                prop_dic['path']=fu.create_name(path=self.properties['workflow_path'], prefix=prefix, step=None)
+            prop_dic['step']= None
+            prop_dic['prefix']= prefix
+            prop_dic['global_log']= global_log
+            prop_dic['system']= self.system
+            if self.system:
+                prop_dic.update(self.properties[self.system].copy())
+            else:
+                prop_dic['workflow_path']=self.properties.get('workflow_path')
 
 
         return prop_dic
@@ -143,6 +161,8 @@ class ConfReader(object):
                 if isinstance(self.properties[key], dict):
                     if 'paths' in self.properties[key]:
                         prop_dic[key]=self.properties[key]['paths'].copy()
+                    else:
+                        prop_dic[key] = {}
 
         #Solving dependencies and adding workflow and step path
         #Properties without step name: Do not solving dependencies

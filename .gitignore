@@ -103,3 +103,6 @@ testworkflow*
 \#*
 mdout.mdp
 traj_comp.xtc
+
+# Jupyter notebook
+.ipynb_checkpoints/
