@@ -85,7 +85,7 @@ def zip_top(zip_file, prefix, out_log=None):
         zip_file (str): Output compressed zip file.
     """
     ext_list = [".itp", ".top"]
-    file_list = [f for f in os.listdir(os.getcwd()) if os.path.isfile(f) and os.path.splitext(f)[1] and os.path.basename(f).startswith(prefix) in ext_list]
+    file_list = [f for f in os.listdir(os.getcwd()) if os.path.isfile(f) and os.path.basename(f).startswith(prefix) and os.path.splitext(f)[1] in ext_list ]
     zip_list(zip_file, file_list, out_log)
 
 def unzip_top(zip_file, top_file, prefix, out_log=None):
