@@ -99,7 +99,7 @@ def unzip_top(zip_file, top_file, prefix, out_log=None):
         :obj:`list` of :obj:`str`: List of extracted files paths.
     """
     top_list = unzip_list(zip_file, out_log)
-    original_top = next(name for name in top_list if name.endswith(".top") and name.startswith(prefix))
+    original_top = next(name for name in top_list if name.endswith(".top") and os.path.basename(name).startswith(prefix))
     shutil.move(original_top, top_file)
     if out_log:
         out_log.info("Moving: "+ os.path.abspath(original_top) +' to: '+ os.path.abspath(top_file))
