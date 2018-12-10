@@ -57,7 +57,7 @@ def zip_list(zip_file, file_list, out_log=None):
         out_log.info(str(file_list))
         out_log.info("to: "+ os.path.abspath(zip_file))
 
-def unzip_list(zip_file, top_file, out_log=None):
+def unzip_list(zip_file, out_log=None):
     """ Extract all files in the zipball file and return a list containing the
         absolute path of the extracted files.
 
@@ -68,7 +68,7 @@ def unzip_list(zip_file, top_file, out_log=None):
         :obj:`list` of :obj:`str`: List of paths of the extracted files.
     """
     with zipfile.ZipFile(zip_file, 'r') as zip_f:
-        zip_f.extractall(path=os.path.dirname(top_file))
+        zip_f.extractall()
         file_list = [os.path.abspath(f) for f in zip_f.namelist()]
 
     if out_log:
@@ -86,8 +86,6 @@ def zip_top(zip_file, out_log=None):
     """
     ext_list = [".itp", ".top"]
     file_list = [f for f in os.listdir(os.getcwd()) if os.path.isfile(f) and os.path.splitext(f)[1] in ext_list]
-    file_list_int_dir = [f for f in os.listdir(os.path.dirname(zip_file)) if os.path.isfile(f) and os.path.splitext(f)[1] in ext_list]
-    file_list += file_list_int_dir
     zip_list(zip_file, file_list, out_log)
 
 def unzip_top(zip_file, top_file, out_log=None):
@@ -100,7 +98,7 @@ def unzip_top(zip_file, top_file, out_log=None):
     Returns:
         :obj:`list` of :obj:`str`: List of extracted files paths.
     """
-    top_list = unzip_list(zip_file, top_file, out_log)
+    top_list = unzip_list(zip_file, out_log)
     original_top = next(name for name in top_list if name.endswith(".top"))
     shutil.move(original_top, top_file)
     if out_log:
