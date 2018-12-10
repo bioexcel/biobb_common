@@ -78,17 +78,18 @@ def unzip_list(zip_file, out_log=None):
 
     return file_list
 
-def zip_top(zip_file, prefix, out_log=None):
+def zip_top(zip_file, prefix, top_file, out_log=None):
     """ Compress all *.itp and *.top files in the cwd into **zip_file** zip file.
 
     Args:
         zip_file (str): Output compressed zip file.
     """
-    ext_list = [".itp", ".top"]
-    file_list = [f for f in os.listdir(os.getcwd()) if os.path.isfile(f) and os.path.basename(f).startswith(prefix) and os.path.splitext(f)[1] in ext_list ]
+    ext_list = [".itp"]
+    file_list = [f for f in os.listdir(os.getcwd()) if os.path.isfile(f) and os.path.basename(f).startswith(prefix) and os.path.splitext(f)[1] in ext_list]
+    file_list.append(top_file)
     zip_list(zip_file, file_list, out_log)
 
-def unzip_top(zip_file, top_file, prefix, out_log=None):
+def unzip_top(zip_file, top_file, out_log=None):
     """ Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
 
     Args:
@@ -99,7 +100,7 @@ def unzip_top(zip_file, top_file, prefix, out_log=None):
         :obj:`list` of :obj:`str`: List of extracted files paths.
     """
     top_list = unzip_list(zip_file, out_log)
-    original_top = next(name for name in top_list if name.endswith(".top") and os.path.basename(name).startswith(prefix))
+    original_top = next(name for name in top_list if name.endswith(".top"))
     shutil.move(original_top, top_file)
     if out_log:
         out_log.info("Moving: "+ os.path.abspath(original_top) +' to: '+ os.path.abspath(top_file))
