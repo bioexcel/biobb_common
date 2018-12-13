@@ -1,10 +1,10 @@
 """Tools to work with files
 """
 import os
-import shutil
+import re
 import zipfile
 import logging
-from os.path import join as opj
+import uuid
 
 def create_dir(dir_path):
     """Returns the directory **dir_path** and create it if path does not exist.
@@ -18,6 +18,36 @@ def create_dir(dir_path):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
     return dir_path
+
+def create_unique_dir(prefix='', number_attempts=10, out_log=None):
+    """Create a directory with a prefix + computed unique name. If the
+    computed name collides with an existing file name it attemps
+    **number_attempts** times to create another unique id and create
+    the directory with the new name.
+
+    Args:
+        prefix (str): ('') String to be added before the computed unique dir name.
+        number_attempts (int): (10) number of times creating the directory if there's a name conflict.
+        out_log (logger): (None) Python logger object.
+
+    Returns:
+        str: Directory dir path.
+    """
+    name = prefix + str(uuid.uuid4())
+    for i in range(number_attempts):
+        try:
+            os.mkdir(name)
+            if out_log:
+                out_log.info('%s directory successfully created' %(name))
+            return name
+        except FileExistsError:
+            if out_log:
+                out_log.info(name + ' Already exists')
+                out_log.info('Retrying %i times more' %(number_attempts-i))
+            name = prefix + str(uuid.uuid4())
+            if out_log:
+                out_log.info('Trying with: ' + name)
+    raise FileExistsError
 
 def get_workflow_path(workflow_path=None):
     """Return the directory **workflow_path** and create it if workflow_path
@@ -57,19 +87,20 @@ def zip_list(zip_file, file_list, out_log=None):
         out_log.info(str(file_list))
         out_log.info("to: "+ os.path.abspath(zip_file))
 
-def unzip_list(zip_file, out_log=None):
+def unzip_list(zip_file, dest_dir=None, out_log=None):
     """ Extract all files in the zipball file and return a list containing the
         absolute path of the extracted files.
 
     Args:
         zip_file (str): Input compressed zip file.
+        dest_dir (str): Path to directory where the files will be extracted.
 
     Returns:
         :obj:`list` of :obj:`str`: List of paths of the extracted files.
     """
     with zipfile.ZipFile(zip_file, 'r') as zip_f:
-        zip_f.extractall()
-        file_list = [os.path.abspath(f) for f in zip_f.namelist()]
+        zip_f.extractall(path=dest_dir)
+        file_list = [os.path.join(dest_dir,f) for f in zip_f.namelist()]
 
     if out_log:
         out_log.info("Extracting: "+ os.path.abspath(zip_file))
@@ -78,18 +109,34 @@ def unzip_list(zip_file, out_log=None):
 
     return file_list
 
-def zip_top(zip_file, prefix, top_file, out_log=None):
+def search_topology_files(top_file, out_log=None):
+    top_dir_name = os.path.dirname(top_file)
+    file_list = []
+    pattern = re.compile("#include\s+\"(.+)\"")
+    if os.path.exists(top_file):
+        with open(top_file, 'r') as tf:
+            for line in tf:
+                include_file = pattern.match(line.strip())
+                if include_file:
+                    found_file = os.path.join(top_dir_name, include_file.group(1))
+                    file_list += search_topology_files(found_file, out_log)
+    else:
+        if out_log:
+            out_log.info("Ignored file %s" % top_file)
+        return file_list
+    return file_list + [top_file]
+
+def zip_top(zip_file, top_file, out_log=None):
     """ Compress all *.itp and *.top files in the cwd into **zip_file** zip file.
 
     Args:
         zip_file (str): Output compressed zip file.
     """
-    ext_list = [".itp"]
-    file_list = [f for f in os.listdir(os.getcwd()) if os.path.isfile(f) and os.path.basename(f).startswith(prefix) and os.path.splitext(f)[1] in ext_list]
-    file_list.append(top_file)
+
+    file_list = search_topology_files(top_file, out_log)
     zip_list(zip_file, file_list, out_log)
 
-def unzip_top(zip_file, top_file, out_log=None):
+def unzip_top(zip_file, out_log=None):
     """ Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
 
     Args:
@@ -99,13 +146,15 @@ def unzip_top(zip_file, top_file, out_log=None):
     Returns:
         :obj:`list` of :obj:`str`: List of extracted files paths.
     """
-    top_list = unzip_list(zip_file, out_log)
-    original_top = next(name for name in top_list if name.endswith(".top"))
-    shutil.move(original_top, top_file)
+    top_list = unzip_list(zip_file, create_unique_dir(), out_log)
+    top_file = next(name for name in top_list if name.endswith(".top"))
     if out_log:
-        out_log.info("Moving: "+ os.path.abspath(original_top) +' to: '+ os.path.abspath(top_file))
-
-    return top_list
+        out_log.info('Unzipping: ')
+        out_log.info(zip_file)
+        out_log.info('To: ')
+        for file_name in top_list:
+            out_log.info(file_name)
+    return top_file
 
 
 def get_logs_prefix():
@@ -175,13 +224,13 @@ def human_readable_time(time_ps):
     Returns:
         str: Human readable time.
     """
-    time_units = ['femto seconds','pico seconds','nano seconds','micro seconds','mili seconds']
+    time_units = ['femto seconds', 'pico seconds', 'nano seconds', 'micro seconds', 'mili seconds']
     time = time_ps * 1000
     for tu in time_units:
         if time < 1000:
             return str(time)+' '+tu
-        else:
-            time = time/1000
+
+        time = time/1000
     return str(time_ps)
 
 def create_name(path=None, prefix=None, step=None, name=None):
@@ -209,7 +258,7 @@ def create_name(path=None, prefix=None, step=None, name=None):
             name = prefix
     if path:
         if name:
-            name = opj(path, name)
+            name = os.path.join(path, name)
         else:
             name = path
     return name
