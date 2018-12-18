@@ -49,28 +49,28 @@ def create_unique_dir(prefix='', number_attempts=10, out_log=None):
                 out_log.info('Trying with: ' + name)
     raise FileExistsError
 
-def get_workflow_path(workflow_path=None):
-    """Return the directory **workflow_path** and create it if workflow_path
-    does not exist. If **workflow_path** exists a consecutive numerical suffix
-    is added to the end of the **workflow_path** and is returned.
+def get_working_dir_path(working_dir_path=None):
+    """Return the directory **working_dir_path** and create it if working_dir_path
+    does not exist. If **working_dir_path** exists a consecutive numerical suffix
+    is added to the end of the **working_dir_path** and is returned.
 
     Args:
-        workflow_path (str): Path to the workflow results.
+        working_dir_path (str): Path to the workflow results.
 
     Returns:
         str: Path to the workflow results directory.
     """
-    if not workflow_path:
+    if not working_dir_path:
         return os.getcwd()
 
-    if not os.path.exists(workflow_path):
-        return workflow_path
+    if not os.path.exists(working_dir_path):
+        return working_dir_path
 
     cont = 1
-    while os.path.exists(workflow_path):
-        workflow_path = workflow_path.rstrip('\\/0123456789_') + '_' + str(cont)
+    while os.path.exists(working_dir_path):
+        working_dir_path = working_dir_path.rstrip('\\/0123456789_') + '_' + str(cont)
         cont += 1
-    return workflow_path
+    return working_dir_path
 
 def zip_list(zip_file, file_list, out_log=None):
     """ Compress all files listed in **file_list** into **zip_file** zip file.
@@ -79,6 +79,7 @@ def zip_list(zip_file, file_list, out_log=None):
         zip_file (str): Output compressed zip file.
         file_list (:obj:`list` of :obj:`str`): Input list of files to be compressed.
     """
+    file_list.sort()
     with zipfile.ZipFile(zip_file, 'w') as zip_f:
         for f in file_list:
             zip_f.write(f, arcname=os.path.basename(f))
@@ -110,9 +111,10 @@ def unzip_list(zip_file, dest_dir=None, out_log=None):
     return file_list
 
 def search_topology_files(top_file, out_log=None):
+    """ Search the top and itp files to create a list of the topology files"""
     top_dir_name = os.path.dirname(top_file)
     file_list = []
-    pattern = re.compile("#include\s+\"(.+)\"")
+    pattern = re.compile(r"#include\s+\"(.+)\"")
     if os.path.exists(top_file):
         with open(top_file, 'r') as tf:
             for line in tf:
@@ -160,7 +162,7 @@ def unzip_top(zip_file, out_log=None):
 def get_logs_prefix():
     return 22*' '
 
-def get_logs(path=None, prefix=None, step=None, console=False, level='INFO'):
+def get_logs(path=None, prefix=None, step=None, console=True, level='INFO'):
     """ Get the error and and out Python Logger objects.
 
     Args:
@@ -214,6 +216,13 @@ def get_logs(path=None, prefix=None, step=None, console=False, level='INFO'):
     out_Logger.setLevel(level)
     err_Logger.setLevel(level)
     return out_Logger, err_Logger
+
+def log(string, local_log=None, global_log=None):
+    """Checks if log exists"""
+    if local_log:
+        local_log.info(string)
+    if global_log:
+        global_log.info(get_logs_prefix()+string)
 
 def human_readable_time(time_ps):
     """Transform **time_ps** to a human readable string.

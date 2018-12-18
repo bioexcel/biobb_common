@@ -25,9 +25,9 @@ class ConfReader(object):
         self.system = system
         self.properties = self._read_config()
         if self.system:
-            self.properties[self.system]['workflow_path'] = fu.get_workflow_path(self.properties[self.system].get('workflow_path'))
+            self.properties[self.system]['working_dir_path'] = fu.get_working_dir_path(self.properties[self.system].get('working_dir_path'))
         else:
-            self.properties['workflow_path'] = fu.get_workflow_path(self.properties.get('workflow_path'))
+            self.properties['working_dir_path'] = fu.get_working_dir_path(self.properties.get('working_dir_path'))
 
     def _read_config(self):
         try:
@@ -65,9 +65,9 @@ class ConfReader(object):
         if 'paths' in self.properties or 'properties' in self.properties:
             prop_dic = dict()
             if self.system:
-                prop_dic['path']=fu.create_name(path=self.properties[self.system]['workflow_path'], prefix=prefix, step=None)
+                prop_dic['path']=fu.create_name(path=self.properties[self.system]['working_dir_path'], prefix=prefix, step=None)
             else:
-                prop_dic['path']=fu.create_name(path=self.properties['workflow_path'], prefix=prefix, step=None)
+                prop_dic['path']=fu.create_name(path=self.properties['working_dir_path'], prefix=prefix, step=None)
             prop_dic['step']= None
             prop_dic['prefix']= prefix
             prop_dic['global_log']= global_log
@@ -75,7 +75,7 @@ class ConfReader(object):
             if self.system:
                 prop_dic.update(self.properties[self.system].copy())
             else:
-                prop_dic['workflow_path']=self.properties.get('workflow_path')
+                prop_dic['working_dir_path']=self.properties.get('working_dir_path')
 
             if 'properties' in self.properties and isinstance(self.properties['properties'], dict):
                 prop_dic.update(self.properties['properties'].copy())
@@ -91,9 +91,9 @@ class ConfReader(object):
                 if 'paths' in self.properties[key] or 'properties' in self.properties[key]:
                     prop_dic[key] = dict()
                     if self.system:
-                        prop_dic[key]['path']=fu.create_name(path=self.properties[self.system]['workflow_path'], prefix=prefix, step=key)
+                        prop_dic[key]['path']=fu.create_name(path=self.properties[self.system]['working_dir_path'], prefix=prefix, step=key)
                     else:
-                        prop_dic[key]['path']=fu.create_name(path=self.properties['workflow_path'], prefix=prefix, step=key)
+                        prop_dic[key]['path']=fu.create_name(path=self.properties['working_dir_path'], prefix=prefix, step=key)
                     prop_dic[key]['step']= key
                     prop_dic[key]['prefix']= prefix
                     prop_dic[key]['global_log']= global_log
@@ -101,7 +101,7 @@ class ConfReader(object):
                     if self.system:
                         prop_dic[key].update(self.properties[self.system].copy())
                     else:
-                        prop_dic[key]['workflow_path']=self.properties.get('workflow_path')
+                        prop_dic[key]['working_dir_path']=self.properties.get('working_dir_path')
 
                 if 'properties' in self.properties[key] and isinstance(self.properties[key]['properties'], dict):
                     prop_dic[key].update(self.properties[key]['properties'].copy())
@@ -116,9 +116,9 @@ class ConfReader(object):
             prop_dic = dict()
             prop_dic.update(self.properties)
             if self.system:
-                prop_dic['path']=fu.create_name(path=self.properties[self.system]['workflow_path'], prefix=prefix, step=None)
+                prop_dic['path']=fu.create_name(path=self.properties[self.system]['working_dir_path'], prefix=prefix, step=None)
             else:
-                prop_dic['path']=fu.create_name(path=self.properties['workflow_path'], prefix=prefix, step=None)
+                prop_dic['path']=fu.create_name(path=self.properties['working_dir_path'], prefix=prefix, step=None)
             prop_dic['step']= None
             prop_dic['prefix']= prefix
             prop_dic['global_log']= global_log
@@ -126,7 +126,7 @@ class ConfReader(object):
             if self.system:
                 prop_dic.update(self.properties[self.system].copy())
             else:
-                prop_dic['workflow_path']=self.properties.get('workflow_path')
+                prop_dic['working_dir_path']=self.properties.get('working_dir_path')
 
 
         return prop_dic
@@ -172,9 +172,9 @@ class ConfReader(object):
                     prop_dic[key2] = value.split(':')[1]
                 else:
                     if self.system:
-                        prop_dic[key2] = opj(self.properties[self.system]['workflow_path'], prefix, key, value)
+                        prop_dic[key2] = opj(self.properties[self.system]['working_dir_path'], prefix, key, value)
                     else:
-                        prop_dic[key2] = opj(self.properties['workflow_path'], prefix, value)
+                        prop_dic[key2] = opj(self.properties['working_dir_path'], prefix, value)
 
         #Properties with step name
         else:
@@ -184,13 +184,13 @@ class ConfReader(object):
                         while isinstance(value, str) and value.startswith('dependency'):
                             dependency_step=value.split('/')[1]
                             value = prop_dic[value.split('/')[1]][value.split('/')[2]]
-                        prop_dic[key][key2] = opj(self.properties[self.system]['workflow_path'], prefix, dependency_step, value)
+                        prop_dic[key][key2] = opj(self.properties[self.system]['working_dir_path'], prefix, dependency_step, value)
                     elif isinstance(value, str) and value.startswith('file:'):
                         prop_dic[key][key2] = value.split(':')[1]
                     else:
                         if self.system:
-                            prop_dic[key][key2] = opj(self.properties[self.system]['workflow_path'], prefix, key, value)
+                            prop_dic[key][key2] = opj(self.properties[self.system]['working_dir_path'], prefix, key, value)
                         else:
-                            prop_dic[key][key2] = opj(self.properties['workflow_path'], prefix, key, value)
+                            prop_dic[key][key2] = opj(self.properties['working_dir_path'], prefix, key, value)
 
         return prop_dic
