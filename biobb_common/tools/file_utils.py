@@ -5,6 +5,7 @@ import re
 import zipfile
 import logging
 import uuid
+from biobb_common.command_wrapper import cmd_wrapper
 
 def create_dir(dir_path):
     """Returns the directory **dir_path** and create it if path does not exist.
@@ -162,14 +163,14 @@ def unzip_top(zip_file, out_log=None):
 def get_logs_prefix():
     return 22*' '
 
-def get_logs(path=None, prefix=None, step=None, console=True, level='INFO'):
+def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='INFO'):
     """ Get the error and and out Python Logger objects.
 
     Args:
         path (str): (current working directory) Path to the log file directory.
         prefix (str): Prefix added to the name of the log file.
         step (str):  String added between the **prefix** arg and the name of the log file.
-        console (bool): (False) If True, show log in the execution terminal.
+        can_write_console (bool): (False) If True, show log in the execution terminal.
         level (str): ('INFO') Set Logging level. ['CRITICAL','ERROR','WARNING','INFO','DEBUG','NOTSET']
 
     Returns:
@@ -208,7 +209,7 @@ def get_logs(path=None, prefix=None, step=None, console=True, level='INFO'):
     consoleHandler.setFormatter(logFormatter)
 
     # Asign consoleHandler to logging objects as aditional output
-    if console:
+    if can_write_console:
         out_Logger.addHandler(consoleHandler)
         err_Logger.addHandler(consoleHandler)
 

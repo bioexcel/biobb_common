@@ -5,6 +5,7 @@ from os.path import join as opj
 import sys
 import shutil
 import hashlib
+import Bio.PDB
 
 from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
@@ -46,7 +47,9 @@ def test_teardown(test_object):
     Args:
         test_object (:obj:`test`): The test object.
     """
+    print("Removing: %s" % test_object.properties['path'])
     shutil.rmtree(test_object.properties['path'])
+
 
 def exe_success(return_code):
     """Check if **return_code** is 0
@@ -78,6 +81,9 @@ def compare_hash(file_a, file_b):
     print("        File_B: "+file_b)
     file_a_hash = hashlib.sha256(open(file_a, 'rb').read()).digest()
     file_b_hash = hashlib.sha256(open(file_b, 'rb').read()).digest()
+    print("        File_A: "+str(file_a_hash))
+    print("        File_B: "+str(file_b_hash))
+    print("Equal: "+str(file_a_hash == file_b_hash))
     return file_a_hash == file_b_hash
 
 def equal(file_a, file_b):
@@ -100,3 +106,35 @@ def equal(file_a, file_b):
                 return False
         return True
     return compare_hash(file_a, file_b)
+
+def almost_equal_pdb(pdb_a, pdb_b, rmsd_cutoff=1, remove_hetatm=True, remove_hydrogen=True):
+    print("Checkning RMSD between:")
+    print("     PDB_A: "+pdb_a)
+    print("     PDB_B: "+pdb_b)
+    pdb_parser = Bio.PDB.PDBParser(QUIET=True)
+    st_a = pdb_parser.get_structure("st_a", pdb_a)[0]
+    st_b = pdb_parser.get_structure("st_b", pdb_b)[0]
+
+    if remove_hetatm:
+        print("     Ignoring HETAMT in RMSD")
+        residues_a = [list(res.get_atoms()) for res in st_a.get_residues() if not res.id[0].startswith('H_')]
+        residues_b = [list(res.get_atoms()) for res in st_b.get_residues() if not res.id[0].startswith('H_')]
+        atoms_a = [atom for residue in residues_a for atom in residue]
+        atoms_b = [atom for residue in residues_b for atom in residue]
+    else:
+        atoms_a = st_a.get_atoms()
+        atoms_b = st_b.get_atoms()
+
+    if remove_hydrogen:
+        print("     Ignoring Hydrogen atoms in RMSD")
+        atoms_a = [atom for atom in atoms_a if not atom.get_name().startswith('H')]
+        atoms_b = [atom for atom in atoms_b if not atom.get_name().startswith('H')]
+
+    print("     Atoms ALIGNED in PDB_A: "+str(len(atoms_a)))
+    print("     Atoms ALIGNED in PDB_B: "+str(len(atoms_b)))
+    super_imposer = Bio.PDB.Superimposer()
+    super_imposer.set_atoms(atoms_a, atoms_b)
+    super_imposer.apply(atoms_b)
+    print('     RMS: '+str(super_imposer.rms))
+    print('     RMS_CUTOFF: '+str(rmsd_cutoff))
+    return super_imposer.rms < rmsd_cutoff
