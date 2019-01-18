@@ -83,31 +83,39 @@ def compare_hash(file_a, file_b):
     file_b_hash = hashlib.sha256(open(file_b, 'rb').read()).digest()
     print("        File_A: "+str(file_a_hash))
     print("        File_B: "+str(file_b_hash))
-    print("Equal: "+str(file_a_hash == file_b_hash))
     return file_a_hash == file_b_hash
 
 def equal(file_a, file_b):
     """Check if two files are equal"""
     if file_a.endswith(".zip") and file_b.endswith(".zip"):
-        print("This is a ZIP comparison!")
-        print("Unzipping:")
-        print("Creating a unique_dir for: %s" % file_a)
-        file_a_dir = fu.create_unique_dir()
-        file_a_list = fu.unzip_list(file_a, dest_dir=file_a_dir)
-        print("Creating a unique_dir for: %s" % file_b)
-        file_b_dir = fu.create_unique_dir()
-        file_b_list = fu.unzip_list(file_b, dest_dir=file_b_dir)
-        if not len(file_a_list) == len(file_b_list):
-            print("Uncompressed different number of files")
-            return False
-        for uncompressed_file_a in file_a_list:
-            uncompressed_file_b = os.path.join(file_b_dir, os.path.basename(uncompressed_file_a))
-            if not compare_hash(uncompressed_file_a, uncompressed_file_b):
-                return False
-        return True
+        return compare_zip(file_a, file_b)
+
+    if file_a.endswith(".pdb") and file_b.endswith(".pdb"):
+        return compare_pdb(file_a, file_b)
+
     return compare_hash(file_a, file_b)
 
-def almost_equal_pdb(pdb_a, pdb_b, rmsd_cutoff=1, remove_hetatm=True, remove_hydrogen=True):
+def compare_zip(zip_a, zip_b):
+    print("This is a ZIP comparison!")
+    print("Unzipping:")
+    print("Creating a unique_dir for: %s" % zip_a)
+    zip_a_dir = fu.create_unique_dir()
+    zip_a_list = fu.unzip_list(zip_a, dest_dir=zip_a_dir)
+    print("Creating a unique_dir for: %s" % zip_b)
+    zip_b_dir = fu.create_unique_dir()
+    zip_b_list = fu.unzip_list(zip_b, dest_dir=zip_b_dir)
+
+    if not len(zip_a_list) == len(zip_b_list):
+        return False
+
+    for uncompressed_zip_a in zip_a_list:
+        uncompressed_zip_b = os.path.join(zip_b_dir, os.path.basename(uncompressed_zip_a))
+        if not compare_hash(uncompressed_zip_a, uncompressed_zip_b):
+            return False
+
+    return True
+
+def compare_pdb(pdb_a, pdb_b, rmsd_cutoff=1, remove_hetatm=True, remove_hydrogen=True):
     print("Checkning RMSD between:")
     print("     PDB_A: "+pdb_a)
     print("     PDB_B: "+pdb_b)
