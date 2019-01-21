@@ -81,8 +81,8 @@ def compare_hash(file_a, file_b):
     print("        File_B: "+file_b)
     file_a_hash = hashlib.sha256(open(file_a, 'rb').read()).digest()
     file_b_hash = hashlib.sha256(open(file_b, 'rb').read()).digest()
-    print("        File_A: "+str(file_a_hash))
-    print("        File_B: "+str(file_b_hash))
+    print("        File_A hash: "+str(file_a_hash))
+    print("        File_B hash: "+str(file_b_hash))
     return file_a_hash == file_b_hash
 
 def equal(file_a, file_b):
@@ -92,6 +92,12 @@ def equal(file_a, file_b):
 
     if file_a.endswith(".pdb") and file_b.endswith(".pdb"):
         return compare_pdb(file_a, file_b)
+
+    if file_a.endswith(".top") and file_b.endswith(".top"):
+        return compare_top_itp(file_a, file_b)
+
+    if file_a.endswith(".itp") and file_b.endswith(".itp"):
+        return compare_top_itp(file_a, file_b)
 
     return compare_hash(file_a, file_b)
 
@@ -110,7 +116,7 @@ def compare_zip(zip_a, zip_b):
 
     for uncompressed_zip_a in zip_a_list:
         uncompressed_zip_b = os.path.join(zip_b_dir, os.path.basename(uncompressed_zip_a))
-        if not compare_hash(uncompressed_zip_a, uncompressed_zip_b):
+        if not equal(uncompressed_zip_a, uncompressed_zip_b):
             return False
 
     return True
@@ -146,3 +152,11 @@ def compare_pdb(pdb_a, pdb_b, rmsd_cutoff=1, remove_hetatm=True, remove_hydrogen
     print('     RMS: '+str(super_imposer.rms))
     print('     RMS_CUTOFF: '+str(rmsd_cutoff))
     return super_imposer.rms < rmsd_cutoff
+
+def compare_top_itp(file_a, file_b):
+    print("Comparing TOP/ITP:")
+    print("     FILE_A: "+file_a)
+    print("     FILE_B: "+file_b)
+    with open(file_a, 'r') as f_a:
+        with open(file_b, 'r') as f_b:
+            return [line.strip() for line in f_a if not line.strip().startswith(';')] == [line.strip() for line in f_b if not line.strip().startswith(';')]

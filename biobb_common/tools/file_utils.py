@@ -200,8 +200,9 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
     err_fileHandler.setFormatter(logFormatter)
 
     #Asign FileHandler to logging object
-    out_Logger.addHandler(out_fileHandler)
-    err_Logger.addHandler(err_fileHandler)
+    if not len(out_Logger.handlers):
+        out_Logger.addHandler(out_fileHandler)
+        err_Logger.addHandler(err_fileHandler)
 
     # Create consoleHandler
     consoleHandler = logging.StreamHandler()
@@ -209,7 +210,7 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
     consoleHandler.setFormatter(logFormatter)
 
     # Asign consoleHandler to logging objects as aditional output
-    if can_write_console:
+    if can_write_console and len(out_Logger.handlers) < 2:
         out_Logger.addHandler(consoleHandler)
         err_Logger.addHandler(consoleHandler)
 
