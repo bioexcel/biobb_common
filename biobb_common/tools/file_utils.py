@@ -2,6 +2,8 @@
 """
 import os
 import re
+import pathlib
+import shutil
 import zipfile
 import logging
 import uuid
@@ -62,7 +64,9 @@ def get_working_dir_path(working_dir_path=None):
         str: Path to the workflow results directory.
     """
     if not working_dir_path:
-        return os.getcwd()
+        return os.path.abspath(os.getcwd())
+
+    working_dir_path = os.path.abspath(working_dir_path)
 
     if not os.path.exists(working_dir_path):
         return working_dir_path
@@ -161,9 +165,9 @@ def unzip_top(zip_file, out_log=None):
 
 
 def get_logs_prefix():
-    return 22*' '
+    return 4*' '
 
-def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='INFO'):
+def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='INFO', light_format=False):
     """ Get the error and and out Python Logger objects.
 
     Args:
@@ -176,16 +180,19 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
     Returns:
         :obj:`tuple` of :obj:`Logger` and :obj:`Logger`: Out and err Logger objects.
     """
+    prefix = prefix if prefix else ''
+    step = step if step else ''
     path = path if path else os.getcwd()
-    out_log_path = create_name(path=path, prefix=prefix, step=step, name='log.out')
-    err_log_path = create_name(path=path, prefix=prefix, step=step, name='log.err')
 
+    out_log_path = create_name(path=path, step=step, name='log.out')
+    err_log_path = create_name(path=path, step=step, name='log.err')
     # Create dir if it not exists
     create_dir(os.path.dirname(os.path.abspath(out_log_path)))
 
     # Create logging format
     logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-
+    if light_format:
+        logFormatter = logging.Formatter("%(asctime)s %(message)s", "%H:%M:%S")
     # Create logging objects
     out_Logger = logging.getLogger(out_log_path)
     err_Logger = logging.getLogger(err_log_path)
@@ -277,3 +284,14 @@ def create_name(path=None, prefix=None, step=None, name=None):
 def write_failed_output(file_name):
     with open(file_name, 'w') as f:
         f.write('Error\n')
+
+def rm(file_name):
+    file_path = pathlib.Path(file_name)
+    if file_path.exists():
+        if file_path.is_dir():
+            shutil.rmtree(file_name)
+            return file_name
+        if file_path.is_file():
+            os.remove(file_name)
+            return file_name
+    return None

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Python wrapper for command line
 """
-import subprocess
 import os
-
+import subprocess
+from biobb_common.tools import file_utils as fu
 
 class CmdWrapper(object):
     """Command line wrapper using subprocess library
@@ -39,7 +39,7 @@ class CmdWrapper(object):
                 self.out_log.info(out.decode("utf-8"))
 
         if self.global_log is not None:
-            self.global_log.info(22*' Executing: '+cmd)
+            self.global_log.info(fu.get_logs_prefix()+'Executing: '+cmd[0:80]+'...')
             self.global_log.info(fu.get_logs_prefix()+"Exit code {}".format(process.returncode))
 
         if self.err_log is not None:

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Settings loader module.
 
@@ -40,6 +40,12 @@ class ConfReader(object):
         except:
             return json.loads(self.config)
 
+    def get_working_dir_path(self):
+        if self.system:
+            return self.properties[self.system].get('working_dir_path')
+
+        return self.properties.get('working_dir_path' )
+
     def get_prop_dic(self, prefix=None, global_log=None):
         """get_prop_dic() returns the properties dictionary where keys are the
         step names in the configuration YAML file and every value contains another
@@ -65,9 +71,9 @@ class ConfReader(object):
         if 'paths' in self.properties or 'properties' in self.properties:
             prop_dic = dict()
             if self.system:
-                prop_dic['path']=fu.create_name(path=self.properties[self.system]['working_dir_path'], prefix=prefix, step=None)
+                prop_dic['path']=os.path.join(self.properties[self.system]['working_dir_path'], prefix)
             else:
-                prop_dic['path']=fu.create_name(path=self.properties['working_dir_path'], prefix=prefix, step=None)
+                prop_dic['path']=os.path.join(self.properties['working_dir_path'],prefix)
             prop_dic['step']= None
             prop_dic['prefix']= prefix
             prop_dic['global_log']= global_log
@@ -88,37 +94,41 @@ class ConfReader(object):
         # There is step name
         else:
             for key in self.properties:
-                if 'paths' in self.properties[key] or 'properties' in self.properties[key]:
-                    prop_dic[key] = dict()
-                    if self.system:
-                        prop_dic[key]['path']=fu.create_name(path=self.properties[self.system]['working_dir_path'], prefix=prefix, step=key)
-                    else:
-                        prop_dic[key]['path']=fu.create_name(path=self.properties['working_dir_path'], prefix=prefix, step=key)
-                    prop_dic[key]['step']= key
-                    prop_dic[key]['prefix']= prefix
-                    prop_dic[key]['global_log']= global_log
-                    prop_dic[key]['system']= self.system
-                    if self.system:
-                        prop_dic[key].update(self.properties[self.system].copy())
-                    else:
-                        prop_dic[key]['working_dir_path']=self.properties.get('working_dir_path')
+                if isinstance(self.properties[key], dict):
+                    if 'paths' in self.properties[key] or 'properties' in self.properties[key]:
+                        prop_dic[key] = dict()
+                        if self.system:
+                            prop_dic[key]['path']=os.path.join(self.properties[self.system]['working_dir_path'], prefix, key)
+                        else:
+                            prop_dic[key]['path']=os.path.join(self.properties['working_dir_path'],prefix, key)
+                        prop_dic[key]['step']= key
+                        prop_dic[key]['prefix']= prefix
+                        prop_dic[key]['global_log']= global_log
+                        prop_dic[key]['system']= self.system
+                        if self.system:
+                            prop_dic[key].update(self.properties[self.system].copy())
+                        else:
+                            prop_dic[key]['working_dir_path']=self.properties.get('working_dir_path')
+                            prop_dic[key]['can_write_console_log']=self.properties.get('can_write_console_log', True)
 
-                if 'properties' in self.properties[key] and isinstance(self.properties[key]['properties'], dict):
-                    prop_dic[key].update(self.properties[key]['properties'].copy())
-                    if self.system:
-                        if self.properties[self.system].get('log_level', None):
-                            prop_dic[key]['log_level']= self.properties[self.system]['log_level']
-                    else:
-                        if self.properties.get('log_level', None):
-                            prop_dic[key]['log_level']= self.properties['log_level']
+                    if ('properties' in self.properties[key]) and isinstance(self.properties[key]['properties'], dict):
+                        if self.system:
+                            if self.properties[self.system].get('log_level', None):
+                                prop_dic[key]['log_level']= self.properties[self.system]['log_level']
+                            prop_dic[key]['can_write_console_log']=self.properties[self.system].get('can_write_console_log', True)
+                        else:
+                            if self.properties.get('log_level', None):
+                                prop_dic[key]['log_level']= self.properties['log_level']
+                            prop_dic[key]['can_write_console_log']=self.properties.get('can_write_console_log', True)
+                        prop_dic[key].update(self.properties[key]['properties'].copy())
         # There is no step name and there is no properties or paths key return input
         if not prop_dic:
             prop_dic = dict()
             prop_dic.update(self.properties)
             if self.system:
-                prop_dic['path']=fu.create_name(path=self.properties[self.system]['working_dir_path'], prefix=prefix, step=None)
+                prop_dic['path']=os.path.join(self.properties[self.system]['working_dir_path'], prefix)
             else:
-                prop_dic['path']=fu.create_name(path=self.properties['working_dir_path'], prefix=prefix, step=None)
+                prop_dic['path']=os.path.join(self.properties['working_dir_path'],prefix)
             prop_dic['step']= None
             prop_dic['prefix']= prefix
             prop_dic['global_log']= global_log
@@ -127,6 +137,7 @@ class ConfReader(object):
                 prop_dic.update(self.properties[self.system].copy())
             else:
                 prop_dic['working_dir_path']=self.properties.get('working_dir_path')
+                prop_dic['can_write_console_log']=self.properties.get('can_write_console_log', True)
 
 
         return prop_dic
@@ -184,7 +195,10 @@ class ConfReader(object):
                         while isinstance(value, str) and value.startswith('dependency'):
                             dependency_step=value.split('/')[1]
                             value = prop_dic[value.split('/')[1]][value.split('/')[2]]
-                        prop_dic[key][key2] = opj(self.properties[self.system]['working_dir_path'], prefix, dependency_step, value)
+                        if self.properties.get(self.system):
+                            prop_dic[key][key2] = opj(self.properties[self.system]['working_dir_path'], prefix, dependency_step, value)
+                        else:
+                            prop_dic[key][key2] = opj(self.properties['working_dir_path'], prefix, dependency_step, value)
                     elif isinstance(value, str) and value.startswith('file:'):
                         prop_dic[key][key2] = value.split(':')[1]
                     else:
