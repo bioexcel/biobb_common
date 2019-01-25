@@ -5,7 +5,7 @@ import os
 import subprocess
 from biobb_common.tools import file_utils as fu
 
-class CmdWrapper(object):
+class CmdWrapper():
     """Command line wrapper using subprocess library
     """
 

@@ -12,7 +12,7 @@ import os
 from os.path import join as opj
 from biobb_common.tools import file_utils as fu
 
-class ConfReader(object):
+class ConfReader():
     """Configuration file loader for yaml format files.
 
     Args:
