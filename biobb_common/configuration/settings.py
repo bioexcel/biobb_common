@@ -20,7 +20,9 @@ class ConfReader():
         system (str): System name from the systems section in the configuration file.
     """
 
-    def __init__(self, config, system=None):
+    def __init__(self, config=None, system=None):
+        if not config:
+            config = "{}"
         self.config = config
         self.system = system
         self.properties = self._read_config()

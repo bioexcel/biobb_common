@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="biobb_common",
-    version="0.0.8",
+    version="0.0.9",
     author="Biobb developers",
     author_email="pau.andrio@bsc.es",
     description="Biobb_common is the base package required to use the biobb packages.",
@@ -18,7 +18,7 @@ setuptools.setup(
         "Bioexcel": "https://bioexcel.eu/"
     },
     packages=setuptools.find_packages(exclude=['docs']),
-    install_requires=['pyyaml', 'requests', 'biopython'],
+    install_requires=['pyyaml', 'requests', 'biopython>=1.72'],
     python_requires='>=3',
     classifiers=(
         "Development Status :: 3 - Alpha",
