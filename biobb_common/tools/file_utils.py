@@ -2,6 +2,7 @@
 """
 import os
 import re
+import time
 import pathlib
 import shutil
 import zipfile
@@ -287,11 +288,22 @@ def write_failed_output(file_name):
 
 def rm(file_name):
     file_path = pathlib.Path(file_name)
-    if file_path.exists():
-        if file_path.is_dir():
-            shutil.rmtree(file_name)
-            return file_name
-        if file_path.is_file():
-            os.remove(file_name)
-            return file_name
+    try:
+        if file_path.exists():
+            if file_path.is_dir():
+                shutil.rmtree(file_name)
+                return file_name
+            if file_path.is_file():
+                os.remove(file_name)
+                return file_name
+    except:
+        # Giving the file system some time to consolidate
+        time.sleep(2)
+        if file_path.exists():
+            if file_path.is_dir():
+                shutil.rmtree(file_name)
+                return file_name
+            if file_path.is_file():
+                os.remove(file_name)
+                return file_name
     return None
