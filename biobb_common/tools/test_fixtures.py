@@ -99,6 +99,9 @@ def equal(file_a, file_b):
     if file_a.endswith(".itp") and file_b.endswith(".itp"):
         return compare_top_itp(file_a, file_b)
 
+    if file_a.endswith(".gro") and file_b.endswith(".gro"):
+        return compare_gro(file_a, file_b)
+
     return compare_hash(file_a, file_b)
 
 def compare_zip(zip_a, zip_b):
@@ -122,7 +125,7 @@ def compare_zip(zip_a, zip_b):
     return True
 
 def compare_pdb(pdb_a, pdb_b, rmsd_cutoff=1, remove_hetatm=True, remove_hydrogen=True):
-    print("Checkning RMSD between:")
+    print("Checking RMSD between:")
     print("     PDB_A: "+pdb_a)
     print("     PDB_B: "+pdb_b)
     pdb_parser = Bio.PDB.PDBParser(QUIET=True)
@@ -160,3 +163,13 @@ def compare_top_itp(file_a, file_b):
     with open(file_a, 'r') as f_a:
         with open(file_b, 'r') as f_b:
             return [line.strip() for line in f_a if not line.strip().startswith(';')] == [line.strip() for line in f_b if not line.strip().startswith(';')]
+
+def compare_gro(file_a, file_b):
+    print("Comparing GRO:")
+    print("     FILE_A: "+file_a)
+    print("     FILE_B: "+file_b)
+    with open(file_a, 'r') as f_a:
+        next(f_a)
+        with open(file_b, 'r') as f_b:
+            next(f_b)
+            return [line.strip() for line in f_a] == [line.strip() for line in f_b]
