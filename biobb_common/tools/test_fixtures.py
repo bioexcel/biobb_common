@@ -94,13 +94,22 @@ def equal(file_a, file_b):
         return compare_pdb(file_a, file_b)
 
     if file_a.endswith(".top") and file_b.endswith(".top"):
-        return compare_top_itp(file_a, file_b)
+        return compare_ignore_first(file_a, file_b)
 
     if file_a.endswith(".itp") and file_b.endswith(".itp"):
         return compare_top_itp(file_a, file_b)
 
     if file_a.endswith(".gro") and file_b.endswith(".gro"):
-        return compare_gro(file_a, file_b)
+        return compare_ignore_first(file_a, file_b)
+
+    if file_a.endswith(".prmtop") and file_b.endswith(".prmtop"):
+        return compare_ignore_first(file_a, file_b)
+
+    if file_a.endswith(".inp") and file_b.endswith(".inp"):
+        return compare_ignore_first(file_a, file_b)
+
+    if file_a.endswith(".par") and file_b.endswith(".par"):
+        return compare_ignore_first(file_a, file_b)
 
     return compare_hash(file_a, file_b)
 
@@ -164,8 +173,8 @@ def compare_top_itp(file_a, file_b):
         with open(file_b, 'r') as f_b:
             return [line.strip() for line in f_a if not line.strip().startswith(';')] == [line.strip() for line in f_b if not line.strip().startswith(';')]
 
-def compare_gro(file_a, file_b):
-    print("Comparing GRO:")
+def compare_ignore_first(file_a, file_b):
+    print("Comparing ignoring first line of both files:")
     print("     FILE_A: "+file_a)
     print("     FILE_B: "+file_b)
     with open(file_a, 'r') as f_a:
