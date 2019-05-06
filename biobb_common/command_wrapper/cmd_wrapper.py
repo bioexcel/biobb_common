@@ -9,19 +9,22 @@ class CmdWrapper():
     """Command line wrapper using subprocess library
     """
 
-    def __init__(self, cmd, out_log=None, err_log=None, global_log=None):
+    def __init__(self, cmd, out_log=None, err_log=None, global_log=None, env=None):
 
         self.cmd = cmd
         self.out_log = out_log
         self.err_log = err_log
         self.global_log = global_log
+        self.env = env
 
     def launch(self):
         cmd = " ".join(self.cmd)
         if self.out_log is None:
             print ('')
             print ("cmd_wrapper commnand print: " + cmd)
-        new_env = os.environ.copy()
+
+        new_env = self.env if self.env else os.environ.copy()
+
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, shell=True,
                                    env=new_env)
