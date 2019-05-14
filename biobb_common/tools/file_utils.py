@@ -8,6 +8,8 @@ import shutil
 import zipfile
 import logging
 import uuid
+import difflib
+import warnings
 from biobb_common.command_wrapper import cmd_wrapper
 
 def create_dir(dir_path):
@@ -251,6 +253,17 @@ def human_readable_time(time_ps):
 
         time = time/1000
     return str(time_ps)
+
+def check_properties(obj, properties, reserved_properties=None):
+    if not reserved_properties:
+        reserved_properties = []
+    reserved_properties = set(["system", "working_dir_path"]+reserved_properties)
+    error_properties = set([property for property in properties.keys() if property not in obj.__dict__.keys()])
+    error_properties -= reserved_properties
+    for error_property in error_properties:
+        close_property = difflib.get_close_matches(error_property, obj.__dict__.keys(), n=1)
+        close_property = close_property[0] if close_property else ""
+        warnings.warn("Warning: %s is not a recognized property. The most similar property is: %s" % (error_property, close_property))
 
 def create_name(path=None, prefix=None, step=None, name=None):
     """ Return file name.

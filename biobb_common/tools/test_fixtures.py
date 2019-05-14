@@ -94,7 +94,7 @@ def equal(file_a, file_b):
         return compare_pdb(file_a, file_b)
 
     if file_a.endswith(".top") and file_b.endswith(".top"):
-        return compare_ignore_first(file_a, file_b)
+        return compare_top_itp(file_a, file_b)
 
     if file_a.endswith(".itp") and file_b.endswith(".itp"):
         return compare_top_itp(file_a, file_b)
