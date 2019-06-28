@@ -11,7 +11,7 @@
         {
             "block" : "", 
             "tool" : "own tool", 
-            "desc" : "Common tools to use the rest of the biobb building blocks"
+            "desc" : "Biobb Base structure & common elements."
         }
     ],
     "dep_pypi" : [
