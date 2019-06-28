@@ -89,8 +89,13 @@ def zip_list(zip_file, file_list, out_log=None):
     """
     file_list.sort()
     with zipfile.ZipFile(zip_file, 'w') as zip_f:
-        for f in file_list:
-            zip_f.write(f, arcname=os.path.basename(f))
+        inserted = []
+        for index, f in enumerate(file_list):
+            base_name = os.path.basename(f)
+            if base_name in inserted:
+                base_name = 'file_'+str(index)+'_'+base_name
+            inserted.append(base_name)
+            zip_f.write(f, arcname=base_name)
     if out_log:
         out_log.info("Adding:")
         out_log.info(str(file_list))
