@@ -10,8 +10,8 @@
     "tools" : [
         {
             "block" : "", 
-            "tool" : "own tool", 
-            "desc" : "Common tools to use the rest of the biobb building blocks"
+            "tool" : "in house", 
+            "desc" : "Biobb Base structure & common elements."
         }
     ],
     "dep_pypi" : [
