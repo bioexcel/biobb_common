@@ -42,7 +42,7 @@ def create_unique_dir(prefix='', number_attempts=10, out_log=None):
     name = prefix + str(uuid.uuid4())
     for i in range(number_attempts):
         try:
-            os.mkdir(name)
+            os.mkdir(name, mode=0777)
             if out_log:
                 out_log.info('%s directory successfully created' %(name))
             return name
