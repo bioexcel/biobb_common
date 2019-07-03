@@ -42,11 +42,13 @@ def create_unique_dir(prefix='', number_attempts=10, out_log=None):
     name = prefix + str(uuid.uuid4())
     for i in range(number_attempts):
         try:
-            os.mkdir(name, mode=0777)
+            os.umask(0)
+            #os.mkdir(name, mode=777)
+            os.makedirs(name, mode=0o777, exist_ok=False)
             if out_log:
                 out_log.info('%s directory successfully created' %(name))
             return name
-        except FileExistsError:
+        except OSError:
             if out_log:
                 out_log.info(name + ' Already exists')
                 out_log.info('Retrying %i times more' %(number_attempts-i))
@@ -316,12 +318,13 @@ def rm(file_name):
                 return file_name
     except:
         # Giving the file system some time to consolidate
-        time.sleep(2)
-        if file_path.exists():
-            if file_path.is_dir():
-                shutil.rmtree(file_name)
-                return file_name
-            if file_path.is_file():
-                os.remove(file_name)
-                return file_name
+        #time.sleep(2)
+        #if file_path.exists():
+        #    if file_path.is_dir():
+        #        shutil.rmtree(file_name)
+        #        return file_name
+        #    if file_path.is_file():
+        #        os.remove(file_name)
+        #        return file_name
+        pass
     return None
