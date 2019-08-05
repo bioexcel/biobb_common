@@ -57,7 +57,7 @@ def create_unique_dir(prefix='', number_attempts=10, out_log=None):
                 out_log.info('Trying with: ' + name)
     raise FileExistsError
 
-def get_working_dir_path(working_dir_path=None):
+def get_working_dir_path(working_dir_path=None, restart=False):
     """Return the directory **working_dir_path** and create it if working_dir_path
     does not exist. If **working_dir_path** exists a consecutive numerical suffix
     is added to the end of the **working_dir_path** and is returned.
@@ -73,7 +73,7 @@ def get_working_dir_path(working_dir_path=None):
 
     working_dir_path = os.path.abspath(working_dir_path)
 
-    if not os.path.exists(working_dir_path):
+    if (not os.path.exists(working_dir_path)) or restart:
         return working_dir_path
 
     cont = 1
@@ -317,14 +317,17 @@ def rm(file_name):
                 os.remove(file_name)
                 return file_name
     except:
-        # Giving the file system some time to consolidate
-        #time.sleep(2)
-        #if file_path.exists():
-        #    if file_path.is_dir():
-        #        shutil.rmtree(file_name)
-        #        return file_name
-        #    if file_path.is_file():
-        #        os.remove(file_name)
-        #        return file_name
         pass
     return None
+
+def rm_file_list(file_list, out_log=None):
+    removed_files = [f for f in file_list if rm(f)]
+    if out_log:
+        log('Removed: %s' % str(removed_files), out_log)
+    return removed_files
+
+def check_complete_files(output_file_list):
+    for output_file in output_file_list:
+        if not (os.path.isfile(output_file) and os.path.getsize(output_file) > 0):
+            return False
+    return True

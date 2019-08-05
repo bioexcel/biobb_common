@@ -27,9 +27,9 @@ class ConfReader():
         self.system = system
         self.properties = self._read_config()
         if self.system:
-            self.properties[self.system]['working_dir_path'] = fu.get_working_dir_path(self.properties[self.system].get('working_dir_path'))
+            self.properties[self.system]['working_dir_path'] = fu.get_working_dir_path(self.properties[self.system].get('working_dir_path'), restart=self.properties[self.system].get('restart', False))
         else:
-            self.properties['working_dir_path'] = fu.get_working_dir_path(self.properties.get('working_dir_path'))
+            self.properties['working_dir_path'] = fu.get_working_dir_path(self.properties.get('working_dir_path'), restart=self.properties.get('restart', False))
 
     def _read_config(self):
         try:
@@ -58,6 +58,8 @@ class ConfReader():
             | **step** (*str*): Name of the step.
             | **prefix** (*str*): Prefix if provided.
             | **global_log** (*Logger object*): Log from the main workflow.
+            | **restart** (*bool*): Restart from previous execution.
+            | **remove_tmp** (*bool*): Remove temporal files.
 
         Args:
             prefix (str): Prefix if provided.
@@ -84,6 +86,8 @@ class ConfReader():
                 prop_dic.update(self.properties[self.system].copy())
             else:
                 prop_dic['working_dir_path']=self.properties.get('working_dir_path')
+                prop_dic['restart']= self.properties.get('restart', False)
+                prop_dic['remove_tmp']= self.properties.get('remove_tmp', True)
 
             if 'properties' in self.properties and isinstance(self.properties['properties'], dict):
                 prop_dic.update(self.properties['properties'].copy())
@@ -112,6 +116,8 @@ class ConfReader():
                         else:
                             prop_dic[key]['working_dir_path']=self.properties.get('working_dir_path')
                             prop_dic[key]['can_write_console_log']=self.properties.get('can_write_console_log', True)
+                            prop_dic[key]['restart']= self.properties.get('restart', False)
+                            prop_dic[key]['remove_tmp']= self.properties.get('remove_tmp', True)
 
                     if ('properties' in self.properties[key]) and isinstance(self.properties[key]['properties'], dict):
                         if self.system:
@@ -140,6 +146,8 @@ class ConfReader():
             else:
                 prop_dic['working_dir_path']=self.properties.get('working_dir_path')
                 prop_dic['can_write_console_log']=self.properties.get('can_write_console_log', True)
+                prop_dic['restart']= self.properties.get('restart', False)
+                prop_dic['remove_tmp']= self.properties.get('remove_tmp', True)
 
 
         return prop_dic
