@@ -177,7 +177,7 @@ def unzip_top(zip_file, out_log=None):
 def get_logs_prefix():
     return 4*' '
 
-def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='INFO', light_format=False):
+def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='INFO', light_format=False, ):
     """ Get the error and and out Python Logger objects.
 
     Args:
@@ -196,6 +196,24 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
 
     out_log_path = create_name(path=path, step=step, name='log.out')
     err_log_path = create_name(path=path, step=step, name='log.err')
+
+    #If logfile exists create a new one adding a number at the end
+    if os.path.exists(out_log_path):
+        name = 'log.out'
+        cont = 1
+        while os.path.exists(out_log_path):
+            name = name.split('.')[0].rstrip('\\/0123456789_') + str(cont) + '.out'
+            out_log_path = create_name(path=path, step=step, name=name)
+            cont += 1
+    if os.path.exists(err_log_path):
+        name = 'log.err'
+        cont = 1
+        while os.path.exists(err_log_path):
+            name = name.split('.')[0].rstrip('\\/0123456789_') + str(cont) + '.err'
+            err_log_path = create_name(path=path, step=step, name=name)
+            cont += 1
+
+
     # Create dir if it not exists
     create_dir(os.path.dirname(os.path.abspath(out_log_path)))
 
