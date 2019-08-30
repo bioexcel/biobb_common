@@ -152,6 +152,7 @@ def zip_top(zip_file, top_file, out_log=None):
 
     file_list = search_topology_files(top_file, out_log)
     zip_list(zip_file, file_list, out_log)
+    return file_list
 
 def unzip_top(zip_file, out_log=None):
     """ Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
@@ -286,7 +287,7 @@ def check_properties(obj, properties, reserved_properties=None):
     error_properties = set([property for property in properties.keys() if property not in obj.__dict__.keys()])
     error_properties -= reserved_properties
     for error_property in error_properties:
-        close_property = difflib.get_close_matches(error_property, obj.__dict__.keys(), n=1)
+        close_property = difflib.get_close_matches(error_property, obj.__dict__.keys(), n=1, cutoff=0.01)
         close_property = close_property[0] if close_property else ""
         warnings.warn("Warning: %s is not a recognized property. The most similar property is: %s" % (error_property, close_property))
 
