@@ -9,6 +9,7 @@ import zipfile
 import logging
 import uuid
 import difflib
+import functools
 import warnings
 from biobb_common.command_wrapper import cmd_wrapper
 
@@ -254,6 +255,23 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
     out_Logger.setLevel(level)
     err_Logger.setLevel(level)
     return out_Logger, err_Logger
+
+
+def launchlogger(func):
+    @functools.wraps(func)
+    def wrapper_log(*args, **kwargs):
+        args[0].out_log, args[0].err_log = get_logs(path=args[0].path, prefix=args[0].prefix, step=args[0].step, can_write_console=args[0].can_write_console_log)
+        value = func(*args, **kwargs)
+        handlers = args[0].out_log.handlers[:] # Create a copy [:] of the handler list to be able to modify it while we are iterating
+        for handler in handlers:
+            handler.close()
+            args[0].out_log.removeHandler(handler)
+        handlers = args[0].err_log.handlers[:] # Create a copy [:] of the handler list to be able to modify it while we are iterating
+        for handler in handlers:
+            handler.close()
+            args[0].err_log.removeHandler(handler)
+        return value
+    return wrapper_log
 
 def log(string, local_log=None, global_log=None):
     """Checks if log exists"""
