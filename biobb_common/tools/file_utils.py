@@ -1,17 +1,17 @@
 """Tools to work with files
 """
-import os
-import re
-import time
-import pathlib
-import shutil
-import zipfile
-import logging
-import uuid
 import difflib
 import functools
+import logging
+import os
+import pathlib
+import re
+import shutil
+import uuid
 import warnings
-from biobb_common.command_wrapper import cmd_wrapper
+import zipfile
+from pathlib import Path
+
 
 def create_dir(dir_path):
     """Returns the directory **dir_path** and create it if path does not exist.
@@ -25,6 +25,7 @@ def create_dir(dir_path):
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
     return dir_path
+
 
 def create_unique_dir(prefix='', number_attempts=10, out_log=None):
     """Create a directory with a prefix + computed unique name. If the
@@ -44,19 +45,20 @@ def create_unique_dir(prefix='', number_attempts=10, out_log=None):
     for i in range(number_attempts):
         try:
             os.umask(0)
-            #os.mkdir(name, mode=777)
+            # os.mkdir(name, mode=777)
             os.makedirs(name, mode=0o777, exist_ok=False)
             if out_log:
-                out_log.info('%s directory successfully created' %(name))
+                out_log.info('%s directory successfully created' % (name))
             return name
         except OSError:
             if out_log:
                 out_log.info(name + ' Already exists')
-                out_log.info('Retrying %i times more' %(number_attempts-i))
+                out_log.info('Retrying %i times more' % (number_attempts - i))
             name = prefix + str(uuid.uuid4())
             if out_log:
                 out_log.info('Trying with: ' + name)
     raise FileExistsError
+
 
 def get_working_dir_path(working_dir_path=None, restart=False):
     """Return the directory **working_dir_path** and create it if working_dir_path
@@ -83,6 +85,7 @@ def get_working_dir_path(working_dir_path=None, restart=False):
         cont += 1
     return working_dir_path
 
+
 def zip_list(zip_file, file_list, out_log=None):
     """ Compress all files listed in **file_list** into **zip_file** zip file.
 
@@ -96,13 +99,14 @@ def zip_list(zip_file, file_list, out_log=None):
         for index, f in enumerate(file_list):
             base_name = os.path.basename(f)
             if base_name in inserted:
-                base_name = 'file_'+str(index)+'_'+base_name
+                base_name = 'file_' + str(index) + '_' + base_name
             inserted.append(base_name)
             zip_f.write(f, arcname=base_name)
     if out_log:
         out_log.info("Adding:")
         out_log.info(str(file_list))
-        out_log.info("to: "+ os.path.abspath(zip_file))
+        out_log.info("to: " + os.path.abspath(zip_file))
+
 
 def unzip_list(zip_file, dest_dir=None, out_log=None):
     """ Extract all files in the zipball file and return a list containing the
@@ -117,14 +121,15 @@ def unzip_list(zip_file, dest_dir=None, out_log=None):
     """
     with zipfile.ZipFile(zip_file, 'r') as zip_f:
         zip_f.extractall(path=dest_dir)
-        file_list = [os.path.join(dest_dir,f) for f in zip_f.namelist()]
+        file_list = [os.path.join(dest_dir, f) for f in zip_f.namelist()]
 
     if out_log:
-        out_log.info("Extracting: "+ os.path.abspath(zip_file))
+        out_log.info("Extracting: " + os.path.abspath(zip_file))
         out_log.info("to:")
         out_log.info(str(file_list))
 
     return file_list
+
 
 def search_topology_files(top_file, out_log=None):
     """ Search the top and itp files to create a list of the topology files"""
@@ -132,7 +137,7 @@ def search_topology_files(top_file, out_log=None):
     file_list = []
     pattern = re.compile(r"#include\s+\"(.+)\"")
     if os.path.exists(top_file):
-        with open(top_file, 'r') as tf:
+        with open(top_file) as tf:
             for line in tf:
                 include_file = pattern.match(line.strip())
                 if include_file:
@@ -144,26 +149,31 @@ def search_topology_files(top_file, out_log=None):
         return file_list
     return file_list + [top_file]
 
+
 def zip_top(zip_file, top_file, out_log=None):
     """ Compress all *.itp and *.top files in the cwd into **zip_file** zip file.
 
     Args:
         zip_file (str): Output compressed zip file.
+        top_file (str): Topology TOP GROMACS file.
+        out_log (object logging): Logging object
     """
 
     file_list = search_topology_files(top_file, out_log)
     zip_list(zip_file, file_list, out_log)
     return file_list
 
+
 def unzip_top(zip_file, out_log=None):
     """ Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
 
     Args:
         zip_file (str): Input topology zipball file path.
-        top_file (str): Output ".top" file where the extracted ".top" file will be copied.
+        out_log (object logging): Logging object.
 
     Returns:
-        :obj:`list` of :obj:`str`: List of extracted files paths.
+        str: Path to the extracted ".top" file.
+
     """
     top_list = unzip_list(zip_file, create_unique_dir(), out_log)
     top_file = next(name for name in top_list if name.endswith(".top"))
@@ -177,7 +187,8 @@ def unzip_top(zip_file, out_log=None):
 
 
 def get_logs_prefix():
-    return 4*' '
+    return 4 * ' '
+
 
 def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='INFO', light_format=False, ):
     """ Get the error and and out Python Logger objects.
@@ -199,7 +210,7 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
     out_log_path = create_name(path=path, step=step, name='log.out')
     err_log_path = create_name(path=path, step=step, name='log.err')
 
-    #If logfile exists create a new one adding a number at the end
+    # If logfile exists create a new one adding a number at the end
     if os.path.exists(out_log_path):
         name = 'log.out'
         cont = 1
@@ -215,7 +226,6 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
             err_log_path = create_name(path=path, step=step, name=name)
             cont += 1
 
-
     # Create dir if it not exists
     create_dir(os.path.dirname(os.path.abspath(out_log_path)))
 
@@ -227,8 +237,7 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
     out_Logger = logging.getLogger(out_log_path)
     err_Logger = logging.getLogger(err_log_path)
 
-
-    #Create FileHandler
+    # Create FileHandler
     out_fileHandler = logging.FileHandler(out_log_path, mode='a', encoding=None, delay=False)
     err_fileHandler = logging.FileHandler(err_log_path, mode='a', encoding=None, delay=False)
 
@@ -236,17 +245,17 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
     out_fileHandler.setFormatter(logFormatter)
     err_fileHandler.setFormatter(logFormatter)
 
-    #Asign FileHandler to logging object
+    # Assign FileHandler to logging object
     if not len(out_Logger.handlers):
         out_Logger.addHandler(out_fileHandler)
         err_Logger.addHandler(err_fileHandler)
 
     # Create consoleHandler
     consoleHandler = logging.StreamHandler()
-    # Asign format to consoleHandler
+    # Assign format to consoleHandler
     consoleHandler.setFormatter(logFormatter)
 
-    # Asign consoleHandler to logging objects as aditional output
+    # Assign consoleHandler to logging objects as aditional output
     if can_write_console and len(out_Logger.handlers) < 2:
         out_Logger.addHandler(consoleHandler)
         err_Logger.addHandler(consoleHandler)
@@ -260,25 +269,31 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
 def launchlogger(func):
     @functools.wraps(func)
     def wrapper_log(*args, **kwargs):
-        args[0].out_log, args[0].err_log = get_logs(path=args[0].path, prefix=args[0].prefix, step=args[0].step, can_write_console=args[0].can_write_console_log)
+        args[0].out_log, args[0].err_log = get_logs(path=args[0].path, prefix=args[0].prefix, step=args[0].step,
+                                                    can_write_console=args[0].can_write_console_log)
         value = func(*args, **kwargs)
-        handlers = args[0].out_log.handlers[:] # Create a copy [:] of the handler list to be able to modify it while we are iterating
+        handlers = args[0].out_log.handlers[
+                   :]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
         for handler in handlers:
             handler.close()
             args[0].out_log.removeHandler(handler)
-        handlers = args[0].err_log.handlers[:] # Create a copy [:] of the handler list to be able to modify it while we are iterating
+        handlers = args[0].err_log.handlers[
+                   :]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
         for handler in handlers:
             handler.close()
             args[0].err_log.removeHandler(handler)
         return value
+
     return wrapper_log
+
 
 def log(string, local_log=None, global_log=None):
     """Checks if log exists"""
     if local_log:
         local_log.info(string)
     if global_log:
-        global_log.info(get_logs_prefix()+string)
+        global_log.info(get_logs_prefix() + string)
+
 
 def human_readable_time(time_ps):
     """Transform **time_ps** to a human readable string.
@@ -290,24 +305,27 @@ def human_readable_time(time_ps):
         str: Human readable time.
     """
     time_units = ['femto seconds', 'pico seconds', 'nano seconds', 'micro seconds', 'mili seconds']
-    time = time_ps * 1000
+    t = time_ps * 1000
     for tu in time_units:
-        if time < 1000:
-            return str(time)+' '+tu
+        if t < 1000:
+            return str(t) + ' ' + tu
 
-        time = time/1000
+        t /= 1000
     return str(time_ps)
+
 
 def check_properties(obj, properties, reserved_properties=None):
     if not reserved_properties:
         reserved_properties = []
-    reserved_properties = set(["system", "working_dir_path"]+reserved_properties)
+    reserved_properties = set(["system", "working_dir_path"] + reserved_properties)
     error_properties = set([property for property in properties.keys() if property not in obj.__dict__.keys()])
     error_properties -= reserved_properties
     for error_property in error_properties:
         close_property = difflib.get_close_matches(error_property, obj.__dict__.keys(), n=1, cutoff=0.01)
         close_property = close_property[0] if close_property else ""
-        warnings.warn("Warning: %s is not a recognized property. The most similar property is: %s" % (error_property, close_property))
+        warnings.warn("Warning: %s is not a recognized property. The most similar property is: %s" % (
+            error_property, close_property))
+
 
 def create_name(path=None, prefix=None, step=None, name=None):
     """ Return file name.
@@ -324,12 +342,12 @@ def create_name(path=None, prefix=None, step=None, name=None):
     name = '' if name is None else name.strip()
     if step:
         if name:
-            name = step+'_'+name
+            name = step + '_' + name
         else:
             name = step
     if prefix:
         if name:
-            name = prefix+'_'+name
+            name = prefix + '_' + name
         else:
             name = prefix
     if path:
@@ -339,9 +357,11 @@ def create_name(path=None, prefix=None, step=None, name=None):
             name = path
     return name
 
+
 def write_failed_output(file_name):
     with open(file_name, 'w') as f:
         f.write('Error\n')
+
 
 def rm(file_name):
     file_path = pathlib.Path(file_name)
@@ -357,14 +377,38 @@ def rm(file_name):
         pass
     return None
 
+
 def rm_file_list(file_list, out_log=None):
     removed_files = [f for f in file_list if rm(f)]
     if out_log:
         log('Removed: %s' % str(removed_files), out_log)
     return removed_files
 
+
 def check_complete_files(output_file_list):
     for output_file in output_file_list:
         if not (os.path.isfile(output_file) and os.path.getsize(output_file) > 0):
             return False
     return True
+
+
+def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=None, user_uid=None,
+                    container_image=None, out_log=None, global_log=None):
+    container_path = container_path or ''
+    if container_path.endswith('singularity'):
+        log('Using Singularity image %s' % container_image, out_log, global_log)
+        singularity_cmd = [container_path, 'exec', '--bind', host_volume + ':' + container_volume, container_image]
+        cmd = ['"' + " ".join(cmd) + '"']
+        singularity_cmd.extend(['/bin/bash', '-c'])
+        return singularity_cmd + cmd
+
+    elif container_path.endswith('docker'):
+        log('Using Docker image %s' % container_image, out_log, global_log)
+        docker_cmd = [container_path, 'run', '-v', host_volume + ':' + container_volume, '--user', user_uid, container_image]
+        cmd = ['"' + " ".join(cmd) + '"']
+        docker_cmd.extend(['/bin/bash', '-c'])
+        return docker_cmd + cmd
+
+    else:
+        log('Not using any container', out_log, global_log)
+        return cmd
