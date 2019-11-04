@@ -20,8 +20,8 @@ class CmdWrapper():
     def launch(self):
         cmd = " ".join(self.cmd)
         if self.out_log is None:
-            print ('')
-            print ("cmd_wrapper commnand print: " + cmd)
+            print('')
+            print("cmd_wrapper commnand print: " + cmd)
 
         new_env = self.env if self.env else os.environ.copy()
 

@@ -10,6 +10,7 @@ import shutil
 import uuid
 import warnings
 import zipfile
+import copy
 from pathlib import Path
 
 
@@ -386,10 +387,43 @@ def rm_file_list(file_list, out_log=None):
 
 
 def check_complete_files(output_file_list):
-    for output_file in output_file_list:
+    for output_file in filter(None, output_file_list):
         if not (os.path.isfile(output_file) and os.path.getsize(output_file) > 0):
             return False
     return True
+
+
+def copy_to_container(container_path, container_volume_path, io_dict):
+    if not container_path:
+        return io_dict
+
+    unique_dir = os.path.abspath(create_unique_dir())
+    container_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
+
+    # IN files COPY and assign INTERNAL PATH
+    for file_ref, file_path in io_dict["in"].items():
+        if file_path:
+            shutil.copy2(file_path, unique_dir)
+            container_io_dict["in"][file_ref] = os.path.join(container_volume_path, os.path.basename(file_path))
+
+    # OUT files assign INTERNAL PATH
+    for file_ref, file_path in io_dict["out"].items():
+        if file_path:
+            container_io_dict["out"][file_ref] = os.path.join(container_volume_path, os.path.basename(file_path))
+
+    return container_io_dict
+
+
+def copy_to_host(container_path, container_io_dict, io_dict):
+    if not container_path:
+        return
+
+    # OUT files COPY
+    for file_ref, file_path in container_io_dict["out"].items():
+        if file_path:
+            shutil.copy2(os.path.join(container_io_dict["unique_dir"], os.path.basename(file_path)), io_dict["out"][file_ref])
+
+
 
 
 def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=None, user_uid=None,
