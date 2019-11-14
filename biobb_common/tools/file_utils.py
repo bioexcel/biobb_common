@@ -442,16 +442,16 @@ def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=N
         log('Using Docker image %s' % container_image, out_log, global_log)
         docker_cmd = [container_path, 'run',]
         if container_working_dir:
-            cmd.append('-w')
-            cmd.append(container_working_dir)
+            docker_cmd.append('-w')
+            docker_cmd.append(container_working_dir)
         if container_volume:
-            cmd.append('-v')
-            cmd.append(host_volume + ':' + container_volume)
+            docker_cmd.append('-v')
+            docker_cmd.append(host_volume + ':' + container_volume)
         if container_user_uid:
-            cmd.append('--user')
-            cmd.append(container_user_uid)
+            docker_cmd.append('--user')
+            docker_cmd.append(container_user_uid)
 
-        cmd.append(container_image)
+        docker_cmd.append(container_image)
 
         cmd = ['"' + " ".join(cmd) + '"']
         docker_cmd.extend(['/bin/bash', '-c'])
