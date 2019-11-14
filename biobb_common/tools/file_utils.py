@@ -365,8 +365,8 @@ def write_failed_output(file_name):
 
 
 def rm(file_name):
-    file_path = pathlib.Path(file_name)
     try:
+        file_path = pathlib.Path(file_name)
         if file_path.exists():
             if file_path.is_dir():
                 shutil.rmtree(file_name)
@@ -421,12 +421,14 @@ def copy_to_host(container_path, container_io_dict, io_dict):
     # OUT files COPY
     for file_ref, file_path in container_io_dict["out"].items():
         if file_path:
-            shutil.copy2(os.path.join(container_io_dict["unique_dir"], os.path.basename(file_path)), io_dict["out"][file_ref])
+            container_file_path = os.path.join(container_io_dict["unique_dir"], os.path.basename(file_path))
+            if os.path.exists(container_file_path):
+                shutil.copy2(container_file_path, io_dict["out"][file_ref])
 
 
 
 
-def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=None, user_uid=None,
+def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=None, container_working_dir=None, container_user_uid=None,
                     container_image=None, out_log=None, global_log=None):
     container_path = container_path or ''
     if container_path.endswith('singularity'):
@@ -438,7 +440,19 @@ def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=N
 
     elif container_path.endswith('docker'):
         log('Using Docker image %s' % container_image, out_log, global_log)
-        docker_cmd = [container_path, 'run', '-v', host_volume + ':' + container_volume, '--user', user_uid, container_image]
+        docker_cmd = [container_path, 'run',]
+        if container_working_dir:
+            cmd.append('-w')
+            cmd.append(container_working_dir)
+        if container_volume:
+            cmd.append('-v')
+            cmd.append(host_volume + ':' + container_volume)
+        if container_user_uid:
+            cmd.append('--user')
+            cmd.append(container_user_uid)
+
+        cmd.append(container_image)
+
         cmd = ['"' + " ".join(cmd) + '"']
         docker_cmd.extend(['/bin/bash', '-c'])
         return docker_cmd + cmd
