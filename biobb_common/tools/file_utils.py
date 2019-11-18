@@ -425,8 +425,9 @@ def copy_to_host(container_path, container_io_dict, io_dict):
                 shutil.copy2(container_file_path, io_dict["out"][file_ref])
 
 
-def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=None, container_working_dir=None, container_user_uid=None,
-                    container_image=None, container_shell_path='/bin/bash', out_log=None, global_log=None):
+def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=None, container_working_dir=None,
+                    container_user_uid=None, container_shell_path=None, container_image=None, out_log=None,
+                    global_log=None):
     container_path = container_path or ''
     if container_path.endswith('singularity'):
         log('Using Singularity image %s' % container_image, out_log, global_log)
