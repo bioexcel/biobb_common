@@ -10,8 +10,7 @@ import shutil
 import uuid
 import warnings
 import zipfile
-import copy
-from pathlib import Path
+
 
 
 def create_dir(dir_path):
@@ -426,16 +425,14 @@ def copy_to_host(container_path, container_io_dict, io_dict):
                 shutil.copy2(container_file_path, io_dict["out"][file_ref])
 
 
-
-
 def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=None, container_working_dir=None, container_user_uid=None,
-                    container_image=None, out_log=None, global_log=None):
+                    container_image=None, container_shell_path='/bin/bash', out_log=None, global_log=None):
     container_path = container_path or ''
     if container_path.endswith('singularity'):
         log('Using Singularity image %s' % container_image, out_log, global_log)
         singularity_cmd = [container_path, 'exec', '--bind', host_volume + ':' + container_volume, container_image]
         cmd = ['"' + " ".join(cmd) + '"']
-        singularity_cmd.extend(['/bin/bash', '-c'])
+        singularity_cmd.extend([container_shell_path, '-c'])
         return singularity_cmd + cmd
 
     elif container_path.endswith('docker'):
@@ -454,7 +451,7 @@ def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=N
         docker_cmd.append(container_image)
 
         cmd = ['"' + " ".join(cmd) + '"']
-        docker_cmd.extend(['/bin/bash', '-c'])
+        docker_cmd.extend([container_shell_path, '-c'])
         return docker_cmd + cmd
 
     else:
