@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="biobb_common",
-    version="1.1.6",
+    version="2.0.0",
     author="Biobb developers",
     author_email="pau.andrio@bsc.es",
     description="Biobb_common is the base package required to use the biobb packages.",
