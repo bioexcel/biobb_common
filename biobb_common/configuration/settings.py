@@ -9,10 +9,10 @@ the building blocks.
 
 
 Syntax:
-    - **property** (*dataType) - (Default value) Short description.
+    - **property** (*dataType*) - (Default value) Short description.
 
 Available Workflow properties:
-    - **working_dir_path** (*str*) - (Current working dir) Directory where the workflow outputs will be created.
+    - **working_dir_path** (*str*) - (Current working dir) Workflow output directory.
     - **can_write_console_log** (*bool*) - (True) Output log to console.
     - **restart** (*bool*) - (False) Do not execute steps if output files are already created.
     - **remove_tmp** (*bool*) - (True) Remove temporal files.
