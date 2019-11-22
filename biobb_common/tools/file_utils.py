@@ -272,13 +272,11 @@ def launchlogger(func):
         args[0].out_log, args[0].err_log = get_logs(path=args[0].path, prefix=args[0].prefix, step=args[0].step,
                                                     can_write_console=args[0].can_write_console_log)
         value = func(*args, **kwargs)
-        handlers = args[0].out_log.handlers[
-                   :]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
+        handlers = args[0].out_log.handlers[:]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
         for handler in handlers:
             handler.close()
             args[0].out_log.removeHandler(handler)
-        handlers = args[0].err_log.handlers[
-                   :]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
+        handlers = args[0].err_log.handlers[:]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
         for handler in handlers:
             handler.close()
             args[0].err_log.removeHandler(handler)
