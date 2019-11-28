@@ -7,28 +7,28 @@ This module contains the classes to read the different formats of the configurat
 The configuration files are composed by paths to the files and properties. There are several common properties for all
 the building blocks.
 
+
 Syntax:
-- **property** (*dataType) - (Default value) Short description.
+    - **property** (*dataType*) - (Default value) Short description.
 
 Available Workflow properties:
-- **working_dir_path** (*str*) - (Current working dir) Directory where the workflow outputs will be created.
-- **can_write_console_log** (*bool*) - (True) Output log to console.
-- **restart** (*bool*) - (False) Do not execute steps if output files are already created.
-- **remove_tmp** (*bool*) - (True) Remove temporal files.
+    - **working_dir_path** (*str*) - (Current working dir) Workflow output directory.
+    - **can_write_console_log** (*bool*) - (True) Output log to console.
+    - **restart** (*bool*) - (False) Do not execute steps if output files are already created.
+    - **remove_tmp** (*bool*) - (True) Remove temporal files.
 
 Available common step properties: (Each Biobb step also has their specific properties)
-- **can_write_console_log** (*bool*) - (True) Overwrite **can_write_console_log** workflow property on this step.
-- **restart** (*bool*) - (False) Overwrite **restart** workflow property on this step.
-- **remove_tmp** (*bool*) - (True) Overwrite **remove_tmp** workflow property on this step.
-
+    - **can_write_console_log** (*bool*) - (True) Overwrite **can_write_console_log** workflow property on this step.
+    - **restart** (*bool*) - (False) Overwrite **restart** workflow property on this step.
+    - **remove_tmp** (*bool*) - (True) Overwrite **remove_tmp** workflow property on this step.
 
 Available common step properties for containerized applications:
-- **container_path** (*string*) - (None)  Path to the binary executable of your container.
-- **container_image** (*string*) - (None) Container Image identifier.
-- **container_volume_path** (*string*) - (None) Path to an internal directory in the container.
-- **container_working_dir** (*string*) - (None) Path to the internal CWD in the container.
-- **container_user_id** (*string*) - (None) User number id to be mapped inside the container.
-- **container_shell_path** (*string*) - ("/bin/bash") Path to the binary executable of the container shell.
+    - **container_path** (*string*) - (None)  Path to the binary executable of your container.
+    - **container_image** (*string*) - (None) Container Image identifier.
+    - **container_volume_path** (*string*) - (None) Path to an internal directory in the container.
+    - **container_working_dir** (*string*) - (None) Path to the internal CWD in the container.
+    - **container_user_id** (*string*) - (None) User number id to be mapped inside the container.
+    - **container_shell_path** (*string*) - ("/bin/bash") Path to the binary executable of the container shell.
 """
 
 import yaml
