@@ -12,7 +12,6 @@ import warnings
 import zipfile
 
 
-
 def create_dir(dir_path):
     """Returns the directory **dir_path** and create it if path does not exist.
 
@@ -44,11 +43,12 @@ def create_unique_dir(prefix='', number_attempts=10, out_log=None):
     name = prefix + str(uuid.uuid4())
     for i in range(number_attempts):
         try:
-            os.umask(0)
+            oldumask = os.umask(0)
             # os.mkdir(name, mode=777)
             os.makedirs(name, mode=0o777, exist_ok=False)
             if out_log:
                 out_log.info('%s directory successfully created' % (name))
+            os.umask(oldumask)
             return name
         except OSError:
             if out_log:
