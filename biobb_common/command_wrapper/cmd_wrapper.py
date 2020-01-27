@@ -5,7 +5,8 @@ import os
 import subprocess
 from biobb_common.tools import file_utils as fu
 
-class CmdWrapper():
+
+class CmdWrapper:
     """Command line wrapper using subprocess library
     """
 
@@ -24,7 +25,6 @@ class CmdWrapper():
             print("cmd_wrapper commnand print: " + cmd)
 
         new_env = self.env if self.env else os.environ.copy()
-
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, shell=True,
                                    env=new_env)

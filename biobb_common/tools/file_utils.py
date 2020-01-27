@@ -60,6 +60,8 @@ def create_unique_dir(prefix='', number_attempts=10, out_log=None):
     raise FileExistsError
 
 
+
+
 def get_working_dir_path(working_dir_path=None, restart=False):
     """Return the directory **working_dir_path** and create it if working_dir_path
     does not exist. If **working_dir_path** exists a consecutive numerical suffix
