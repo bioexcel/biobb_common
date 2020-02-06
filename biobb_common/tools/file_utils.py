@@ -431,7 +431,7 @@ def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=N
     container_path = container_path or ''
     if container_path.endswith('singularity'):
         log('Using Singularity image %s' % container_image, out_log, global_log)
-        singularity_cmd = [container_path, 'exec', '--bind', host_volume + ':' + container_volume, container_image]
+        singularity_cmd = [container_path, 'exec', '-e', '--bind', host_volume + ':' + container_volume, container_image]
         cmd = ['"' + " ".join(cmd) + '"']
         singularity_cmd.extend([container_shell_path, '-c'])
         return singularity_cmd + cmd
