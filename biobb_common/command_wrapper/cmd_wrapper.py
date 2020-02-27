@@ -25,8 +25,11 @@ class CmdWrapper:
             print("cmd_wrapper commnand print: " + cmd)
 
         new_env = self.env if self.env else os.environ.copy()
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, shell=True,
+        process = subprocess.Popen(cmd,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE,
+                                   shell=True,
+                                   executable=os.getenv('SHELL', '/bin/sh'),
                                    env=new_env)
 
         out, err = process.communicate()
