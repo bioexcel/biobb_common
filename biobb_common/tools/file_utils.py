@@ -60,6 +60,8 @@ def create_unique_dir(prefix='', number_attempts=10, out_log=None):
     raise FileExistsError
 
 
+
+
 def get_working_dir_path(working_dir_path=None, restart=False):
     """Return the directory **working_dir_path** and create it if working_dir_path
     does not exist. If **working_dir_path** exists a consecutive numerical suffix
@@ -430,7 +432,7 @@ def create_cmd_line(cmd, container_path='', host_volume=None, container_volume=N
     container_path = container_path or ''
     if container_path.endswith('singularity'):
         log('Using Singularity image %s' % container_image, out_log, global_log)
-        singularity_cmd = [container_path, 'exec', '--bind', host_volume + ':' + container_volume, container_image]
+        singularity_cmd = [container_path, 'exec', '-e', '--bind', host_volume + ':' + container_volume, container_image]
         cmd = ['"' + " ".join(cmd) + '"']
         singularity_cmd.extend([container_shell_path, '-c'])
         return singularity_cmd + cmd
