@@ -207,8 +207,8 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
     step = step if step else ''
     path = path if path else os.getcwd()
 
-    out_log_path = create_name(path=path, step=step, name='log.out')
-    err_log_path = create_name(path=path, step=step, name='log.err')
+    out_log_path = create_name(path=path, prefix=prefix, step=step, name='log.out')
+    err_log_path = create_name(path=path, prefix=prefix, step=step, name='log.err')
 
     # If logfile exists create a new one adding a number at the end
     if os.path.exists(out_log_path):
@@ -216,14 +216,14 @@ def get_logs(path=None, prefix=None, step=None, can_write_console=True, level='I
         cont = 1
         while os.path.exists(out_log_path):
             name = name.split('.')[0].rstrip('\\/0123456789_') + str(cont) + '.out'
-            out_log_path = create_name(path=path, step=step, name=name)
+            out_log_path = create_name(path=path, prefix=prefix, step=step, name=name)
             cont += 1
     if os.path.exists(err_log_path):
         name = 'log.err'
         cont = 1
         while os.path.exists(err_log_path):
             name = name.split('.')[0].rstrip('\\/0123456789_') + str(cont) + '.err'
-            err_log_path = create_name(path=path, step=step, name=name)
+            err_log_path = create_name(path=path, prefix=prefix, step=step, name=name)
             cont += 1
 
     # Create dir if it not exists
@@ -344,6 +344,7 @@ def create_name(path=None, prefix=None, step=None, name=None):
         else:
             name = step
     if prefix:
+        prefix = prefix.replace("/", "_")
         if name:
             name = prefix + '_' + name
         else:
