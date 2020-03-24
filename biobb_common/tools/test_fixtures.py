@@ -1,7 +1,7 @@
 """Boiler plate functions for testsys
 """
 import os
-from os.path import join as opj
+from pathlib import Path
 import sys
 import shutil
 import hashlib
@@ -9,6 +9,7 @@ import Bio.PDB
 
 from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
+
 
 def test_setup(test_object, dict_key=None, config=None):
     """Add the unitest_dir, test_dir, conf_file_path, system, properties and path as
@@ -18,28 +19,29 @@ def test_setup(test_object, dict_key=None, config=None):
         test_object (:obj:`test`): The test object.
         dict_key (str): Key of the test parameters in the yaml config file.
     """
-    test_object.testfile_dir = os.path.dirname(os.path.abspath(sys.modules[test_object.__class__.__module__].__file__))
-    test_object.unitest_dir = os.path.dirname(test_object.testfile_dir)
-    test_object.test_dir = os.path.dirname(test_object.unitest_dir)
-    test_object.data_dir = opj(test_object.test_dir, 'data')
-    test_object.reference_dir = opj(test_object.test_dir, 'reference')
+    test_object.testfile_dir = str(Path(Path(sys.modules[test_object.__class__.__module__].__file__).resolve()).parent)
+    test_object.unitest_dir = str(Path(test_object.testfile_dir).parent)
+    test_object.test_dir = str(Path(test_object.unitest_dir).parent)
+    test_object.data_dir = str(Path(test_object.test_dir).joinpath('data'))
+    test_object.reference_dir = str(Path(test_object.test_dir).joinpath('reference'))
     if config:
         test_object.conf_file_path = config
     else:
-        test_object.conf_file_path = opj(test_object.test_dir, 'conf.yml')
+        test_object.conf_file_path = str(Path(test_object.test_dir).joinpath('conf.yml'))
 
     test_object.system = os.getenv('testsys')
     conf = settings.ConfReader(test_object.conf_file_path, test_object.system)
 
     if dict_key:
         test_object.properties = conf.get_prop_dic()[dict_key]
-        test_object.paths = {k:v.replace('test_data_dir', test_object.data_dir, 1).replace('test_reference_dir', test_object.reference_dir, 1) for k, v in conf.get_paths_dic()[dict_key].items()}
+        test_object.paths = {k: v.replace('test_data_dir', test_object.data_dir, 1).replace('test_reference_dir', test_object.reference_dir, 1) for k, v in conf.get_paths_dic()[dict_key].items()}
     else:
         test_object.properties = conf.get_prop_dic()
-        test_object.paths = {k:v.replace('test_data_dir', test_object.data_dir, 1).replace('test_reference_dir', test_object.reference_dir, 1) for k, v in conf.get_paths_dic().items()}
+        test_object.paths = {k: v.replace('test_data_dir', test_object.data_dir, 1).replace('test_reference_dir', test_object.reference_dir, 1) for k, v in conf.get_paths_dic().items()}
 
     fu.create_dir(test_object.properties['path'])
     os.chdir(test_object.properties['path'])
+
 
 def test_teardown(test_object):
     """Remove the **test_object.properties['working_dir_path']**
@@ -62,6 +64,7 @@ def exe_success(return_code):
     """
     return return_code == 0
 
+
 def not_empty(file_path):
     """Check if file exists and is not empty.
 
@@ -72,7 +75,8 @@ def not_empty(file_path):
         bool: True if **file_path** exists and is not empty.
     """
     print("Checking if empty file: "+file_path)
-    return os.path.isfile(file_path) and os.path.getsize(file_path) > 0
+    return Path(file_path).is_file() and Path(file_path).stat().st_size > 0
+
 
 def compare_hash(file_a, file_b):
     """Compute and compare the hashes of two files"""
@@ -84,6 +88,7 @@ def compare_hash(file_a, file_b):
     print("        File_A hash: "+str(file_a_hash))
     print("        File_B hash: "+str(file_b_hash))
     return file_a_hash == file_b_hash
+
 
 def equal(file_a, file_b):
     """Check if two files are equal"""
@@ -113,9 +118,11 @@ def equal(file_a, file_b):
 
     return compare_hash(file_a, file_b)
 
+
 def equal_txt(file_a, file_b):
     """Check if two text files are equal"""
     return compare_hash(file_a, file_b)
+
 
 def compare_zip(zip_a, zip_b):
     """ Compare zip files """
@@ -132,11 +139,12 @@ def compare_zip(zip_a, zip_b):
         return False
 
     for uncompressed_zip_a in zip_a_list:
-        uncompressed_zip_b = os.path.join(zip_b_dir, os.path.basename(uncompressed_zip_a))
+        uncompressed_zip_b = str(Path(zip_b_dir).joinpath(Path(uncompressed_zip_a).name))
         if not equal(uncompressed_zip_a, uncompressed_zip_b):
             return False
 
     return True
+
 
 def compare_pdb(pdb_a, pdb_b, rmsd_cutoff=1, remove_hetatm=True, remove_hydrogen=True):
     """ Compare pdb files """
@@ -171,6 +179,7 @@ def compare_pdb(pdb_a, pdb_b, rmsd_cutoff=1, remove_hetatm=True, remove_hydrogen
     print('     RMS_CUTOFF: '+str(rmsd_cutoff))
     return super_imposer.rms < rmsd_cutoff
 
+
 def compare_top_itp(file_a, file_b):
     """ Compare top/itp files """
     print("Comparing TOP/ITP:")
@@ -181,6 +190,7 @@ def compare_top_itp(file_a, file_b):
         with open(file_b, 'r') as f_b:
             next(f_b)
             return [line.strip() for line in f_a if not line.strip().startswith(';')] == [line.strip() for line in f_b if not line.strip().startswith(';')]
+
 
 def compare_ignore_first(file_a, file_b):
     """ Compare two files ignoring the first line """

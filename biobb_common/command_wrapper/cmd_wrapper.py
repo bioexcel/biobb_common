@@ -34,7 +34,7 @@ class CmdWrapper:
 
         out, err = process.communicate()
         if self.out_log is None:
-            print ("Exit, code {}".format(process.returncode))
+            print("Exit, code {}".format(process.returncode))
         process.wait()
 
         # Write output to log
