@@ -22,7 +22,7 @@ setuptools.setup(
     python_requires='==3.7.*',
     classifiers=(
         "Development Status :: 3 - Alpha",
-        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX",

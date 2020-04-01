@@ -95,7 +95,7 @@ def zip_list(zip_file: str, file_list: typing.List[str], out_log: logging.Logger
     Args:
         zip_file (str): Output compressed zip file.
         file_list (:obj:`list` of :obj:`str`): Input list of files to be compressed.
-        out_log (:obj:`Logger`): Input log object.
+        out_log (:obj:`logging.Logger`): Input log object.
     """
     file_list.sort()
     with zipfile.ZipFile(zip_file, 'w') as zip_f:

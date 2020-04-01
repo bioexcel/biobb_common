@@ -6,23 +6,23 @@
     "conda": "https://anaconda.org/bioconda/biobb_common",
     "docker": "https://quay.io/repository/biocontainers/biobb_common",
     "singularity": "https://www.singularity-hub.org/collections/2734/usage",
-    "version": "2.0.1",
+    "version": "3.0.0",
     "tools" : [
         {
-            "block" : "", 
-            "tool" : "in house", 
+            "block" : "",
+            "tool" : "in house",
             "desc" : "Biobb Base structure & common elements."
         }
     ],
     "dep_pypi" : [
-        "install_requires=['pyyaml', 'requests', 'biopython==1.73']", 
-        "python_requires='==3.6.*'"
-    ], 
+        "install_requires=['pyyaml', 'requests', 'biopython==1.76']",
+        "python_requires='==3.7.*'"
+    ],
     "dep_conda" : [
-        "python ==3.6.*", 
+        "python ==3.7.*",
         "pyyaml",
         "requests",
-        "biopython ==1.73"
+        "biopython ==1.76"
     ],
     "keywords" : [
         "common"
