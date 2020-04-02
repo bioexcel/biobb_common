@@ -6,18 +6,18 @@ import sys
 import shutil
 import hashlib
 import Bio.PDB
-
 from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
 
 
-def test_setup(test_object, dict_key=None, config=None):
+def test_setup(test_object: object, dict_key: str = None, config: str = None):
     """Add the unitest_dir, test_dir, conf_file_path, system, properties and path as
     attributes to the **test_object** and create a directory to launch the unitest.
 
     Args:
         test_object (:obj:`test`): The test object.
         dict_key (str): Key of the test parameters in the yaml config file.
+        config (str): Path to the configuration file.
     """
     test_object.testfile_dir = str(Path(Path(sys.modules[test_object.__class__.__module__].__file__).resolve()).parent)
     test_object.unitest_dir = str(Path(test_object.testfile_dir).parent)
@@ -43,7 +43,7 @@ def test_setup(test_object, dict_key=None, config=None):
     os.chdir(test_object.properties['path'])
 
 
-def test_teardown(test_object):
+def test_teardown(test_object: object):
     """Remove the **test_object.properties['working_dir_path']**
 
     Args:
@@ -53,7 +53,7 @@ def test_teardown(test_object):
     shutil.rmtree(test_object.properties['path'])
 
 
-def exe_success(return_code):
+def exe_success(return_code: int) -> bool:
     """Check if **return_code** is 0
 
     Args:
@@ -65,7 +65,7 @@ def exe_success(return_code):
     return return_code == 0
 
 
-def not_empty(file_path):
+def not_empty(file_path: str) -> bool:
     """Check if file exists and is not empty.
 
     Args:
@@ -78,7 +78,7 @@ def not_empty(file_path):
     return Path(file_path).is_file() and Path(file_path).stat().st_size > 0
 
 
-def compare_hash(file_a, file_b):
+def compare_hash(file_a: str, file_b: str) -> bool:
     """Compute and compare the hashes of two files"""
     print("Comparing: ")
     print("        File_A: "+file_a)
@@ -90,7 +90,7 @@ def compare_hash(file_a, file_b):
     return file_a_hash == file_b_hash
 
 
-def equal(file_a, file_b):
+def equal(file_a: str, file_b: str) -> bool:
     """Check if two files are equal"""
     if file_a.endswith(".zip") and file_b.endswith(".zip"):
         return compare_zip(file_a, file_b)
@@ -119,12 +119,12 @@ def equal(file_a, file_b):
     return compare_hash(file_a, file_b)
 
 
-def equal_txt(file_a, file_b):
+def equal_txt(file_a: str, file_b: str) -> bool:
     """Check if two text files are equal"""
     return compare_hash(file_a, file_b)
 
 
-def compare_zip(zip_a, zip_b):
+def compare_zip(zip_a: str, zip_b: str) -> bool:
     """ Compare zip files """
     print("This is a ZIP comparison!")
     print("Unzipping:")
@@ -146,7 +146,7 @@ def compare_zip(zip_a, zip_b):
     return True
 
 
-def compare_pdb(pdb_a, pdb_b, rmsd_cutoff=1, remove_hetatm=True, remove_hydrogen=True):
+def compare_pdb(pdb_a: str, pdb_b: str, rmsd_cutoff: int = 1, remove_hetatm: bool = True, remove_hydrogen: bool = True):
     """ Compare pdb files """
     print("Checking RMSD between:")
     print("     PDB_A: "+pdb_a)
@@ -180,25 +180,25 @@ def compare_pdb(pdb_a, pdb_b, rmsd_cutoff=1, remove_hetatm=True, remove_hydrogen
     return super_imposer.rms < rmsd_cutoff
 
 
-def compare_top_itp(file_a, file_b):
+def compare_top_itp(file_a: str, file_b: str) -> bool:
     """ Compare top/itp files """
     print("Comparing TOP/ITP:")
     print("     FILE_A: "+file_a)
     print("     FILE_B: "+file_b)
-    with open(file_a, 'r') as f_a:
+    with open(file_a) as f_a:
         next(f_a)
-        with open(file_b, 'r') as f_b:
+        with open(file_b) as f_b:
             next(f_b)
             return [line.strip() for line in f_a if not line.strip().startswith(';')] == [line.strip() for line in f_b if not line.strip().startswith(';')]
 
 
-def compare_ignore_first(file_a, file_b):
+def compare_ignore_first(file_a: str, file_b: str) -> bool:
     """ Compare two files ignoring the first line """
     print("Comparing ignoring first line of both files:")
     print("     FILE_A: "+file_a)
     print("     FILE_B: "+file_b)
-    with open(file_a, 'r') as f_a:
+    with open(file_a) as f_a:
         next(f_a)
-        with open(file_b, 'r') as f_b:
+        with open(file_b) as f_b:
             next(f_b)
             return [line.strip() for line in f_a] == [line.strip() for line in f_b]

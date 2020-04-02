@@ -60,7 +60,7 @@ class ConfReader:
     def _read_config(self):
         try:
             config_file = str(Path(self.config).resolve())
-            with open(config_file, 'r') as stream:
+            with open(config_file) as stream:
                 if config_file.lower().endswith((".yaml",".yml")):
                     return yaml.safe_load(stream)
                 else:
@@ -74,7 +74,7 @@ class ConfReader:
 
         return self.properties.get('working_dir_path')
 
-    def get_prop_dic(self, prefix: str = None, global_log: logging.Logger = None):
+    def get_prop_dic(self, prefix: str = None, global_log: logging.Logger = None) -> dict:
         """get_prop_dic() returns the properties dictionary where keys are the
         step names in the configuration YAML file and every value contains another
         nested dictionary containing the keys and values of each step properties section.
@@ -178,7 +178,7 @@ class ConfReader:
 
         return prop_dic
 
-    def get_paths_dic(self, prefix: str = None):
+    def get_paths_dic(self, prefix: str = None) -> dict:
         """get_paths_dic() returns the paths dictionary where keys are the
         step names in the configuration YAML file and every value contains another
         nested dictionary containing the keys and values of each step paths section.
@@ -194,7 +194,6 @@ class ConfReader:
         """
         prop_dic = dict()
         prefix = '' if prefix is None else prefix.strip()
-        step = False
         # Filtering just paths
         # Properties without step name
         if 'paths' in self.properties:
@@ -229,7 +228,7 @@ class ConfReader:
                 for key2, value in prop_dic[key].items():
                     if isinstance(value, str) and value.startswith('dependency'):
                         while isinstance(value, str) and value.startswith('dependency'):
-                            dependency_step=value.split('/')[1]
+                            dependency_step = value.split('/')[1]
                             value = prop_dic[value.split('/')[1]][value.split('/')[2]]
                         if self.properties.get(self.system):
                             prop_dic[key][key2] = str(Path(self.properties[self.system]['working_dir_path']).joinpath(prefix, dependency_step, value))

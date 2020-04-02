@@ -4,13 +4,16 @@
 import os
 import subprocess
 from biobb_common.tools import file_utils as fu
+import typing
+import logging
 
 
 class CmdWrapper:
     """Command line wrapper using subprocess library
     """
 
-    def __init__(self, cmd, out_log=None, err_log=None, global_log=None, env=None):
+    def __init__(self, cmd: typing.Sequence[str], out_log: logging.Logger = None, err_log: logging.Logger = None,
+                 global_log: logging.Logger = None, env: typing.MutableMapping = None) -> None:
 
         self.cmd = cmd
         self.out_log = out_log
@@ -18,7 +21,7 @@ class CmdWrapper:
         self.global_log = global_log
         self.env = env
 
-    def launch(self):
+    def launch(self) -> int:
         cmd = " ".join(self.cmd)
         if self.out_log is None:
             print('')
