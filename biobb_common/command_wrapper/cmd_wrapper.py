@@ -12,7 +12,7 @@ class CmdWrapper:
     """Command line wrapper using subprocess library
     """
 
-    def __init__(self, cmd: typing.Sequence[str], out_log: logging.Logger = None, err_log: logging.Logger = None,
+    def __init__(self, cmd: typing.Iterable[str], out_log: logging.Logger = None, err_log: logging.Logger = None,
                  global_log: logging.Logger = None, env: typing.MutableMapping = None) -> None:
 
         self.cmd = cmd

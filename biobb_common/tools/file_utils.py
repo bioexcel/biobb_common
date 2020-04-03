@@ -89,7 +89,7 @@ def get_working_dir_path(working_dir_path: str = None, restart: bool = False) ->
     return str(working_dir_path)
 
 
-def zip_list(zip_file: str, file_list: typing.Sequence[str], out_log: logging.Logger = None):
+def zip_list(zip_file: str, file_list: typing.Iterable[str], out_log: logging.Logger = None):
     """ Compress all files listed in **file_list** into **zip_file** zip file.
 
     Args:
@@ -401,14 +401,14 @@ def rm(file_name: str) -> str:
     return None
 
 
-def rm_file_list(file_list: typing.Sequence[str], out_log: logging.Logger = None) -> typing.List[str]:
+def rm_file_list(file_list: typing.Iterable[str], out_log: logging.Logger = None) -> typing.List[str]:
     removed_files = [f for f in file_list if rm(f)]
     if out_log:
         log('Removed: %s' % str(removed_files), out_log)
     return removed_files
 
 
-def check_complete_files(output_file_list: typing.Sequence[str]) -> bool:
+def check_complete_files(output_file_list: typing.Iterable[str]) -> bool:
     for output_file in filter(None, output_file_list):
         if not (Path(output_file).is_file() and Path(output_file).stat().st_size > 0):
             return False
@@ -448,7 +448,7 @@ def copy_to_host(container_path: str, container_io_dict: dict, io_dict: dict):
                 shutil.copy2(container_file_path, io_dict["out"][file_ref])
 
 
-def create_cmd_line(cmd: typing.Sequence[str], container_path: str = '', host_volume: str = None,
+def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_volume: str = None,
                     container_volume: str = None, container_working_dir: str = None,
                     container_user_uid: str = None, container_shell_path: str = None,
                     container_image: str = None, out_log: logging.Logger = None,
