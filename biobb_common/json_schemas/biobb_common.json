@@ -1,6 +1,6 @@
 {
     "_id": "biobb_common",
-    "desc": "Biobb_common is the base package required to use the biobb packages.",
+    "desc": "Biobb_common is the base package required to use the biobb packages",
     "github": "https://github.com/bioexcel/biobb_common",
     "readthedocs": "https://biobb-common.readthedocs.io/en/latest/",
     "conda": "https://anaconda.org/bioconda/biobb_common",
