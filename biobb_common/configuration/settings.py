@@ -37,6 +37,26 @@ import logging
 from pathlib import Path
 from biobb_common.tools import file_utils as fu
 
+GALAXY_CHARACTER_MAP = {                       
+        '__gt__':'>',                          
+        '__lt__': '<',                         
+        '__sq__': "'",                         
+        '__dq__': '"',                         
+        '__ob__': '[',                         
+        '__cb__': ']',                         
+        '__oc__': '{',  
+        '__cc__': '}',  
+        '__cn__': '\n',
+        '__cr__': '\r',
+        '__tc__': '\t',
+        '__pd__': '#'  
+}                      
+                       
+def trans_galaxy_charmap(input_str):
+    '''Fixes escape characters introduced by Galaxy on Json inputs'''
+    for ch in GALAXY_CHARACTER_MAP:
+        input_str = input_str.replace(ch, GALAXY_CHARACTER_MAP[ch])
+    return input_str
 
 class ConfReader:
     """Configuration file loader for yaml format files.
@@ -66,7 +86,7 @@ class ConfReader:
                 else:
                     return json.load(stream)
         except:
-            return json.loads(self.config)
+            return json.loads(trans_galaxy_charmap(self.config))
 
     def get_working_dir_path(self) -> str:
         if self.system:
