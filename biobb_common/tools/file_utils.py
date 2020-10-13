@@ -29,13 +29,14 @@ def create_dir(dir_path: str) -> str:
     return str(Path(dir_path))
 
 
-def create_unique_dir(prefix: str = '', number_attempts: int = 10, out_log: logging.Logger = None) -> str:
+def create_unique_dir(path: str = '', prefix: str = '', number_attempts: int = 10, out_log: logging.Logger = None, ) -> str:
     """Create a directory with a prefix + computed unique name. If the
     computed name collides with an existing file name it attemps
     **number_attempts** times to create another unique id and create
     the directory with the new name.
 
     Args:
+        path (str): ('') Parent path of the new directory.
         prefix (str): ('') String to be added before the computed unique dir name.
         number_attempts (int): (10) number of times creating the directory if there's a name conflict.
         out_log (logger): (None) Python logger object.
@@ -43,22 +44,26 @@ def create_unique_dir(prefix: str = '', number_attempts: int = 10, out_log: logg
     Returns:
         str: Directory dir path.
     """
-    name = prefix + str(uuid.uuid4())
+    new_dir = prefix + str(uuid.uuid4())
+    if path:
+        new_dir = str(Path(path).joinpath(new_dir))
     for i in range(number_attempts):
         try:
             oldumask = os.umask(0)
-            Path(name).mkdir(mode=0o777, parents=True, exist_ok=False)
+            Path(new_dir).mkdir(mode=0o777, parents=True, exist_ok=False)
             if out_log:
-                out_log.info('%s directory successfully created' % name)
+                out_log.info('%s directory successfully created' % new_dir)
             os.umask(oldumask)
-            return name
+            return new_dir
         except OSError:
             if out_log:
-                out_log.info(name + ' Already exists')
+                out_log.info(new_dir + ' Already exists')
                 out_log.info('Retrying %i times more' % (number_attempts - i))
-            name = prefix + str(uuid.uuid4())
+            new_dir = prefix + str(uuid.uuid4())
+            if path:
+                new_dir = str(Path(path).joinpath(new_dir))
             if out_log:
-                out_log.info('Trying with: ' + name)
+                out_log.info('Trying with: ' + new_dir)
     raise FileExistsError
 
 
@@ -482,7 +487,7 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
 
     elif container_path.endswith('docker'):
         log('Using Docker image %s' % container_image, out_log, global_log)
-        docker_cmd = [container_path, 'run',]
+        docker_cmd = [container_path, 'run']
         if container_working_dir:
             docker_cmd.append('-w')
             docker_cmd.append(container_working_dir)
@@ -498,6 +503,24 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
         cmd = ['"' + " ".join(cmd) + '"']
         docker_cmd.extend([container_shell_path, '-c'])
         return docker_cmd + cmd
+
+    elif container_path.endswith('pcocc'):
+        # pcocc run -I racov56:pmx cli.py mutate -h
+        log('Using pcocc image %s' % container_image, out_log, global_log)
+        pcocc_cmd = [container_path, 'run', '-I', container_image]
+        if container_working_dir:
+            pcocc_cmd.append('--cwd')
+            pcocc_cmd.append(container_working_dir)
+        if container_volume:
+            pcocc_cmd.append('--mount')
+            pcocc_cmd.append(host_volume + ':' + container_volume)
+        if container_user_uid:
+            pcocc_cmd.append('--user')
+            pcocc_cmd.append(container_user_uid)
+
+        cmd = ['\\"' + " ".join(cmd) + '\\"']
+        pcocc_cmd.extend([container_shell_path, '-c'])
+        return pcocc_cmd + cmd
 
     else:
         log('Not using any container', out_log, global_log)
