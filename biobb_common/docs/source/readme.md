@@ -17,7 +17,7 @@ The latest documentation of this package can be found in our readthedocs site:
 [latest API documentation](http://biobb_common.readthedocs.io/en/latest/).
 
 ### Version
-v3.0.1 2020.2
+v3.0.1 2020.3
 
 ### Copyright & Licensing
 This software has been developed in the [MMB group](http://mmb.irbbarcelona.org) at the [BSC](http://www.bsc.es/) & [IRB](https://www.irbbarcelona.org/) for the [European BioExcel](http://bioexcel.eu/), funded by the European Commission (EU H2020 [823830](http://cordis.europa.eu/projects/823830), EU H2020 [675728](http://cordis.europa.eu/projects/675728)).
