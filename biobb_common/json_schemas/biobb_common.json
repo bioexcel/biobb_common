@@ -6,7 +6,7 @@
     "conda": "https://anaconda.org/bioconda/biobb_common",
     "docker": "https://quay.io/repository/biocontainers/biobb_common",
     "singularity": "https://www.singularity-hub.org/collections/2734/usage",
-    "version": "3.0.1",
+    "version": "3.5.0",
     "tools" : [
         {
             "block" : "",
