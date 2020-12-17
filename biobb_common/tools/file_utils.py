@@ -420,7 +420,8 @@ def check_complete_files(output_file_list: typing.Iterable[str]) -> bool:
     return True
 
 
-def copy_to_container(container_path: str, container_volume_path: str, io_dict: dict) -> dict:
+def copy_to_container(container_path: str, container_volume_path: str, io_dict: typing.Mapping,
+                      out_log: logging.Logger = None) -> dict:
     if not container_path:
         return io_dict
 
@@ -430,7 +431,10 @@ def copy_to_container(container_path: str, container_volume_path: str, io_dict: 
     # IN files COPY and assign INTERNAL PATH
     for file_ref, file_path in io_dict["in"].items():
         if file_path:
-            shutil.copy2(file_path, unique_dir)
+            if Path(file_path).exists():
+                shutil.copy2(file_path, unique_dir)
+                log(f'Copy: {file_path} to {unique_dir}')
+            # Default files in GMXLIB path
             container_io_dict["in"][file_ref] = str(Path(container_volume_path).joinpath(Path(file_path).name))
 
     # OUT files assign INTERNAL PATH
