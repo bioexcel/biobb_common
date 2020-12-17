@@ -18,7 +18,7 @@ setuptools.setup(
         "Bioexcel": "https://bioexcel.eu/"
     },
     packages=setuptools.find_packages(exclude=['docs']),
-    install_requires=['pyyaml', 'requests', 'biopython==1.76'],
+    install_requires=['pyyaml', 'requests', 'biopython==1.78'],
     python_requires='==3.7.*',
     classifiers=(
         "Development Status :: 3 - Alpha",
