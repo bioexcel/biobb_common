@@ -6,6 +6,7 @@ import sys
 import shutil
 import hashlib
 import Bio.PDB
+import codecs
 from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
 
@@ -185,9 +186,9 @@ def compare_top_itp(file_a: str, file_b: str) -> bool:
     print("Comparing TOP/ITP:")
     print("     FILE_A: "+file_a)
     print("     FILE_B: "+file_b)
-    with open(file_a) as f_a:
+    with codecs.open(file_a, 'r', encoding='utf-8', errors='ignore') as f_a:
         next(f_a)
-        with open(file_b) as f_b:
+        with codecs.open(file_b, 'r', encoding='utf-8', errors='ignore') as f_b:
             next(f_b)
             return [line.strip() for line in f_a if not line.strip().startswith(';')] == [line.strip() for line in f_b if not line.strip().startswith(';')]
 

@@ -59,7 +59,7 @@ def create_unique_dir(path: str = '', prefix: str = '', number_attempts: int = 1
             if out_log:
                 out_log.info(new_dir + ' Already exists')
                 out_log.info('Retrying %i times more' % (number_attempts - i))
-            new_dir = prefix + str(uuid.uuid4())
+            new_dir = prefix + str(uuid.uuid4().hex)
             if path:
                 new_dir = str(Path(path).joinpath(new_dir))
             if out_log:
@@ -434,8 +434,10 @@ def copy_to_container(container_path: str, container_volume_path: str, io_dict: 
             if Path(file_path).exists():
                 shutil.copy2(file_path, unique_dir)
                 log(f'Copy: {file_path} to {unique_dir}')
-            # Default files in GMXLIB path
-            container_io_dict["in"][file_ref] = str(Path(container_volume_path).joinpath(Path(file_path).name))
+                container_io_dict["in"][file_ref] = str(Path(container_volume_path).joinpath(Path(file_path).name))
+            else:
+                # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
+                container_io_dict["in"][file_ref] = file_path
 
     # OUT files assign INTERNAL PATH
     for file_ref, file_path in io_dict["out"].items():
@@ -466,7 +468,7 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
     if container_path.endswith('singularity'):
         log('Using Singularity image %s' % container_image, out_log, global_log)
         if not Path(container_image).exists():
-            log(f"{container_image} does not exist trying to pull it")
+            log(f"{container_image} does not exist trying to pull it", out_log, global_log)
             container_image_name = str(Path(container_image).with_suffix('.sif').name)
             singularity_pull_cmd = [container_path, 'pull', '--name', container_image_name, container_image]
             try:
@@ -475,10 +477,10 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
                 if Path(container_image_name).exists():
                     container_image = container_image_name
                 else:
-                    raise
+                    raise FileNotFoundError
             except:
-                log(f"{' '.join(singularity_pull_cmd)} not found")
-                raise
+                log(f"{' '.join(singularity_pull_cmd)} not found", out_log, global_log)
+                raise FileNotFoundError
         singularity_cmd = [container_path, 'exec', '-e', '--bind', host_volume + ':' + container_volume, container_image]
         # If we are working on a mac remove -e option because is still no available
         if platform == "darwin":
