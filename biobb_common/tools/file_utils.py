@@ -13,6 +13,7 @@ import zipfile
 from sys import platform
 from pathlib import Path
 import typing
+import sys
 
 
 def create_dir(dir_path: str) -> str:
@@ -273,7 +274,7 @@ def get_logs(path: str = None, prefix: str = None, step: str = None, can_write_c
         err_Logger.addHandler(err_fileHandler)
 
     # Create consoleHandler
-    consoleHandler = logging.StreamHandler()
+    consoleHandler = logging.StreamHandler(stream=sys.stdout)
     # Assign format to consoleHandler
     consoleHandler.setFormatter(logFormatter)
 
