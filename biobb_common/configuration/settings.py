@@ -23,12 +23,12 @@ Available common step properties: (Each Biobb step also has their specific prope
     - **remove_tmp** (*bool*) - (True) Overwrite **remove_tmp** workflow property on this step.
 
 Available common step properties for containerized applications:
-    - **container_path** (*string*) - (None)  Path to the binary executable of your container.
-    - **container_image** (*string*) - (None) Container Image identifier.
-    - **container_volume_path** (*string*) - (None) Path to an internal directory in the container.
-    - **container_working_dir** (*string*) - (None) Path to the internal CWD in the container.
-    - **container_user_id** (*string*) - (None) User number id to be mapped inside the container.
-    - **container_shell_path** (*string*) - ("/bin/bash") Path to the binary executable of the container shell.
+    - **container_path** (*str*) - (None)  Path to the binary executable of your container.
+    - **container_image** (*str*) - (None) Container Image identifier.
+    - **container_volume_path** (*str*) - (None) Path to an internal directory in the container.
+    - **container_working_dir** (*str*) - (None) Path to the internal CWD in the container.
+    - **container_user_id** (*str*) - (None) User number id to be mapped inside the container.
+    - **container_shell_path** (*str*) - ("/bin/bash") Path to the binary executable of the container shell.
 """
 
 import yaml
@@ -38,7 +38,7 @@ from pathlib import Path
 from biobb_common.tools import file_utils as fu
 
 GALAXY_CHARACTER_MAP = {                       
-        '__gt__':'>',                          
+        '__gt__': '>',
         '__lt__': '<',                         
         '__sq__': "'",                         
         '__dq__': '"',                         

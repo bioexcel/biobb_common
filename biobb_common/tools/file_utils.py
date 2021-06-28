@@ -14,6 +14,7 @@ from sys import platform
 from pathlib import Path
 import typing
 import sys
+import validators
 
 
 def create_dir(dir_path: str) -> str:
@@ -420,9 +421,26 @@ def check_complete_files(output_file_list: typing.Iterable[str]) -> bool:
             return False
     return True
 
+def stage_files(execution_binary_or_url: str,
+                remote_volume_path: str,
+                io_dict: typing.Mapping,
+                out_log: logging.Logger = None) -> dict:
+
+    # Local execution
+    if not execution_binary_or_url or binary_or_url.endswith("local"):
+        log("Local execution, the input and output paths will remain unchanged", out_log)
+        return io_dict
+    # API execution
+    elif validators.url(execution_binary_or_url):
+        log(f"API execution, URL:{execution_binary_or_url} the input and output paths will remain unchanged", out_log)
+        return io_dict
+    # Docker or Singularity
+    elif  
 
 def copy_to_container(container_path: str, container_volume_path: str, io_dict: typing.Mapping,
                       out_log: logging.Logger = None) -> dict:
+    warnings.warn("copy_to_container() function is deprecated please use stage_files() instead.", DeprecationWarning)
+
     if not container_path:
         return io_dict
 
