@@ -26,6 +26,8 @@ class CmdWrapper:
         if self.out_log is None:
             print('')
             print("cmd_wrapper commnand print: " + cmd)
+        else:
+            self.out_log.info(cmd + '\n')
 
         new_env = self.env if self.env else os.environ.copy()
         process = subprocess.Popen(cmd,
@@ -42,7 +44,6 @@ class CmdWrapper:
 
         # Write output to log
         if self.out_log is not None:
-            self.out_log.info(cmd+'\n')
             self.out_log.info("Exit code {}".format(process.returncode)+'\n')
             if out:
                 self.out_log.info(out.decode("utf-8"))
