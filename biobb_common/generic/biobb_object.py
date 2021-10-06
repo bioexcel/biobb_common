@@ -39,7 +39,9 @@ class BiobbObject:
         self.container_working_dir = properties.get('container_working_dir')
         self.container_user_id = properties.get('container_user_id')
         self.container_shell_path = properties.get('container_shell_path', '/bin/bash')
-        self.container_io_dict = { "in": {}, "out": {} }
+
+        # stage
+        self.stage_io_dict = { "in": {}, "out": {} }
 
         # Properties common in all BB
         self.can_write_console_log = properties.get('can_write_console_log', True)
@@ -70,15 +72,15 @@ class BiobbObject:
 
     def check_restart(self) -> bool:
         if self.restart:
-           if fu.check_complete_files(output_file_list):
+           if fu.check_complete_files(self.io_dict["out"].values()):
                fu.log('Restart is enabled, this step: %s will the skipped' % self.step, self.out_log, self.global_log)
                return True
         return False
 
-    def copy_to_container(self):
+    def stage_files(self):
         if self.container_path:
             unique_dir = str(Path(fu.create_unique_dir()).resolve())
-            self.container_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
+            self.stage_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
 
             # IN files COPY and assign INTERNAL PATH
             for file_ref, file_path in self.io_dict["in"].items():
@@ -86,21 +88,21 @@ class BiobbObject:
                     if Path(file_path).exists():
                         shutil.copy2(file_path, unique_dir)
                         fu.log(f'Copy: {file_path} to {unique_dir}', self.out_log)
-                        self.container_io_dict["in"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+                        self.stage_io_dict["in"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
                     else:
                         # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
-                        self.container_io_dict["in"][file_ref] = file_path
+                        self.stage_io_dict["in"][file_ref] = file_path
 
             # OUT files assign INTERNAL PATH
             for file_ref, file_path in self.io_dict["out"].items():
                 if file_path:
-                    self.container_io_dict["out"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+                    self.stage_io_dict["out"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
         else:
-            self.container_io_dict = self.io_dict
+            self.stage_io_dict = self.io_dict
 
     def create_cmd_line(self):
         self.container_path = self.container_path or ''
-        host_volume = self.container_io_dict.get("unique_dir")
+        host_volume = self.stage_io_dict.get("unique_dir")
         if self.container_path.endswith('singularity'):
             fu.log('Using Singularity image %s' % self.container_image, self.out_log, self.global_log)
             if not Path(container_image).exists():
@@ -163,7 +165,7 @@ class BiobbObject:
                 pcocc_cmd.append(self.container_user_id)
 
             cmd = ['\\"' + " ".join(self.cmd) + '\\"']
-            pcocc_cmd.extend([container_shell_path, '-c'])
+            pcocc_cmd.extend([self.container_shell_path, '-c'])
             self.cmd = pcocc_cmd + cmd
 
         else:
@@ -177,11 +179,16 @@ class BiobbObject:
             return
 
         # OUT files COPY
-        for file_ref, file_path in self.container_io_dict["out"].items():
+        for file_ref, file_path in self.stage_io_dict["out"].items():
             if file_path:
-                container_file_path = str(Path(self.container_io_dict["unique_dir"]).joinpath(Path(file_path).name))
+                container_file_path = str(Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name))
                 if Path(container_file_path).exists():
                     shutil.copy2(container_file_path, self.io_dict["out"][file_ref])
+
+
+    def run_biobb(self):
+        self.create_cmd_line()
+        self.execute_command()
 
     def remove_tmp_files(self):
         if self.remove_tmp:
