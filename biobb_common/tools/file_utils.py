@@ -90,7 +90,7 @@ def get_working_dir_path(working_dir_path: str = None, restart: bool = False) ->
 
     cont = 1
     while Path(working_dir_path).exists():
-        working_dir_path = str(working_dir_path).rstrip('\\/0123456789_') + '_' + str(cont)
+        working_dir_path = re.split(r"_[0-9]+$", str(working_dir_path))[0] + '_' + str(cont)
         cont += 1
     return str(working_dir_path)
 
