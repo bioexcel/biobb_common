@@ -2,11 +2,11 @@
 import difflib
 import warnings
 from pathlib import Path
+from sys import platform
 import shutil
-from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
-from biobb_common.tools.file_utils import launchlogger
 from biobb_common.command_wrapper import cmd_wrapper
+
 
 class BiobbObject:
     """
@@ -30,7 +30,7 @@ class BiobbObject:
         properties = properties or {}
 
         # Input/Output files
-        self.io_dict = { "in": {}, "out": {} }
+        self.io_dict = {"in": {}, "out": {}}
 
         # container Specific
         self.container_path = properties.get('container_path')
@@ -41,7 +41,7 @@ class BiobbObject:
         self.container_shell_path = properties.get('container_shell_path', '/bin/bash')
 
         # stage
-        self.stage_io_dict = { "in": {}, "out": {} }
+        self.stage_io_dict = {"in": {}, "out": {}}
 
         # Properties common in all BB
         self.can_write_console_log = properties.get('can_write_console_log', True)
@@ -72,9 +72,9 @@ class BiobbObject:
 
     def check_restart(self) -> bool:
         if self.restart:
-           if fu.check_complete_files(self.io_dict["out"].values()):
-               fu.log('Restart is enabled, this step: %s will the skipped' % self.step, self.out_log, self.global_log)
-               return True
+            if fu.check_complete_files(self.io_dict["out"].values()):
+                fu.log('Restart is enabled, this step: %s will the skipped' % self.step, self.out_log, self.global_log)
+                return True
         return False
 
     def stage_files(self):
@@ -101,12 +101,14 @@ class BiobbObject:
             self.stage_io_dict = self.io_dict
 
     def create_cmd_line(self):
+        if not self.cmd:
+            fu.log("WARNING: The command-line is empty there is nothing to run!", self.out_log, self.global_log)
         self.container_path = self.container_path or ''
         host_volume = self.stage_io_dict.get("unique_dir")
         if self.container_path.endswith('singularity'):
             fu.log('Using Singularity image %s' % self.container_image, self.out_log, self.global_log)
-            if not Path(container_image).exists():
-                fu.log(f"{container_image} does not exist trying to pull it", self.out_log, self.global_log)
+            if not Path(self.container_image).exists():
+                fu.log(f"{self.container_image} does not exist trying to pull it", self.out_log, self.global_log)
                 container_image_name = str(Path(self.container_image).with_suffix('.sif').name)
                 singularity_pull_cmd = [self.container_path, 'pull', '--name', container_image_name, self.container_image]
                 try:
@@ -128,7 +130,7 @@ class BiobbObject:
                     singularity_cmd.remove('-e')
 
             cmd = ['"' + " ".join(self.cmd) + '"']
-            singularity_cmd.extend([container_shell_path, '-c'])
+            singularity_cmd.extend([self.container_shell_path, '-c'])
             self.cmd = singularity_cmd + cmd
 
         elif self.container_path.endswith('docker'):

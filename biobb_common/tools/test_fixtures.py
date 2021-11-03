@@ -91,13 +91,13 @@ def compare_hash(file_a: str, file_b: str) -> bool:
     return file_a_hash == file_b_hash
 
 
-def equal(file_a: str, file_b: str) -> bool:
+def equal(file_a: str, file_b: str, **kwargs) -> bool:
     """Check if two files are equal"""
     if file_a.endswith(".zip") and file_b.endswith(".zip"):
         return compare_zip(file_a, file_b)
 
     if file_a.endswith(".pdb") and file_b.endswith(".pdb"):
-        return compare_pdb(file_a, file_b)
+        return compare_pdb(file_a, file_b, **kwargs)
 
     if file_a.endswith(".top") and file_b.endswith(".top"):
         return compare_top_itp(file_a, file_b)
@@ -147,7 +147,7 @@ def compare_zip(zip_a: str, zip_b: str) -> bool:
     return True
 
 
-def compare_pdb(pdb_a: str, pdb_b: str, rmsd_cutoff: int = 1, remove_hetatm: bool = True, remove_hydrogen: bool = True):
+def compare_pdb(pdb_a: str, pdb_b: str, rmsd_cutoff: int = 1, remove_hetatm: bool = True, remove_hydrogen: bool = True, **kwargs):
     """ Compare pdb files """
     print("Checking RMSD between:")
     print("     PDB_A: "+pdb_a)
