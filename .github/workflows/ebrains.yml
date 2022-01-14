@@ -19,7 +19,7 @@ jobs:
         # the destination_repo format is
         # https://gitlab_service_account_name:${{ secrets.EBRAINS_GITLAB_ACCESS_TOKEN }}@gitlab.ebrains.eu/name_of_mirror.git
         with:
-          source_repo: https://github.com/bioexcel/biobb_common
+          source_repo: "https://github.com/bioexcel/biobb_common"
           source_branch: "master"
           destination_repo: "https://ghpusher:${{ secrets.EBRAINS_GITLAB_ACCESS_TOKEN }}@gitlab.ebrains.eu/technical-coordination/members-testing/sample-mirror.git"
           destination_branch: "master"
