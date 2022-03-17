@@ -76,10 +76,11 @@ class BiobbObject:
             close_property = close_property[0] if close_property else ""
             warnings.warn("Warning: %s is not a recognized property. The most similar property is: %s" % (
                 error_property, close_property))
+
+    def check_restart(self) -> bool:
         if self.version:
             fu.log(f"Executing {self.__module__} Version: {self.version}", self.out_log, self.global_log)
 
-    def check_restart(self) -> bool:
         if self.restart:
             if fu.check_complete_files(self.io_dict["out"].values()):
                 fu.log('Restart is enabled, this step: %s will the skipped' % self.step, self.out_log, self.global_log)
