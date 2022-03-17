@@ -1,4 +1,5 @@
 """Module containing the BiobbObject generic parent class."""
+import importlib
 import difflib
 import warnings
 from pathlib import Path
@@ -43,7 +44,9 @@ class BiobbObject:
         # stage
         self.stage_io_dict = {"in": {}, "out": {}}
 
+
         # Properties common in all BB
+        self.binary_path = properties.get('binary_path')
         self.can_write_console_log = properties.get('can_write_console_log', True)
         self.global_log = properties.get('global_log', None)
         self.out_log = None
@@ -57,6 +60,10 @@ class BiobbObject:
         self.environment = None
         self.return_code = None
         self.tmp_files = []
+        try:
+            self.version = importlib.import_module(self.__module__.split('.')[0]).__version__
+        except:
+            self.version = None
 
     def check_properties(self, properties: dict, reserved_properties: dict = None):
         if not reserved_properties:
@@ -69,6 +76,8 @@ class BiobbObject:
             close_property = close_property[0] if close_property else ""
             warnings.warn("Warning: %s is not a recognized property. The most similar property is: %s" % (
                 error_property, close_property))
+        if self.version:
+            fu.log(f"Executing {self.__module__} Version: {self.version}", self.out_log, self.global_log)
 
     def check_restart(self) -> bool:
         if self.restart:

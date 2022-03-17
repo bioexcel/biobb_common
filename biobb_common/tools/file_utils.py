@@ -15,6 +15,17 @@ from pathlib import Path
 import typing
 import sys
 
+def create_unique_file_path(parent_dir: str = None, extension: str = None) -> str:
+    if not parent_dir:
+        parent_dir = Path.cwd
+    if not extension:
+        extension = ''
+    while True:
+        name = str(uuid.uuid4())+extension
+        file_path = Path.joinpath(Path(parent_dir).resolve(), name)
+        if not file_path.exists():
+            return str(file_path)
+
 
 def create_dir(dir_path: str) -> str:
     """Returns the directory **dir_path** and create it if path does not exist.
