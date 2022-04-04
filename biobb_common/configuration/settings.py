@@ -78,15 +78,23 @@ class ConfReader:
             self.properties['working_dir_path'] = fu.get_working_dir_path(self.properties.get('working_dir_path'), restart=self.properties.get('restart', False))
 
     def _read_config(self):
+        file_name_elements = str(self.config).split('#')
+        self.config = file_name_elements[0]
+        step = None
+        if len(file_name_elements) > 1:
+            step = file_name_elements[1]
         try:
             config_file = str(Path(self.config).resolve())
             with open(config_file) as stream:
                 if config_file.lower().endswith((".yaml",".yml")):
-                    return yaml.safe_load(stream)
+                    config_dict = yaml.safe_load(stream)
                 else:
-                    return json.load(stream)
+                    config_dict = json.load(stream)
         except:
-            return json.loads(trans_galaxy_charmap(self.config))
+            config_dict = json.loads(trans_galaxy_charmap(self.config))
+        if step:
+            return config_dict[step]
+        return config_dict
 
     def get_working_dir_path(self) -> str:
         if self.system:

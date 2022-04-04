@@ -15,6 +15,7 @@ from pathlib import Path
 import typing
 import sys
 
+
 def create_unique_file_path(parent_dir: str = None, extension: str = None) -> str:
     if not parent_dir:
         parent_dir = Path.cwd
