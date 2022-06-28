@@ -39,7 +39,7 @@ class BiobbObject:
         self.container_volume_path = properties.get('container_volume_path', '/data')
         self.container_working_dir = properties.get('container_working_dir')
         self.container_user_id = properties.get('container_user_id')
-        self.container_shell_path = properties.get('container_shell_path', '/bin/bash')
+        self.container_shell_path = properties.get('container_shell_path', '/bin/bash -c')
 
         # stage
         self.stage_io_dict = {"in": {}, "out": {}}
@@ -111,8 +111,6 @@ class BiobbObject:
             self.stage_io_dict = self.io_dict
 
     def create_cmd_line(self):
-        if not self.cmd:
-            fu.log("WARNING: The command-line is empty there is nothing to run!", self.out_log, self.global_log)
         self.container_path = self.container_path or ''
         host_volume = self.stage_io_dict.get("unique_dir")
         if self.container_path.endswith('singularity'):
@@ -139,9 +137,12 @@ class BiobbObject:
                 if '-e' in singularity_cmd:
                     singularity_cmd.remove('-e')
 
-            cmd = ['"' + " ".join(self.cmd) + '"']
-            singularity_cmd.extend([self.container_shell_path, '-c'])
-            self.cmd = singularity_cmd + cmd
+            if not self.cmd and not self.container_shell_path:
+                fu.log("WARNING: The command-line is empty your container should know what to do automatically.", self.out_log, self.global_log)
+                cmd = ['"' + " ".join(self.cmd) + '"']
+                singularity_cmd.append(self.container_shell_path)
+                singularity_cmd.extend(cmd)
+            self.cmd = singularity_cmd
 
         elif self.container_path.endswith('docker'):
             fu.log('Using Docker image %s' % self.container_image, self.out_log, self.global_log)
@@ -158,9 +159,12 @@ class BiobbObject:
 
             docker_cmd.append(self.container_image)
 
-            cmd = ['"' + " ".join(self.cmd) + '"']
-            docker_cmd.extend([self.container_shell_path, '-c'])
-            self.cmd = docker_cmd + cmd
+            if not self.cmd and not self.container_shell_path:
+                fu.log("WARNING: The command-line is empty your container should know what to do automatically.", self.out_log, self.global_log)
+                cmd = ['"' + " ".join(self.cmd) + '"']
+                docker_cmd.append(self.container_shell_path)
+                docker_cmd.extend(cmd)
+            self.cmd = docker_cmd
 
         elif self.container_path.endswith('pcocc'):
             # pcocc run -I racov56:pmx cli.py mutate -h
