@@ -17,6 +17,7 @@ class BiobbObject:
 
     Args:
         properties (dict - Python dictionary object containing the tool parameters, not input/output files):
+            * **dev** (*str*) - (None) Adding additional options to command line.
             * **remove_tmp** (*bool*) - (True) [WF property] Remove temporal files.
             * **restart** (*bool*) - (False) [WF property] Do not execute if output files exist.
             * **container_path** (*str*) - (None)  Path to the binary executable of your container.
@@ -60,6 +61,8 @@ class BiobbObject:
         self.environment = None
         self.return_code = None
         self.tmp_files = []
+        self.dev = properties.get('dev', None)
+
         try:
             self.version = importlib.import_module(self.__module__.split('.')[0]).__version__
         except:
@@ -111,6 +114,11 @@ class BiobbObject:
             self.stage_io_dict = self.io_dict
 
     def create_cmd_line(self):
+        # Not documented and not listed option, only for devs
+        if self.dev:
+            fu.log(f'Adding development options: {self.dev}', self.out_log, self.global_log)
+            self.cmd += self.dev.split()
+
         self.container_path = self.container_path or ''
         host_volume = self.stage_io_dict.get("unique_dir")
         if self.container_path.endswith('singularity'):
