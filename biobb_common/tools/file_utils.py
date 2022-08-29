@@ -542,5 +542,5 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
         return pcocc_cmd + cmd
 
     else:
-        log('Not using any container', out_log, global_log)
+        #log('Not using any container', out_log, global_log)
         return cmd

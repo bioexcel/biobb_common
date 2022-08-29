@@ -195,7 +195,8 @@ class BiobbObject:
             self.cmd = pcocc_cmd + cmd
 
         else:
-            fu.log('Not using any container', self.out_log, self.global_log)
+            pass
+            #fu.log('Not using any container', self.out_log, self.global_log)
 
     def execute_command(self):
         self.return_code = cmd_wrapper.CmdWrapper(self.cmd, self.out_log, self.err_log, self.global_log, self.environment).launch()
