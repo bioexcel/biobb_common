@@ -26,6 +26,7 @@ class BiobbObject:
             * **container_working_dir** (*str*) - (None) Path to the internal CWD in the container.
             * **container_user_id** (*str*) - (None) User number id to be mapped inside the container.
             * **container_shell_path** (*str*) - ("/bin/bash") Path to the binary executable of the container shell.
+            * **container_generic_command** (*str*) - ("run") Which command typically run or exec will be used to execute your image.
     """
 
     def __init__(self, properties: dict = None, **kwargs) -> None:
@@ -41,6 +42,7 @@ class BiobbObject:
         self.container_working_dir = properties.get('container_working_dir')
         self.container_user_id = properties.get('container_user_id')
         self.container_shell_path = properties.get('container_shell_path', '/bin/bash -c')
+        self.container_generic_command = properties.get('container_generic_command', 'run')
 
         # stage
         self.stage_io_dict = {"in": {}, "out": {}}
@@ -137,7 +139,7 @@ class BiobbObject:
                 except:
                     fu.log(f"{' '.join(singularity_pull_cmd)} not found", self.out_log, self.global_log)
                     raise FileNotFoundError
-            singularity_cmd = [self.container_path, 'exec', '-e', '--bind', host_volume + ':' + self.container_volume_path,
+            singularity_cmd = [self.container_path, self.container_generic_command, '-e', '--bind', host_volume + ':' + self.container_volume_path,
                                self.container_image]
 
             # If we are working on a mac remove -e option because is still no available
@@ -154,7 +156,7 @@ class BiobbObject:
 
         elif self.container_path.endswith('docker'):
             fu.log('Using Docker image %s' % self.container_image, self.out_log, self.global_log)
-            docker_cmd = [self.container_path, 'run']
+            docker_cmd = [self.container_path, self.container_generic_command]
             if self.container_working_dir:
                 docker_cmd.append('-w')
                 docker_cmd.append(self.container_working_dir)
@@ -177,7 +179,7 @@ class BiobbObject:
         elif self.container_path.endswith('pcocc'):
             # pcocc run -I racov56:pmx cli.py mutate -h
             fu.log('Using pcocc image %s' % self.container_image, self.out_log, self.global_log)
-            pcocc_cmd = [self.container_path, 'run', '-I', self.container_image]
+            pcocc_cmd = [self.container_path, self.container_generic_command, '-I', self.container_image]
             if self.container_working_dir:
                 pcocc_cmd.append('--cwd')
                 pcocc_cmd.append(self.container_working_dir)
