@@ -149,6 +149,7 @@ class BiobbObject:
 
             if not self.cmd and not self.container_shell_path:
                 fu.log("WARNING: The command-line is empty your container should know what to do automatically.", self.out_log, self.global_log)
+            else:
                 cmd = ['"' + " ".join(self.cmd) + '"']
                 singularity_cmd.append(self.container_shell_path)
                 singularity_cmd.extend(cmd)
@@ -171,6 +172,7 @@ class BiobbObject:
 
             if not self.cmd and not self.container_shell_path:
                 fu.log("WARNING: The command-line is empty your container should know what to do automatically.", self.out_log, self.global_log)
+            else:
                 cmd = ['"' + " ".join(self.cmd) + '"']
                 docker_cmd.append(self.container_shell_path)
                 docker_cmd.extend(cmd)
@@ -190,13 +192,17 @@ class BiobbObject:
                 pcocc_cmd.append('--user')
                 pcocc_cmd.append(self.container_user_id)
 
-            cmd = ['\\"' + " ".join(self.cmd) + '\\"']
-            pcocc_cmd.extend([self.container_shell_path, '-c'])
-            self.cmd = pcocc_cmd + cmd
+            if not self.cmd and not self.container_shell_path:
+                fu.log("WARNING: The command-line is empty your container should know what to do automatically.", self.out_log, self.global_log)
+            else:
+                cmd = ['\\"' + " ".join(self.cmd) + '\\"']
+                pcocc_cmd.extend([self.container_shell_path, '-c'])
+                pcocc_cmd.extend(cmd)
+            self.cmd = pcocc_cmd
 
         else:
             pass
-            #fu.log('Not using any container', self.out_log, self.global_log)
+            # fu.log('Not using any container', self.out_log, self.global_log)
 
     def execute_command(self):
         self.return_code = cmd_wrapper.CmdWrapper(self.cmd, self.out_log, self.err_log, self.global_log, self.environment).launch()
