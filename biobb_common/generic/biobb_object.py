@@ -25,7 +25,7 @@ class BiobbObject:
             * **container_volume_path** (*str*) - ("/data") Path to an internal directory in the container.
             * **container_working_dir** (*str*) - (None) Path to the internal CWD in the container.
             * **container_user_id** (*str*) - (None) User number id to be mapped inside the container.
-            * **container_shell_path** (*str*) - ("/bin/bash") Path to the binary executable of the container shell.
+            * **container_shell_path** (*str*) - ("/bin/bash -c") Path to the binary executable of the container shell.
             * **container_generic_command** (*str*) - ("run") Which command typically run or exec will be used to execute your image.
     """
 
@@ -196,7 +196,7 @@ class BiobbObject:
                 fu.log("WARNING: The command-line is empty your container should know what to do automatically.", self.out_log, self.global_log)
             else:
                 cmd = ['\\"' + " ".join(self.cmd) + '\\"']
-                pcocc_cmd.extend([self.container_shell_path, '-c'])
+                pcocc_cmd.append(self.container_shell_path)
                 pcocc_cmd.extend(cmd)
             self.cmd = pcocc_cmd
 
