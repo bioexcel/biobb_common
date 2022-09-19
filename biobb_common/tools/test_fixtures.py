@@ -20,7 +20,7 @@ def test_setup(test_object: object, dict_key: str = None, config: str = None):
         dict_key (str): Key of the test parameters in the yaml config file.
         config (str): Path to the configuration file.
     """
-    test_object.testfile_dir = str(Path(Path(sys.modules[test_object.__class__.__module__].__file__).resolve()).parent)
+    test_object.testfile_dir = str(Path(Path(sys.modules[test_object.__module__].__file__).resolve()).parent)
     test_object.unitest_dir = str(Path(test_object.testfile_dir).parent)
     test_object.test_dir = str(Path(test_object.unitest_dir).parent)
     test_object.data_dir = str(Path(test_object.test_dir).joinpath('data'))
@@ -50,8 +50,9 @@ def test_teardown(test_object: object):
     Args:
         test_object (:obj:`test`): The test object.
     """
-    print("Removing: %s" % test_object.properties['path'])
-    shutil.rmtree(test_object.properties['path'])
+    unitests_path = Path(test_object.properties['path']).resolve().parent
+    print(f"\nRemoving: {unitests_path}")
+    shutil.rmtree(unitests_path)
 
 
 def exe_success(return_code: int) -> bool:
