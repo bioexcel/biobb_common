@@ -153,7 +153,7 @@ def compare_pdb(pdb_a: str, pdb_b: str, rmsd_cutoff: int = 1, remove_hetatm: boo
     print("Checking RMSD between:")
     print("     PDB_A: "+pdb_a)
     print("     PDB_B: "+pdb_b)
-    pdb_parser = Bio.PDB.PDBParser(QUIET=True)
+    pdb_parser = Bio.PDB.PDBParser(PERMISSIVE=True, QUIET=True)
     st_a = pdb_parser.get_structure("st_a", pdb_a)[0]
     st_b = pdb_parser.get_structure("st_b", pdb_b)[0]
 
