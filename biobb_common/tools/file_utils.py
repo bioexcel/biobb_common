@@ -124,6 +124,7 @@ def zip_list(zip_file: str, file_list: typing.Iterable[str], out_log: logging.Lo
                 base_name = 'file_' + str(index) + '_' + base_name
             inserted.append(base_name)
             zip_f.write(f, arcname=base_name)
+            f.
     if out_log:
         out_log.info("Adding:")
         out_log.info(str(file_list))
@@ -181,7 +182,7 @@ def search_topology_files(top_file: str, out_log: logging.Logger = None) -> typi
     return file_list + [top_file]
 
 
-def zip_top(zip_file: str, top_file: str, out_log: logging.Logger = None) -> typing.List[str]:
+def zip_top(zip_file: str, top_file: str, out_log: logging.Logger = None, remove_original_files: bool = True) -> typing.List[str]:
     """ Compress all *.itp and *.top files in the cwd into **zip_file** zip file.
 
     Args:
@@ -195,6 +196,8 @@ def zip_top(zip_file: str, top_file: str, out_log: logging.Logger = None) -> typ
 
     file_list = search_topology_files(top_file, out_log)
     zip_list(zip_file, file_list, out_log)
+    if remove_original_files:
+        rm_file_list(file_list, out_log)
     return file_list
 
 
