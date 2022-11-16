@@ -4,6 +4,7 @@ import difflib
 import functools
 import logging
 import os
+import errno
 import pathlib
 import re
 import shutil
@@ -124,7 +125,6 @@ def zip_list(zip_file: str, file_list: typing.Iterable[str], out_log: logging.Lo
                 base_name = 'file_' + str(index) + '_' + base_name
             inserted.append(base_name)
             zip_f.write(f, arcname=base_name)
-            f.
     if out_log:
         out_log.info("Adding:")
         out_log.info(str(file_list))
@@ -547,3 +547,58 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
     else:
         #log('Not using any container', out_log, global_log)
         return cmd
+
+def get_doc_dicts(doc: str):
+    regex_argument = re.compile(r'(?P<argument>\w*)\ *(?:\()(?P<type>\w*)(?:\)):?\ *(?P<optional>\(\w*\):)?\ *(?P<description>.*?)(?:\.)\ *(?:File type:\ *)(?P<input_output>\w+)\.\ *(\`(?:.+)\<(?P<sample_file>.*?)\>\`\_\.)?\ *(?:Accepted formats:\ *)(?P<formats>.+)(?:\.)?')
+    regex_argument_formats = re.compile(r"(?P<extension>\w*)\ *(\(\ *)\ *edam\ *:\ *(?P<edam>\w*)")
+    regex_property = re.compile(r"(?:\*\ *\*\*)(?P<property>.*?)(?:\*\*)\ *(?:\(\*)(?P<type>\w*)(?:\*\))\ *\-\ ?(?:\()(?P<default_value>.*?)(?:\))\ *(?:(?:\[)(?P<wf_property>WF property)(?:\]))?\ *(?:(?:\[)(?P<range_start>[\-]?\d+(?:\.\d+)?)\~(?P<range_stop>[\-]?\d+(?:\.\d+)?)(?:\|)?(?P<range_step>\d+(?:\.\d+)?)?(?:\]))?\ *(?:(?:\[)(.*?)(?:\]))?\ *(?P<description>.*)")
+    regex_property_value = re.compile(r"(?P<value>\w*)\ *(?:(?:\()(?P<description>.*?)?(?:\)))?")
+
+    doc_lines = list(map(str.strip, filter(lambda line: line.strip(), doc.splitlines())))
+    args_index = doc_lines.index(next(filter(lambda line: line.lower().startswith('args'), doc_lines)))
+    properties_index = doc_lines.index(next(filter(lambda line: line.lower().startswith('properties'), doc_lines)))
+    examples_index = doc_lines.index(next(filter(lambda line: line.lower().startswith('examples'), doc_lines)))
+    arguments_lines_list = doc_lines[args_index+1:properties_index]
+    properties_lines_list = doc_lines[properties_index+1:examples_index]
+    
+
+    doc_arguments_dict = {}
+    for argument_line in arguments_lines_list:
+        argument_dict = regex_argument.match(argument_line).groupdict()
+        argument_dict['formats'] = {match.group('extension'): match.group('edam') for match in regex_argument_formats.finditer(argument_dict['formats'])}
+        doc_arguments_dict[argument_dict.pop("argument")]= argument_dict
+
+    doc_properties_dict = {}
+    for property_line in properties_lines_list:
+        property_dict = regex_property.match(property_line).groupdict()
+        property_dict['values'] = None
+        if "Values:" in property_dict['description']:
+            property_dict['description'], property_dict['values'] = property_dict['description'].split('Values:')
+            property_dict['values'] = {match.group('value'): match.group('description') for match in regex_property_value.finditer(property_dict['values']) if match.group('value')}
+        doc_properties_dict[property_dict.pop("property")]= property_dict
+
+    return doc_arguments_dict, doc_properties_dict
+
+def check_file_path(path: pathlib.Path, argument: str,  optional: bool, module_name: str, input_file: bool = True,
+                    extension_list: typing.List[str] = None, check_extensions: bool = True, out_log: logging.Logger = None) -> None:
+
+    if optional and not path:
+        return None
+
+    if input_file:
+        if not path.exists():
+            fu.log(f"Path {path} --- {module_name}: Unexisting {argument} file.", out_log)
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), f'{argument}')
+    else:
+        if path.parent.exists():
+            fu.log(f"Path {path.parent} --- {module_name}: Unexisting {argument} directory.", out_log)
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), f'{argument}')
+
+    if check_extension and extension_list:
+        if not path.suffix:
+            fu.log(f"{module_name} {argument}: {path} has no extension. If you want to suppress this message, please set the check_extensions property to False")
+            warnings.warn(f"{module_name} {argument}: {path} has no extension. If you want to suppress this message, please set the check_extensions property to False")
+        else:
+            if not path.suffix[1:].lower() in extension_list:
+                fu.log(f"{module_name} {argument}: {path} extension is not in the valid extensions list: {extensions_list}. If you want to suppress this message, please set the check_extensions property to False")
+                warnings.warn(f"{module_name} {argument}: {path} extension is not in the valid extensions list: {extensions_list}. If you want to suppress this message, please set the check_extensions property to False")

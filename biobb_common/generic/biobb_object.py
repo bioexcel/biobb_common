@@ -1,6 +1,7 @@
 """Module containing the BiobbObject generic parent class."""
 import importlib
 import difflib
+import typing
 import warnings
 from pathlib import Path
 from sys import platform
@@ -63,12 +64,22 @@ class BiobbObject:
         self.environment = None
         self.return_code = None
         self.tmp_files = []
+
         self.dev = properties.get('dev', None)
+        self.check_extensions = properties.get('check_extensions', True)
+        self.check_var_typing = properties.get('check_var_typing', True)
+        self.doc_arguments_dict, self.doc_properties_dict = fu.get_doc_dicts(self.__doc__)
 
         try:
             self.version = importlib.import_module(self.__module__.split('.')[0]).__version__
         except:
             self.version = None
+    # print(self.__module__)
+    # def check_paths(self):
+    #     self.__module__
+    #     self.check_extensions
+    #     self.out_log
+
 
     def check_properties(self, properties: dict, reserved_properties: dict = None):
         if not reserved_properties:
