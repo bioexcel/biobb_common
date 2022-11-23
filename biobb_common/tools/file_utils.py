@@ -19,7 +19,7 @@ import sys
 
 def create_unique_file_path(parent_dir: str = None, extension: str = None) -> str:
     if not parent_dir:
-        parent_dir = Path.cwd
+        parent_dir = Path.cwd()
     if not extension:
         extension = ''
     while True:
@@ -42,8 +42,16 @@ def create_dir(dir_path: str) -> str:
         Path(dir_path).mkdir(exist_ok=True, parents=True)
     return str(Path(dir_path))
 
+def create_stdin_file(intput_string: str) -> str:
+    file_path = create_unique_file_path(extension='.stdin')
+    with open(file_path, 'w') as file_handler:
+        file_handler.write(intput_string)
+    return file_path
 
-def create_unique_dir(path: str = '', prefix: str = '', number_attempts: int = 10, out_log: logging.Logger = None, ) -> str:
+
+
+
+def create_unique_dir(path: str = '', prefix: str = '', number_attempts: int = 10, out_log: logging.Logger = None ) -> str:
     """Create a directory with a prefix + computed unique name. If the
     computed name collides with an existing file name it attemps
     **number_attempts** times to create another unique id and create
@@ -579,8 +587,9 @@ def get_doc_dicts(doc: str):
 
     return doc_arguments_dict, doc_properties_dict
 
-def check_file_path(path: pathlib.Path, argument: str,  optional: bool, module_name: str, input_file: bool = True,
-                    extension_list: typing.List[str] = None, check_extensions: bool = True, out_log: logging.Logger = None) -> None:
+
+def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_name: str, input_file: bool = True,
+                   extension_list: typing.List[str] = None, check_extensions: bool = True, out_log: logging.Logger = None) -> None:
 
     if optional and not path:
         return None

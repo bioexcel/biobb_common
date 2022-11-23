@@ -80,6 +80,9 @@ class BiobbObject:
     #     self.check_extensions
     #     self.out_log
 
+    def check_arguments(self, locals_var_dict: dict):
+        for argument, argument_dict in self.doc_arguments_dict:
+            argument_dict['path'] = locals_var_dict.get(argument)
 
     def check_properties(self, properties: dict, reserved_properties: dict = None):
         if not reserved_properties:
