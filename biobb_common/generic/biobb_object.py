@@ -6,6 +6,7 @@ import warnings
 from pathlib import Path
 from sys import platform
 import shutil
+from pydoc import locate
 from biobb_common.tools import file_utils as fu
 from biobb_common.command_wrapper import cmd_wrapper
 
@@ -74,20 +75,36 @@ class BiobbObject:
             self.version = importlib.import_module(self.__module__.split('.')[0]).__version__
         except:
             self.version = None
-    # print(self.__module__)
-    # def check_paths(self):
-    #     self.__module__
-    #     self.check_extensions
-    #     self.out_log
 
-    def check_arguments(self, locals_var_dict: dict):
+
+    def check_arguments(self, locals_var_dict: dict, output_files_created: bool = False):
         for argument, argument_dict in self.doc_arguments_dict:
             argument_dict['path'] = locals_var_dict.get(argument)
+            fu.check_argument(path=pathlib.Path(argument_dict.get('path')),
+                              argument=argument,
+                              optional=self.doc_arguments_dict.get('optional', False),
+                              module_name=self.__module__,
+                              input_output=self.doc_arguments_dict.get('input_output','').lower().strip(),
+                              output_files_created=output_files_created,
+                              extension_list=list(self.doc_arguments_dict.get('formats')),
+                              check_extensions=self.check_extensions,
+                              out_log=self.out_log)
 
-    def check_properties(self, properties: dict, reserved_properties: dict = None):
+
+    def check_properties(self, properties: dict, reserved_properties: dict = None, check_var_typing: bool = False):
         if not reserved_properties:
             reserved_properties = []
         reserved_properties = set(["system", "working_dir_path"] + reserved_properties)
+        error_properties = set([prop for prop in properties.keys() if prop not in self.__dict__.keys()])
+
+        # Check types
+        if check_var_typing and self.doc_properties_dict:
+            for prop, value in properties.items():
+                if self.doc_properties_dict.get(prop):
+                    property_type = self.doc_properties_dict[prop].get('type')
+                    if not isinstance(value, locate(property_type)):
+                        warnings.warn(f"Warning: {prop} property type not recognized. Got {type(value)} Expected {locate(property_type)}")
+
         error_properties = set([prop for prop in properties.keys() if prop not in self.__dict__.keys()])
         error_properties -= reserved_properties
         for error_property in error_properties:
@@ -107,27 +124,25 @@ class BiobbObject:
         return False
 
     def stage_files(self):
-        if self.container_path:
-            unique_dir = str(Path(fu.create_unique_dir()).resolve())
-            self.stage_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
+        unique_dir = str(Path(fu.create_unique_dir()).resolve())
+        self.stage_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
 
-            # IN files COPY and assign INTERNAL PATH
-            for file_ref, file_path in self.io_dict["in"].items():
-                if file_path:
-                    if Path(file_path).exists():
-                        shutil.copy2(file_path, unique_dir)
-                        fu.log(f'Copy: {file_path} to {unique_dir}', self.out_log)
-                        self.stage_io_dict["in"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
-                    else:
-                        # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
-                        self.stage_io_dict["in"][file_ref] = file_path
+        # IN files COPY and assign INTERNAL PATH
+        for file_ref, file_path in self.io_dict["in"].items():
+            if file_path:
+                if Path(file_path).exists():
+                    shutil.copy2(file_path, unique_dir)
+                    fu.log(f'Copy: {file_path} to {unique_dir}', self.out_log)
+                    self.stage_io_dict["in"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+                else:
+                    # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
+                    self.stage_io_dict["in"][file_ref] = file_path
 
-            # OUT files assign INTERNAL PATH
-            for file_ref, file_path in self.io_dict["out"].items():
-                if file_path:
-                    self.stage_io_dict["out"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
-        else:
-            self.stage_io_dict = self.io_dict
+        # OUT files assign INTERNAL PATH
+        for file_ref, file_path in self.io_dict["out"].items():
+            if file_path:
+                self.stage_io_dict["out"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+
 
     def create_cmd_line(self):
         # Not documented and not listed option, only for devs

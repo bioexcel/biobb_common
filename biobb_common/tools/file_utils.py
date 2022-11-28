@@ -588,13 +588,21 @@ def get_doc_dicts(doc: str):
     return doc_arguments_dict, doc_properties_dict
 
 
-def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_name: str, input_file: bool = True,
+def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_name: str, input_output: str = None, output_files_created: bool = False,
                    extension_list: typing.List[str] = None, check_extensions: bool = True, out_log: logging.Logger = None) -> None:
 
     if optional and not path:
         return None
 
-    if input_file:
+    if input_output in ['in', 'input']:
+        input_file = True
+    elif input_output in ['out', 'output']:
+        input_file = False
+    else:
+        fu.log(f"{module_name} {argument}: Unable to determine if input or output file.", out_log)
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), f"{module_name} {argument}: Unable to determine if input or output file.")
+
+    if input_file or output_files_created:
         if not path.exists():
             fu.log(f"Path {path} --- {module_name}: Unexisting {argument} file.", out_log)
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), f'{argument}')
