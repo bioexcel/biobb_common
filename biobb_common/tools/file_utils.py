@@ -626,7 +626,7 @@ def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_na
             log(no_extension_error_string)
             warnings.warn(no_extension_error_string)
         else:
-            not_valid_extension_error_string=f"{module_name} {argument}: {path} extension is not in the valid extensions list: {extensions_list}. If you want to suppress this message, please set the check_extensions property to False"
+            not_valid_extension_error_string=f"{module_name} {argument}: {path} extension is not in the valid extensions list: {extension_list}. If you want to suppress this message, please set the check_extensions property to False"
             if not path.suffix[1:].lower() in extension_list:
                 log(not_valid_extension_error_string)
                 warnings.warn(not_valid_extension_error_string)
