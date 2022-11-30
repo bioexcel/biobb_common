@@ -69,6 +69,7 @@ class BiobbObject:
         self.dev = properties.get('dev', None)
         self.check_extensions = properties.get('check_extensions', True)
         self.check_var_typing = properties.get('check_var_typing', True)
+        self.locals_var_dict = None
         self.doc_arguments_dict, self.doc_properties_dict = fu.get_doc_dicts(self.__doc__)
 
         try:
@@ -77,17 +78,17 @@ class BiobbObject:
             self.version = None
 
 
-    def check_arguments(self, locals_var_dict: dict, output_files_created: bool = False):
-        for argument, argument_dict in self.doc_arguments_dict:
-            argument_dict['path'] = locals_var_dict.get(argument)
-            fu.check_argument(path=pathlib.Path(argument_dict.get('path')),
+    def check_arguments(self, output_files_created: bool = False, raise_exception: bool = True):
+        for argument, argument_dict in self.doc_arguments_dict.items():
+            fu.check_argument(path=Path(self.locals_var_dict[argument]) if self.locals_var_dict.get(argument) else None,
                               argument=argument,
-                              optional=self.doc_arguments_dict.get('optional', False),
+                              optional=argument_dict.get('optional', False),
                               module_name=self.__module__,
-                              input_output=self.doc_arguments_dict.get('input_output','').lower().strip(),
+                              input_output=argument_dict.get('input_output','').lower().strip(),
                               output_files_created=output_files_created,
-                              extension_list=list(self.doc_arguments_dict.get('formats')),
+                              extension_list=list(argument_dict.get('formats')),
                               check_extensions=self.check_extensions,
+                              raise_exception=raise_exception,
                               out_log=self.out_log)
 
 
@@ -133,7 +134,13 @@ class BiobbObject:
                 if Path(file_path).exists():
                     shutil.copy2(file_path, unique_dir)
                     fu.log(f'Copy: {file_path} to {unique_dir}', self.out_log)
-                    self.stage_io_dict["in"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+                    # Container
+                    if self.container_path:
+                        self.stage_io_dict["in"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+                    # Local
+                    else:
+                        self.stage_io_dict["in"][file_ref] = str(Path(unique_dir).joinpath(Path(file_path).name))
+
                 else:
                     # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
                     self.stage_io_dict["in"][file_ref] = file_path
@@ -141,7 +148,13 @@ class BiobbObject:
         # OUT files assign INTERNAL PATH
         for file_ref, file_path in self.io_dict["out"].items():
             if file_path:
-                self.stage_io_dict["out"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+                # Container
+                if self.container_path:
+                    self.stage_io_dict["out"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+                # Local
+                else:
+                    self.stage_io_dict["out"][file_ref] = str(Path(unique_dir).joinpath(Path(file_path).name))
+
 
 
     def create_cmd_line(self):
@@ -237,10 +250,6 @@ class BiobbObject:
         self.return_code = cmd_wrapper.CmdWrapper(self.cmd, self.out_log, self.err_log, self.global_log, self.environment).launch()
 
     def copy_to_host(self):
-        if not self.container_path:
-            return
-
-        # OUT files COPY
         for file_ref, file_path in self.stage_io_dict["out"].items():
             if file_path:
                 container_file_path = str(Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name))

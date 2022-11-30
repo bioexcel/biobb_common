@@ -589,7 +589,7 @@ def get_doc_dicts(doc: str):
 
 
 def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_name: str, input_output: str = None, output_files_created: bool = False,
-                   extension_list: typing.List[str] = None, check_extensions: bool = True, out_log: logging.Logger = None) -> None:
+                   extension_list: typing.List[str] = None, raise_exception = True,  check_extensions: bool = True, out_log: logging.Logger = None) -> None:
 
     if optional and not path:
         return None
@@ -599,23 +599,34 @@ def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_na
     elif input_output in ['out', 'output']:
         input_file = False
     else:
-        fu.log(f"{module_name} {argument}: Unable to determine if input or output file.", out_log)
-        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), f"{module_name} {argument}: Unable to determine if input or output file.")
+        unable_to_determine_string = f"{module_name} {argument}: Unable to determine if input or output file."
+        log(unable_to_determine_string, out_log)
+        if raise_exception:
+            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), unable_to_determine_string)
+        warnings.warn(unable_to_determine_string)
 
     if input_file or output_files_created:
+        not_found_error_string = f"Path {path} --- {module_name}: Unexisting {argument} file."
         if not path.exists():
-            fu.log(f"Path {path} --- {module_name}: Unexisting {argument} file.", out_log)
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), f'{argument}')
+            log(not_found_error_string, out_log)
+            if raise_exception:
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), not_found_error_string)
+            warnings.warn(not_found_error_string)
     else:
-        if path.parent.exists():
-            fu.log(f"Path {path.parent} --- {module_name}: Unexisting {argument} directory.", out_log)
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), f'{argument}')
+        if not path.parent.exists():
+            not_found_dir_error_string = f"Path {path.parent} --- {module_name}: Unexisting {argument} directory."
+            log(not_found_dir_error_string, out_log)
+            if raise_exception:
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), not_found_dir_error_string)
+            warnings.warn(not_found_dir_error_string)
 
-    if check_extension and extension_list:
+    if check_extensions and extension_list:
+        no_extension_error_string=f"{module_name} {argument}: {path} has no extension. If you want to suppress this message, please set the check_extensions property to False"
         if not path.suffix:
-            fu.log(f"{module_name} {argument}: {path} has no extension. If you want to suppress this message, please set the check_extensions property to False")
-            warnings.warn(f"{module_name} {argument}: {path} has no extension. If you want to suppress this message, please set the check_extensions property to False")
+            log(no_extension_error_string)
+            warnings.warn(no_extension_error_string)
         else:
+            not_valid_extension_error_string=f"{module_name} {argument}: {path} extension is not in the valid extensions list: {extensions_list}. If you want to suppress this message, please set the check_extensions property to False"
             if not path.suffix[1:].lower() in extension_list:
-                fu.log(f"{module_name} {argument}: {path} extension is not in the valid extensions list: {extensions_list}. If you want to suppress this message, please set the check_extensions property to False")
-                warnings.warn(f"{module_name} {argument}: {path} extension is not in the valid extensions list: {extensions_list}. If you want to suppress this message, please set the check_extensions property to False")
+                log(not_valid_extension_error_string)
+                warnings.warn(not_valid_extension_error_string)
