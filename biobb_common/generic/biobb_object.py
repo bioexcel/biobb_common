@@ -22,6 +22,7 @@ class BiobbObject:
             * **dev** (*str*) - (None) Adding additional options to command line.
             * **remove_tmp** (*bool*) - (True) [WF property] Remove temporal files.
             * **restart** (*bool*) - (False) [WF property] Do not execute if output files exist.
+            * **env_vars_dict** (*dict*) - ({}) Environment Variables Dictionary.
             * **container_path** (*str*) - (None)  Path to the binary executable of your container.
             * **container_image** (*str*) - (None) Container Image identifier.
             * **container_volume_path** (*str*) - ("/data") Path to an internal directory in the container.
@@ -65,6 +66,7 @@ class BiobbObject:
         self.environment = None
         self.return_code = None
         self.tmp_files = []
+        self.env_vars_dict: typing.Mapping = {}
 
         self.dev = properties.get('dev', None)
         self.check_extensions = properties.get('check_extensions', True)
@@ -181,8 +183,14 @@ class BiobbObject:
                 except:
                     fu.log(f"{' '.join(singularity_pull_cmd)} not found", self.out_log, self.global_log)
                     raise FileNotFoundError
-            singularity_cmd = [self.container_path, self.container_generic_command, '-e', '--bind', host_volume + ':' + self.container_volume_path,
-                               self.container_image]
+            singularity_cmd = [self.container_path, self.container_generic_command, '-e']
+
+            if self.env_vars_dict:
+                singularity_cmd.append('--env')
+                singularity_cmd.append(",".join(f"{env_var_name}='{env_var_value}'" for env_var_name, env_var_value in self.env_vars_dict.items()))
+
+            singularity_cmd.extend(['--bind', host_volume + ':' + self.container_volume_path, self.container_image])
+
 
             # If we are working on a mac remove -e option because is still no available
             if platform == "darwin":
@@ -200,6 +208,9 @@ class BiobbObject:
         elif self.container_path.endswith('docker'):
             fu.log('Using Docker image %s' % self.container_image, self.out_log, self.global_log)
             docker_cmd = [self.container_path, self.container_generic_command]
+            for env_var_name, env_var_value in self.env_vars_dict:
+                docker_cmd.append('-e')
+                docker_cmd.append(f"{env_var_name}='{env_var_value}'")
             if self.container_working_dir:
                 docker_cmd.append('-w')
                 docker_cmd.append(self.container_working_dir)
