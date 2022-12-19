@@ -63,10 +63,9 @@ class BiobbObject:
         self.remove_tmp = properties.get('remove_tmp', True)
         self.restart = properties.get('restart', False)
         self.cmd = []
-        self.environment = None
         self.return_code = None
         self.tmp_files = []
-        self.env_vars_dict: typing.Mapping = {}
+        self.env_vars_dict: typing.Mapping = properties.get('check_extensions', {})
 
         self.dev = properties.get('dev', None)
         self.check_extensions = properties.get('check_extensions', True)
@@ -258,7 +257,7 @@ class BiobbObject:
             # fu.log('Not using any container', self.out_log, self.global_log)
 
     def execute_command(self):
-        self.return_code = cmd_wrapper.CmdWrapper(self.cmd, self.out_log, self.err_log, self.global_log, self.environment).launch()
+        self.return_code = cmd_wrapper.CmdWrapper(self.cmd, self.out_log, self.err_log, self.global_log, self.env_vars_dict).launch()
 
     def copy_to_host(self):
         for file_ref, file_path in self.stage_io_dict["out"].items():

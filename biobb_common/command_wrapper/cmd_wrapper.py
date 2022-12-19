@@ -29,7 +29,7 @@ class CmdWrapper:
         else:
             self.out_log.info(cmd + '\n')
 
-        new_env = self.env if self.env else os.environ.copy()
+        new_env = {**os.environ.copy(), **self.env} if self.env else os.environ.copy()
         process = subprocess.Popen(cmd,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE,
