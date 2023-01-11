@@ -130,7 +130,7 @@ class BiobbObject:
         self.stage_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
 
         # IN files COPY and assign INTERNAL PATH
-        for file_ref, file_path in self.io_dict["in"].items():
+        for file_ref, file_path in self.io_dict.get("in", {}).items():
             if file_path:
                 if Path(file_path).exists():
                     shutil.copy2(file_path, unique_dir)
@@ -147,7 +147,7 @@ class BiobbObject:
                     self.stage_io_dict["in"][file_ref] = file_path
 
         # OUT files assign INTERNAL PATH
-        for file_ref, file_path in self.io_dict["out"].items():
+        for file_ref, file_path in self.io_dict.get("out", {}).items():
             if file_path:
                 # Container
                 if self.container_path:
