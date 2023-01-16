@@ -209,18 +209,20 @@ def zip_top(zip_file: str, top_file: str, out_log: logging.Logger = None, remove
     return file_list
 
 
-def unzip_top(zip_file: str, out_log: logging.Logger = None) -> str:
+def unzip_top(zip_file: str, out_log: logging.Logger = None, unique_dir: typing.Union[pathlib.Path, str] = None) -> str:
     """ Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
 
     Args:
         zip_file (str): Input topology zipball file path.
         out_log (:obj:`logging.Logger`): Input log object.
+        unique_dir (str): Directory where the topology will be extracted.
 
     Returns:
         str: Path to the extracted ".top" file.
 
     """
-    top_list = unzip_list(zip_file, create_unique_dir(), out_log)
+    unique_dir = unique_dir or create_unique_dir()
+    top_list = unzip_list(zip_file, unique_dir, out_log)
     top_file = next(name for name in top_list if name.endswith(".top"))
     if out_log:
         out_log.info('Unzipping: ')
