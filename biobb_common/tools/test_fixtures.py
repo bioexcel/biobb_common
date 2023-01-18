@@ -1,6 +1,7 @@
 """Boiler plate functions for testsys
 """
 import os
+import typing
 from pathlib import Path
 import sys
 import shutil
@@ -92,8 +93,12 @@ def compare_hash(file_a: str, file_b: str) -> bool:
     return file_a_hash == file_b_hash
 
 
-def equal(file_a: str, file_b: str, **kwargs) -> bool:
+def equal(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, int]] = None, **kwargs) -> bool:
     """Check if two files are equal"""
+    if ignore_list:
+        # Line by line comparison
+        return compare_line_by_line(file_a, file_b, ignore_list)
+
     if file_a.endswith(".zip") and file_b.endswith(".zip"):
         return compare_zip(file_a, file_b)
 
@@ -121,6 +126,17 @@ def equal(file_a: str, file_b: str, **kwargs) -> bool:
     return compare_hash(file_a, file_b)
 
 
+def compare_line_by_line(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, int]]) -> bool:
+    with open(file_a) as fa, open(file_b) as fb:
+        fb_lines = fb.readlines()
+        for index, line in enumerate(fa):
+            if index in ignore_list or any(word in line for word in ignore_list if isinstance(word, basestring)):
+                continue
+            elif fb_lines[index] != line:
+                return false
+
+        return true
+                
 def equal_txt(file_a: str, file_b: str) -> bool:
     """Check if two text files are equal"""
     return compare_hash(file_a, file_b)
