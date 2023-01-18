@@ -65,7 +65,7 @@ class BiobbObject:
         self.cmd = []
         self.return_code = None
         self.tmp_files = []
-        self.env_vars_dict: typing.Mapping = properties.get('check_extensions', {})
+        self.env_vars_dict: typing.Mapping = properties.get('env_vars_dict', {})
 
         self.dev = properties.get('dev', None)
         self.check_extensions = properties.get('check_extensions', True)
