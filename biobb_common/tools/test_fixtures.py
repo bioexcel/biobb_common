@@ -128,15 +128,13 @@ def equal(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, i
 
 def compare_line_by_line(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, int]]) -> bool:
     with open(file_a) as fa, open(file_b) as fb:
-        fb_lines = fb.readlines()
-        for index, line in enumerate(fa):
-            if index in ignore_list or any(word in line for word in ignore_list if isinstance(word, basestring)):
+        for index, (line_a, line_b) in enumerate(zip(fa, fb)):
+            if index in ignore_list or any(word in line_a for word in ignore_list if isinstance(word, str)):
                 continue
-            elif fb_lines[index] != line:
-                return false
+            elif line_a != line_b:
+                return False
+        return True
 
-        return true
-                
 def equal_txt(file_a: str, file_b: str) -> bool:
     """Check if two text files are equal"""
     return compare_hash(file_a, file_b)
