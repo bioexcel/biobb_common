@@ -262,9 +262,9 @@ class BiobbObject:
     def copy_to_host(self):
         for file_ref, file_path in self.stage_io_dict["out"].items():
             if file_path:
-                container_file_path = str(Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name))
-                if Path(container_file_path).exists():
-                    shutil.copy2(container_file_path, self.io_dict["out"][file_ref])
+                sandbox_file_path = str(Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name))
+                if Path(sandbox_file_path).exists():
+                    shutil.copy2(sandbox_file_path, self.io_dict["out"][file_ref])
 
 
     def run_biobb(self):
