@@ -20,6 +20,7 @@ class BiobbObject:
 
     Args:
         properties (dict - Python dictionary object containing the tool parameters, not input/output files):
+            * **disable_sandbox** (*bool*) - (False) Disable the use of temporal unique directories aka sandbox. Only for local execution.
             * **chdir_sandbox** (*bool*) - (False) Change directory to the sandbox using just file names in the command line. Only for local execution.
             * **dev** (*str*) - (None) Adding additional options to command line.
             * **remove_tmp** (*bool*) - (True) [WF property] Remove temporal files.
@@ -54,6 +55,7 @@ class BiobbObject:
 
 
         # Properties common in all BB
+        self.disable_sandbox: bool = properties.get('disable_sandbox', False)
         self.chdir_sandbox_sandbox: bool = properties.get('chdir', False)
         self.binary_path = properties.get('binary_path')
         self.can_write_console_log = properties.get('can_write_console_log', True)
@@ -129,6 +131,12 @@ class BiobbObject:
         return False
 
     def stage_files(self):
+        if self.disable_sandbox:
+            self.stage_io_dict = self.io_dict.copy()
+            self.stage_io_dict["unique_dir"] = os.getcwd()
+            return
+        
+
         unique_dir = str(Path(fu.create_unique_dir()).resolve())
         self.stage_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
 
@@ -146,9 +154,6 @@ class BiobbObject:
                         self.stage_io_dict["in"][file_ref] = str(Path(unique_dir).joinpath(Path(file_path).name))
                         if self.chdir_sandbox:
                             self.stage_io_dict["in"][file_ref] = str(Path(file_path).name)
-
-                        
-
                 else:
                     # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
                     self.stage_io_dict["in"][file_ref] = file_path
@@ -282,7 +287,8 @@ class BiobbObject:
             if file_path:
                 sandbox_file_path = str(Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name))
                 if Path(sandbox_file_path).exists():
-                    shutil.copy2(sandbox_file_path, self.io_dict["out"][file_ref])
+                    if not Path(sandbox_file_path).samefile(Path(self.io_dict["out"][file_ref])):
+                        shutil.copy2(sandbox_file_path, self.io_dict["out"][file_ref])
 
 
     def run_biobb(self):
