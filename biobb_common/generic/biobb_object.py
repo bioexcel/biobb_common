@@ -1,4 +1,5 @@
 """Module containing the BiobbObject generic parent class."""
+import os
 import importlib
 import difflib
 import typing
@@ -19,6 +20,7 @@ class BiobbObject:
 
     Args:
         properties (dict - Python dictionary object containing the tool parameters, not input/output files):
+            * **chdir_sandbox** (*bool*) - (False) Change directory to the sandbox using just file names in the command line. Only for local execution.
             * **dev** (*str*) - (None) Adding additional options to command line.
             * **remove_tmp** (*bool*) - (True) [WF property] Remove temporal files.
             * **restart** (*bool*) - (False) [WF property] Do not execute if output files exist.
@@ -52,6 +54,7 @@ class BiobbObject:
 
 
         # Properties common in all BB
+        self.chdir_sandbox_sandbox: bool = properties.get('chdir', False)
         self.binary_path = properties.get('binary_path')
         self.can_write_console_log = properties.get('can_write_console_log', True)
         self.global_log = properties.get('global_log', None)
@@ -141,6 +144,10 @@ class BiobbObject:
                     # Local
                     else:
                         self.stage_io_dict["in"][file_ref] = str(Path(unique_dir).joinpath(Path(file_path).name))
+                        if self.chdir_sandbox:
+                            self.stage_io_dict["in"][file_ref] = str(Path(file_path).name)
+
+                        
 
                 else:
                     # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
@@ -155,7 +162,8 @@ class BiobbObject:
                 # Local
                 else:
                     self.stage_io_dict["out"][file_ref] = str(Path(unique_dir).joinpath(Path(file_path).name))
-
+                    if self.chdir_sandbox:
+                        self.stage_io_dict["out"][file_ref] = str(Path(file_path).name)
 
 
     def create_cmd_line(self):
@@ -164,8 +172,10 @@ class BiobbObject:
             fu.log(f'Adding development options: {self.dev}', self.out_log, self.global_log)
             self.cmd += self.dev.split()
 
-        self.container_path = self.container_path or ''
+        # Containers
         host_volume = self.stage_io_dict.get("unique_dir")
+        self.container_path = self.container_path or ''
+        # Singularity
         if self.container_path.endswith('singularity'):
             fu.log('Using Singularity image %s' % self.container_image, self.out_log, self.global_log)
             if not Path(self.container_image).exists():
@@ -203,7 +213,7 @@ class BiobbObject:
                 singularity_cmd.append(self.container_shell_path)
                 singularity_cmd.extend(cmd)
             self.cmd = singularity_cmd
-
+        # Docker
         elif self.container_path.endswith('docker'):
             fu.log('Using Docker image %s' % self.container_image, self.out_log, self.global_log)
             docker_cmd = [self.container_path, self.container_generic_command]
@@ -229,7 +239,7 @@ class BiobbObject:
                 docker_cmd.append(self.container_shell_path)
                 docker_cmd.extend(cmd)
             self.cmd = docker_cmd
-
+        # Pcocc
         elif self.container_path.endswith('pcocc'):
             # pcocc run -I racov56:pmx cli.py mutate -h
             fu.log('Using pcocc image %s' % self.container_image, self.out_log, self.global_log)
@@ -251,13 +261,21 @@ class BiobbObject:
                 pcocc_cmd.append(self.container_shell_path)
                 pcocc_cmd.extend(cmd)
             self.cmd = pcocc_cmd
-
+        # Local execution
         else:
             pass
             # fu.log('Not using any container', self.out_log, self.global_log)
 
+
     def execute_command(self):
+        if self.chdir_sandbox:
+            cwd = os.getcwd()
+            os.chdir(self.stage_io_dict["unique_dir"])
+
         self.return_code = cmd_wrapper.CmdWrapper(self.cmd, self.out_log, self.err_log, self.global_log, self.env_vars_dict).launch()
+
+        if self.chdir_sandbox:
+            os.chdir(cwd)
 
     def copy_to_host(self):
         for file_ref, file_path in self.stage_io_dict["out"].items():
