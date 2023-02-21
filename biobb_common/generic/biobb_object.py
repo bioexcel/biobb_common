@@ -56,7 +56,7 @@ class BiobbObject:
 
         # Properties common in all BB
         self.disable_sandbox: bool = properties.get('disable_sandbox', False)
-        self.chdir_sandbox_sandbox: bool = properties.get('chdir', False)
+        self.chdir_sandbox: bool = properties.get('chdir_sandbox', False)
         self.binary_path = properties.get('binary_path')
         self.can_write_console_log = properties.get('can_write_console_log', True)
         self.global_log = properties.get('global_log', None)
