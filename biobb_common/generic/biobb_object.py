@@ -287,7 +287,13 @@ class BiobbObject:
             if file_path:
                 sandbox_file_path = str(Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name))
                 if Path(sandbox_file_path).exists():
-                    if not Path(sandbox_file_path).samefile(Path(self.io_dict["out"][file_ref])):
+                    # Dest file exists
+                    if Path(self.io_dict["out"][file_ref]).exists():
+                        # Dest file exists and is NOT the same as the source file
+                        if not Path(sandbox_file_path).samefile(Path(self.io_dict["out"][file_ref])):
+                            shutil.copy2(sandbox_file_path, self.io_dict["out"][file_ref])
+                    # Dest file does not exist
+                    else:
                         shutil.copy2(sandbox_file_path, self.io_dict["out"][file_ref])
 
 
