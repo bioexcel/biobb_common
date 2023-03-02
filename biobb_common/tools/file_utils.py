@@ -42,6 +42,7 @@ def create_dir(dir_path: str) -> str:
         Path(dir_path).mkdir(exist_ok=True, parents=True)
     return str(Path(dir_path))
 
+
 def create_stdin_file(intput_string: str) -> str:
     file_path = create_unique_file_path(extension='.stdin')
     with open(file_path, 'w') as file_handler:
@@ -49,9 +50,7 @@ def create_stdin_file(intput_string: str) -> str:
     return file_path
 
 
-
-
-def create_unique_dir(path: str = '', prefix: str = '', number_attempts: int = 10, out_log: logging.Logger = None ) -> str:
+def create_unique_dir(path: str = '', prefix: str = '', number_attempts: int = 10, out_log: logging.Logger = None) -> str:
     """Create a directory with a prefix + computed unique name. If the
     computed name collides with an existing file name it attemps
     **number_attempts** times to create another unique id and create
@@ -427,7 +426,7 @@ def rm(file_name: str) -> str:
             if file_path.is_file():
                 Path(file_name).unlink()
                 return file_name
-    except:
+    except Exception:
         pass
     return None
 
@@ -504,7 +503,7 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
                     container_image = container_image_name
                 else:
                     raise FileNotFoundError
-            except:
+            except FileNotFoundError:
                 log(f"{' '.join(singularity_pull_cmd)} not found", out_log, global_log)
                 raise FileNotFoundError
         singularity_cmd = [container_path, 'exec', '-e', '--bind', host_volume + ':' + container_volume, container_image]
@@ -555,8 +554,9 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
         return pcocc_cmd + cmd
 
     else:
-        #log('Not using any container', out_log, global_log)
+        # log('Not using any container', out_log, global_log)
         return cmd
+
 
 def get_doc_dicts(doc: str):
     regex_argument = re.compile(r'(?P<argument>\w*)\ *(?:\()(?P<type>\w*)(?:\)):?\ *(?P<optional>\(\w*\):)?\ *(?P<description>.*?)(?:\.)\ *(?:File type:\ *)(?P<input_output>\w+)\.\ *(\`(?:.+)\<(?P<sample_file>.*?)\>\`\_\.)?\ *(?:Accepted formats:\ *)(?P<formats>.+)(?:\.)?')
@@ -570,13 +570,12 @@ def get_doc_dicts(doc: str):
     examples_index = doc_lines.index(next(filter(lambda line: line.lower().startswith('examples'), doc_lines)))
     arguments_lines_list = doc_lines[args_index+1:properties_index]
     properties_lines_list = doc_lines[properties_index+1:examples_index]
-    
 
     doc_arguments_dict = {}
     for argument_line in arguments_lines_list:
         argument_dict = regex_argument.match(argument_line).groupdict()
         argument_dict['formats'] = {match.group('extension'): match.group('edam') for match in regex_argument_formats.finditer(argument_dict['formats'])}
-        doc_arguments_dict[argument_dict.pop("argument")]= argument_dict
+        doc_arguments_dict[argument_dict.pop("argument")] = argument_dict
 
     doc_properties_dict = {}
     for property_line in properties_lines_list:
@@ -585,13 +584,13 @@ def get_doc_dicts(doc: str):
         if "Values:" in property_dict['description']:
             property_dict['description'], property_dict['values'] = property_dict['description'].split('Values:')
             property_dict['values'] = {match.group('value'): match.group('description') for match in regex_property_value.finditer(property_dict['values']) if match.group('value')}
-        doc_properties_dict[property_dict.pop("property")]= property_dict
+        doc_properties_dict[property_dict.pop("property")] = property_dict
 
     return doc_arguments_dict, doc_properties_dict
 
 
 def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_name: str, input_output: str = None, output_files_created: bool = False,
-                   extension_list: typing.List[str] = None, raise_exception = True,  check_extensions: bool = True, out_log: logging.Logger = None) -> None:
+                   extension_list: typing.List[str] = None, raise_exception: bool = True,  check_extensions: bool = True, out_log: logging.Logger = None) -> None:
 
     if optional and not path:
         return None
@@ -623,12 +622,12 @@ def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_na
             warnings.warn(not_found_dir_error_string)
 
     if check_extensions and extension_list:
-        no_extension_error_string=f"{module_name} {argument}: {path} has no extension. If you want to suppress this message, please set the check_extensions property to False"
+        no_extension_error_string = f"{module_name} {argument}: {path} has no extension. If you want to suppress this message, please set the check_extensions property to False"
         if not path.suffix:
             log(no_extension_error_string)
             warnings.warn(no_extension_error_string)
         else:
-            not_valid_extension_error_string=f"{module_name} {argument}: {path} extension is not in the valid extensions list: {extension_list}. If you want to suppress this message, please set the check_extensions property to False"
+            not_valid_extension_error_string = f"{module_name} {argument}: {path} extension is not in the valid extensions list: {extension_list}. If you want to suppress this message, please set the check_extensions property to False"
             if not path.suffix[1:].lower() in extension_list:
                 log(not_valid_extension_error_string)
                 warnings.warn(not_valid_extension_error_string)

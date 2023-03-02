@@ -53,7 +53,6 @@ class BiobbObject:
         # stage
         self.stage_io_dict = {"in": {}, "out": {}}
 
-
         # Properties common in all BB
         self.disable_sandbox: bool = properties.get('disable_sandbox', False)
         self.chdir_sandbox: bool = properties.get('chdir_sandbox', False)
@@ -80,9 +79,8 @@ class BiobbObject:
 
         try:
             self.version = importlib.import_module(self.__module__.split('.')[0]).__version__
-        except:
+        except Exception:
             self.version = None
-
 
     def check_arguments(self, output_files_created: bool = False, raise_exception: bool = True):
         for argument, argument_dict in self.doc_arguments_dict.items():
@@ -90,13 +88,12 @@ class BiobbObject:
                               argument=argument,
                               optional=argument_dict.get('optional', False),
                               module_name=self.__module__,
-                              input_output=argument_dict.get('input_output','').lower().strip(),
+                              input_output=argument_dict.get('input_output', '').lower().strip(),
                               output_files_created=output_files_created,
                               extension_list=list(argument_dict.get('formats')),
                               check_extensions=self.check_extensions,
                               raise_exception=raise_exception,
                               out_log=self.out_log)
-
 
     def check_properties(self, properties: dict, reserved_properties: dict = None, check_var_typing: bool = False):
         if not reserved_properties:
@@ -135,7 +132,6 @@ class BiobbObject:
             self.stage_io_dict = self.io_dict.copy()
             self.stage_io_dict["unique_dir"] = os.getcwd()
             return
-        
 
         unique_dir = str(Path(fu.create_unique_dir()).resolve())
         self.stage_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
@@ -170,7 +166,6 @@ class BiobbObject:
                     if self.chdir_sandbox:
                         self.stage_io_dict["out"][file_ref] = str(Path(file_path).name)
 
-
     def create_cmd_line(self):
         # Not documented and not listed option, only for devs
         if self.dev:
@@ -194,7 +189,7 @@ class BiobbObject:
                         self.container_image = container_image_name
                     else:
                         raise FileNotFoundError
-                except:
+                except FileNotFoundError:
                     fu.log(f"{' '.join(singularity_pull_cmd)} not found", self.out_log, self.global_log)
                     raise FileNotFoundError
             singularity_cmd = [self.container_path, self.container_generic_command, '-e']
@@ -204,7 +199,6 @@ class BiobbObject:
                 singularity_cmd.append(",".join(f"{env_var_name}='{env_var_value}'" for env_var_name, env_var_value in self.env_vars_dict.items()))
 
             singularity_cmd.extend(['--bind', host_volume + ':' + self.container_volume_path, self.container_image])
-
 
             # If we are working on a mac remove -e option because is still no available
             if platform == "darwin":
@@ -271,7 +265,6 @@ class BiobbObject:
             pass
             # fu.log('Not using any container', self.out_log, self.global_log)
 
-
     def execute_command(self):
         if self.chdir_sandbox:
             cwd = os.getcwd()
@@ -295,7 +288,6 @@ class BiobbObject:
                     # Dest file does not exist
                     else:
                         shutil.copy2(sandbox_file_path, self.io_dict["out"][file_ref])
-
 
     def run_biobb(self):
         self.create_cmd_line()
