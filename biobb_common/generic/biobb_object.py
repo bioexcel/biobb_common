@@ -70,6 +70,7 @@ class BiobbObject:
         self.return_code = None
         self.tmp_files = []
         self.env_vars_dict: typing.Mapping = properties.get('env_vars_dict', {})
+        self.shell_path: typing.Union[str, Path] = properties.get('shell_path', os.getenv('SHELL', '/bin/bash'))
 
         self.dev = properties.get('dev', None)
         self.check_extensions = properties.get('check_extensions', True)
@@ -270,7 +271,7 @@ class BiobbObject:
             cwd = os.getcwd()
             os.chdir(self.stage_io_dict["unique_dir"])
 
-        self.return_code = cmd_wrapper.CmdWrapper(self.cmd, self.out_log, self.err_log, self.global_log, self.env_vars_dict).launch()
+        self.return_code = cmd_wrapper.CmdWrapper(self.cmd, self.shell_path, self.out_log, self.err_log, self.global_log, self.env_vars_dict).launch()
 
         if self.chdir_sandbox:
             os.chdir(cwd)

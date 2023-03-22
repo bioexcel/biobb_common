@@ -591,6 +591,7 @@ def get_doc_dicts(doc: str):
 
 def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_name: str, input_output: str = None, output_files_created: bool = False,
                    extension_list: typing.List[str] = None, raise_exception: bool = True,  check_extensions: bool = True, out_log: logging.Logger = None) -> None:
+    
 
     if optional and not path:
         return None
@@ -617,9 +618,9 @@ def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_na
         if not path.parent.exists():
             not_found_dir_error_string = f"Path {path.parent} --- {module_name}: Unexisting {argument} directory."
             log(not_found_dir_error_string, out_log)
-            if raise_exception:
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), not_found_dir_error_string)
-            warnings.warn(not_found_dir_error_string)
+            # if raise_exception:
+            #     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), not_found_dir_error_string)
+            # warnings.warn(not_found_dir_error_string)
 
     if check_extensions and extension_list:
         no_extension_error_string = f"{module_name} {argument}: {path} has no extension. If you want to suppress this message, please set the check_extensions property to False"
