@@ -124,6 +124,7 @@ def zip_list(zip_file: str, file_list: typing.Iterable[str], out_log: logging.Lo
         out_log (:obj:`logging.Logger`): Input log object.
     """
     file_list.sort()
+    Path(zip_file).parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(zip_file, 'w') as zip_f:
         inserted = []
         for index, f in enumerate(file_list):
