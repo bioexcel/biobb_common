@@ -10,6 +10,7 @@ import Bio.PDB
 import codecs
 from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
+import numpy as np
 
 
 def test_setup(test_object: object, dict_key: str = None, config: str = None):
@@ -123,6 +124,12 @@ def equal(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, i
     if file_a.endswith(".par") and file_b.endswith(".par"):
         return compare_ignore_first(file_a, file_b)
 
+    if file_a.endswith((".nc", ".netcdf", ".xtc")) and file_b.endswith((".nc", ".netcdf", ".xtc")):
+        return compare_size(file_a, file_b)
+
+    if file_a.endswith(".xvg") and file_b.endswith(".xvg"):
+        return compare_xvg(file_a, file_b)
+
     return compare_hash(file_a, file_b)
 
 
@@ -134,6 +141,7 @@ def compare_line_by_line(file_a: str, file_b: str, ignore_list: typing.List[typi
             elif line_a != line_b:
                 return False
         return True
+
 
 def equal_txt(file_a: str, file_b: str) -> bool:
     """Check if two text files are equal"""
@@ -218,3 +226,33 @@ def compare_ignore_first(file_a: str, file_b: str) -> bool:
         with open(file_b) as f_b:
             next(f_b)
             return [line.strip() for line in f_a] == [line.strip() for line in f_b]
+
+
+def compare_size(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> bool:
+    """ Compare two files using size """
+    print("Comparing size of both files:")
+    print(f"     FILE_A: {file_a}")
+    print(f"     FILE_B: {file_b}")
+    size_a = Path(file_a).stat().st_size
+    size_b = Path(file_b).stat().st_size
+    average_size = (size_a + size_b) / 2
+    tolerance = average_size * percent_tolerance / 100
+    tolerance_low = average_size - tolerance
+    tolerance_high = average_size + tolerance
+    print(f"     SIZE_A: {size_a} bytes")
+    print(f"     SIZE_B: {size_b} bytes")
+    print(f"     TOLERANCE: {percent_tolerance}%, Low: {tolerance_low} bytes, High: {tolerance_high} bytes")
+    return (tolerance_low <= size_a <= tolerance_high) and (tolerance_low <= size_b <= tolerance_high)
+
+
+def compare_xvg(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> bool:
+    """ Compare two files using size """
+    print("Comparing size of both files:")
+    print(f"     FILE_A: {file_a}")
+    print(f"     FILE_B: {file_b}")
+    arrays_tuple_a = np.loadtxt(file_a, comments="@", unpack=True)
+    arrays_tuple_b = np.loadtxt(file_b, comments="@", unpack=True)
+    for array_a, array_b in zip(arrays_tuple_a, arrays_tuple_b):
+        if not np.allclose(array_a, array_b, rtol=percent_tolerance / 100):
+            return False
+    return True

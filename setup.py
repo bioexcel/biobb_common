@@ -21,7 +21,7 @@ setuptools.setup(
     install_requires=['pyyaml', 'requests', 'biopython==1.79'],
     python_requires='>=3.7,<=3.10',
     classifiers=(
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
