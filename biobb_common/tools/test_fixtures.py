@@ -125,10 +125,10 @@ def equal(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, i
         return compare_ignore_first(file_a, file_b)
 
     if file_a.endswith((".nc", ".netcdf", ".xtc")) and file_b.endswith((".nc", ".netcdf", ".xtc")):
-        return compare_size(file_a, file_b)
+        return compare_size(file_a, file_b, kwargs.get('percent_tolerance', 1.0))
 
     if file_a.endswith(".xvg") and file_b.endswith(".xvg"):
-        return compare_xvg(file_a, file_b)
+        return compare_xvg(file_a, file_b, kwargs.get('percent_tolerance', 1.0))
 
     return compare_hash(file_a, file_b)
 
