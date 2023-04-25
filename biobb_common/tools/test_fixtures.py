@@ -4,6 +4,7 @@ import os
 import typing
 from pathlib import Path
 import sys
+from PIL import Image
 import shutil
 import hashlib
 import Bio.PDB
@@ -130,6 +131,10 @@ def equal(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, i
     if file_a.endswith(".xvg") and file_b.endswith(".xvg"):
         return compare_xvg(file_a, file_b, kwargs.get('percent_tolerance', 1.0))
 
+    image_extensions = ('.png', '.jfif', '.ppm', '.tiff', '.jpg', '.dib', '.pgm', '.bmp', '.jpeg', '.pbm', '.jpe', '.apng', '.pnm', '.gif', '.tif')
+    if file_a.endswith(image_extensions) and file_b.endswith(image_extensions):
+        return compare_images(file_a, file_b, kwargs.get('percent_tolerance', 1.0))
+
     return compare_hash(file_a, file_b)
 
 
@@ -255,4 +260,21 @@ def compare_xvg(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> boo
     for array_a, array_b in zip(arrays_tuple_a, arrays_tuple_b):
         if not np.allclose(array_a, array_b, rtol=percent_tolerance / 100):
             return False
+    return True
+
+
+def compare_images(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> bool:
+    """ Compare two files using size """
+    print("Comparing images of both files:")
+    print(f"     FILE_A: {file_a}")
+    print(f"     FILE_B: {file_b}")
+    array_a = np.asarray(Image.open(file_a))
+    array_b = np.asarray(Image.open(file_b))
+    try:
+        deviation = np.mean(np.abs(array_a - array_b))
+    except ValueError:
+        print("     ERROR: Images have different sizes")
+        return False
+    if deviation > percent_tolerance/100:
+        return False
     return True
