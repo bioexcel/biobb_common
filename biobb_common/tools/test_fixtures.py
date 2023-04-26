@@ -4,7 +4,6 @@ import os
 import typing
 from pathlib import Path
 import sys
-from PIL import Image
 import shutil
 import hashlib
 import Bio.PDB
@@ -264,17 +263,20 @@ def compare_xvg(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> boo
 
 
 def compare_images(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> bool:
+    try:
+        from PIL import Image
+        import imagehash
+    except ImportError:
+        print("To compare images, please install the following packages: Pillow, imagehash")
+        return False
+
     """ Compare two files using size """
     print("Comparing images of both files:")
     print(f"     FILE_A: {file_a}")
     print(f"     FILE_B: {file_b}")
-    array_a = np.asarray(Image.open(file_a))
-    array_b = np.asarray(Image.open(file_b))
-    try:
-        deviation = np.mean(np.abs(array_a - array_b))
-    except ValueError:
-        print("     ERROR: Images have different sizes")
-        return False
-    if deviation > percent_tolerance/100:
+    hash_a = imagehash.average_hash(Image.open(file_a))
+    hash_b = imagehash.average_hash(Image.open(file_b))
+    tolerance = (len(hash_a) + len(hash_b)) / 2 * percent_tolerance / 100
+    if hash_a - hash_b > tolerance:
         return False
     return True
