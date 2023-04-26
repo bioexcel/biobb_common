@@ -272,11 +272,15 @@ def compare_images(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> 
 
     """ Compare two files using size """
     print("Comparing images of both files:")
-    print(f"     FILE_A: {file_a}")
-    print(f"     FILE_B: {file_b}")
+    print(f"     IMAGE_A: {file_a}")
+    print(f"     IMAGE_B: {file_b}")
     hash_a = imagehash.average_hash(Image.open(file_a))
     hash_b = imagehash.average_hash(Image.open(file_b))
     tolerance = (len(hash_a) + len(hash_b)) / 2 * percent_tolerance / 100
-    if hash_a - hash_b > tolerance:
+    difference = hash_a - hash_b
+    print(f"     IMAGE_A HASH: {hash_a} SIZE: {len(hash_a)} bits")
+    print(f"     IMAGE_B HASH: {hash_b} SIZE: {len(hash_b)} bits")
+    print(f"     TOLERANCE: {percent_tolerance}%, ABS TOLERANCE: {tolerance} bits, DIFFERENCE: {difference} bits")
+    if difference > tolerance:
         return False
     return True
