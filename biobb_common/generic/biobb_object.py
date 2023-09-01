@@ -393,8 +393,9 @@ class BiobbObject:
             # fu.log('Not using any container', self.out_log, self.global_log)
 
     def execute_command(self):
+
+        cwd = os.getcwd()
         if self.chdir_sandbox:
-            cwd = os.getcwd()
             os.chdir(self.stage_io_dict["unique_dir"])
 
         self.return_code = cmd_wrapper.CmdWrapper(
