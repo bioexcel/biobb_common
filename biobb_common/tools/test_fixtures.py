@@ -2,6 +2,7 @@
 """
 import os
 import typing
+from typing import Optional
 from pathlib import Path
 import sys
 import shutil
@@ -13,7 +14,7 @@ from biobb_common.tools import file_utils as fu
 import numpy as np
 
 
-def test_setup(test_object: object, dict_key: str = None, config: str = None):
+def test_setup(test_object, dict_key: Optional[str] = None, config: Optional[str] = None):
     """Add the unitest_dir, test_dir, conf_file_path, system, properties and path as
     attributes to the **test_object** and create a directory to launch the unitest.
 
@@ -46,7 +47,7 @@ def test_setup(test_object: object, dict_key: str = None, config: str = None):
     os.chdir(test_object.properties['path'])
 
 
-def test_teardown(test_object: object):
+def test_teardown(test_object):
     """Remove the **test_object.properties['working_dir_path']**
 
     Args:
@@ -94,7 +95,7 @@ def compare_hash(file_a: str, file_b: str) -> bool:
     return file_a_hash == file_b_hash
 
 
-def equal(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, int]] = None, **kwargs) -> bool:
+def equal(file_a: str, file_b: str, ignore_list: Optional[typing.List[typing.Union[str, int]]] = None, **kwargs) -> bool:
     """Check if two files are equal"""
     if ignore_list:
         # Line by line comparison

@@ -3,6 +3,7 @@ import os
 import importlib
 import difflib
 import typing
+from typing import Optional, Mapping, Set, Union, Dict, List
 import warnings
 from pathlib import Path
 from sys import platform
@@ -35,96 +36,139 @@ class BiobbObject:
             * **container_generic_command** (*str*) - ("run") Which command typically run or exec will be used to execute your image.
     """
 
-    def __init__(self, properties: dict = None, **kwargs) -> None:
+    def __init__(self, properties: Optional[dict] = None, **kwargs) -> None:
         properties = properties or {}
 
         # Input/Output files
-        self.io_dict = {"in": {}, "out": {}}
+        self.io_dict: Dict[str, Union[str, Dict[str, Union[str, Path]]]] = {"in": {}, "out": {}}
 
         # container Specific
-        self.container_path = properties.get('container_path')
-        self.container_image = properties.get('container_image')
-        self.container_volume_path = properties.get('container_volume_path', '/data')
-        self.container_working_dir = properties.get('container_working_dir')
-        self.container_user_id = properties.get('container_user_id')
-        self.container_shell_path = properties.get('container_shell_path', '/bin/bash -c')
-        self.container_generic_command = properties.get('container_generic_command', 'run')
+        self.container_path = properties.get("container_path")
+        self.container_image: str = properties.get("container_image", '')
+        self.container_volume_path = properties.get(
+            "container_volume_path", "/data")
+        self.container_working_dir = properties.get("container_working_dir")
+        self.container_user_id = properties.get("container_user_id")
+        self.container_shell_path = properties.get(
+            "container_shell_path", "/bin/bash -c"
+        )
+        self.container_generic_command = properties.get(
+            "container_generic_command", "run"
+        )
 
         # stage
-        self.stage_io_dict = {"in": {}, "out": {}}
+        self.stage_io_dict: Dict[str, Union[str, Dict[str, Union[str, Path]]]] = {"in": {}, "out": {}}
 
         # Properties common in all BB
-        self.disable_sandbox: bool = properties.get('disable_sandbox', False)
-        self.chdir_sandbox: bool = properties.get('chdir_sandbox', False)
-        self.binary_path = properties.get('binary_path')
-        self.can_write_console_log = properties.get('can_write_console_log', True)
-        self.global_log = properties.get('global_log', None)
+        self.disable_sandbox: bool = properties.get("disable_sandbox", False)
+        self.chdir_sandbox: bool = properties.get("chdir_sandbox", False)
+        self.binary_path = properties.get("binary_path")
+        self.can_write_console_log = properties.get(
+            "can_write_console_log", True)
+        self.global_log = properties.get("global_log", None)
         self.out_log = None
         self.err_log = None
-        self.prefix = properties.get('prefix', None)
-        self.step = properties.get('step', None)
-        self.path = properties.get('path', '')
-        self.remove_tmp = properties.get('remove_tmp', True)
-        self.restart = properties.get('restart', False)
-        self.cmd = []
+        self.prefix = properties.get("prefix", None)
+        self.step = properties.get("step", None)
+        self.path = properties.get("path", "")
+        self.remove_tmp = properties.get("remove_tmp", True)
+        self.restart = properties.get("restart", False)
+        self.cmd: List[str] = []
         self.return_code = None
-        self.tmp_files = []
-        self.env_vars_dict: typing.Mapping = properties.get('env_vars_dict', {})
-        self.shell_path: typing.Union[str, Path] = properties.get('shell_path', os.getenv('SHELL', '/bin/bash'))
+        self.tmp_files: List[Union[str, Path]] = []
+        self.env_vars_dict: typing.Mapping = properties.get(
+            "env_vars_dict", {})
+        self.shell_path: typing.Union[str, Path] = properties.get(
+            "shell_path", os.getenv("SHELL", "/bin/bash")
+        )
 
-        self.dev = properties.get('dev', None)
-        self.check_extensions = properties.get('check_extensions', True)
-        self.check_var_typing = properties.get('check_var_typing', True)
-        self.locals_var_dict = None
-        self.doc_arguments_dict, self.doc_properties_dict = fu.get_doc_dicts(self.__doc__)
+        self.dev = properties.get("dev", None)
+        self.check_extensions = properties.get("check_extensions", True)
+        self.check_var_typing = properties.get("check_var_typing", True)
+        self.locals_var_dict: Mapping[str, str] = dict()
+        self.doc_arguments_dict, self.doc_properties_dict = fu.get_doc_dicts(
+            self.__doc__
+        )
 
         try:
-            self.version = importlib.import_module(self.__module__.split('.')[0]).__version__
+            self.version = importlib.import_module(
+                self.__module__.split(".")[0]
+            ).__version__
         except Exception:
             self.version = None
 
-    def check_arguments(self, output_files_created: bool = False, raise_exception: bool = True):
+    def check_arguments(
+        self, output_files_created: bool = False, raise_exception: bool = True
+    ):
         for argument, argument_dict in self.doc_arguments_dict.items():
-            fu.check_argument(path=Path(self.locals_var_dict[argument]) if self.locals_var_dict.get(argument) else None,
-                              argument=argument,
-                              optional=argument_dict.get('optional', False),
-                              module_name=self.__module__,
-                              input_output=argument_dict.get('input_output', '').lower().strip(),
-                              output_files_created=output_files_created,
-                              extension_list=list(argument_dict.get('formats')),
-                              check_extensions=self.check_extensions,
-                              raise_exception=raise_exception,
-                              out_log=self.out_log)
+            fu.check_argument(
+                path=Path(self.locals_var_dict[argument])
+                if self.locals_var_dict.get(argument)
+                else None,
+                argument=argument,
+                optional=argument_dict.get("optional", False),
+                module_name=self.__module__,
+                input_output=argument_dict.get(
+                    "input_output", "").lower().strip(),
+                output_files_created=output_files_created,
+                extension_list=list(argument_dict.get("formats")),
+                check_extensions=self.check_extensions,
+                raise_exception=raise_exception,
+                out_log=self.out_log,
+            )
 
-    def check_properties(self, properties: dict, reserved_properties: dict = None, check_var_typing: bool = False):
+    def check_properties(
+        self,
+        properties: dict,
+        reserved_properties: Optional[Set[str]] = None,
+        check_var_typing: bool = False,
+    ):
         if not reserved_properties:
-            reserved_properties = []
-        reserved_properties = set(["system", "working_dir_path"] + reserved_properties)
-        error_properties = set([prop for prop in properties.keys() if prop not in self.__dict__.keys()])
+            reserved_properties = set()
+        reserved_properties = {"system", "working_dir_path"}.union(reserved_properties)
+        error_properties = set(
+            [prop for prop in properties.keys() if prop not in self.__dict__.keys()]
+        )
 
         # Check types
         if check_var_typing and self.doc_properties_dict:
             for prop, value in properties.items():
                 if self.doc_properties_dict.get(prop):
-                    property_type = self.doc_properties_dict[prop].get('type')
+                    property_type = self.doc_properties_dict[prop].get("type")
                     if not isinstance(value, locate(property_type)):
-                        warnings.warn(f"Warning: {prop} property type not recognized. Got {type(value)} Expected {locate(property_type)}")
+                        warnings.warn(
+                            f"Warning: {prop} property type not recognized. Got {type(value)} Expected {locate(property_type)}"
+                        )
 
-        error_properties = set([prop for prop in properties.keys() if prop not in self.__dict__.keys()])
+        error_properties = set(
+            [prop for prop in properties.keys() if prop not in self.__dict__.keys()]
+        )
         error_properties -= reserved_properties
         for error_property in error_properties:
-            close_property = difflib.get_close_matches(error_property, self.__dict__.keys(), n=1, cutoff=0.01)
+            close_property = difflib.get_close_matches(
+                error_property, self.__dict__.keys(), n=1, cutoff=0.01
+            )
             close_property = close_property[0] if close_property else ""
-            warnings.warn("Warning: %s is not a recognized property. The most similar property is: %s" % (
-                error_property, close_property))
+            warnings.warn(
+                "Warning: %s is not a recognized property. The most similar property is: %s"
+                % (error_property, close_property)
+            )
 
     def check_restart(self) -> bool:
         if self.version:
-            fu.log(f"Executing {self.__module__} Version: {self.version}", self.out_log, self.global_log)
+            fu.log(
+                f"Executing {self.__module__} Version: {self.version}",
+                self.out_log,
+                self.global_log,
+            )
 
         if self.restart:
             if fu.check_complete_files(self.io_dict["out"].values()):
-                fu.log('Restart is enabled, this step: %s will the skipped' % self.step, self.out_log, self.global_log)
+                fu.log(
+                    "Restart is enabled, this step: %s will the skipped" % self.step,
+                    self.out_log,
+                    self.global_log,
+                )
                 return True
         return False
 
@@ -142,15 +186,23 @@ class BiobbObject:
             if file_path:
                 if Path(file_path).exists():
                     shutil.copy2(file_path, unique_dir)
-                    fu.log(f'Copy: {file_path} to {unique_dir}', self.out_log)
+                    fu.log(f"Copy: {file_path} to {unique_dir}", self.out_log)
                     # Container
                     if self.container_path:
-                        self.stage_io_dict["in"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+                        self.stage_io_dict["in"][file_ref] = str(
+                            Path(self.container_volume_path).joinpath(
+                                Path(file_path).name
+                            )
+                        )
                     # Local
                     else:
-                        self.stage_io_dict["in"][file_ref] = str(Path(unique_dir).joinpath(Path(file_path).name))
+                        self.stage_io_dict["in"][file_ref] = str(
+                            Path(unique_dir).joinpath(Path(file_path).name)
+                        )
                         if self.chdir_sandbox:
-                            self.stage_io_dict["in"][file_ref] = str(Path(file_path).name)
+                            self.stage_io_dict["in"][file_ref] = str(
+                                Path(file_path).name
+                            )
                 else:
                     # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
                     self.stage_io_dict["in"][file_ref] = file_path
@@ -160,102 +212,176 @@ class BiobbObject:
             if file_path:
                 # Container
                 if self.container_path:
-                    self.stage_io_dict["out"][file_ref] = str(Path(self.container_volume_path).joinpath(Path(file_path).name))
+                    self.stage_io_dict["out"][file_ref] = str(
+                        Path(self.container_volume_path).joinpath(
+                            Path(file_path).name)
+                    )
                 # Local
                 else:
-                    self.stage_io_dict["out"][file_ref] = str(Path(unique_dir).joinpath(Path(file_path).name))
+                    self.stage_io_dict["out"][file_ref] = str(
+                        Path(unique_dir).joinpath(Path(file_path).name)
+                    )
                     if self.chdir_sandbox:
-                        self.stage_io_dict["out"][file_ref] = str(Path(file_path).name)
+                        self.stage_io_dict["out"][file_ref] = str(
+                            Path(file_path).name)
 
     def create_cmd_line(self):
         # Not documented and not listed option, only for devs
         if self.dev:
-            fu.log(f'Adding development options: {self.dev}', self.out_log, self.global_log)
+            fu.log(
+                f"Adding development options: {self.dev}", self.out_log, self.global_log
+            )
             self.cmd += self.dev.split()
 
         # Containers
-        host_volume = self.stage_io_dict.get("unique_dir")
-        self.container_path = self.container_path or ''
+        host_volume: str = str(self.stage_io_dict.get("unique_dir", ''))
+        self.container_path = self.container_path or ""
         # Singularity
-        if self.container_path.endswith('singularity'):
-            fu.log('Using Singularity image %s' % self.container_image, self.out_log, self.global_log)
+        if self.container_path.endswith("singularity"):
+            fu.log(
+                "Using Singularity image %s" % self.container_image,
+                self.out_log,
+                self.global_log,
+            )
             if not Path(self.container_image).exists():
-                fu.log(f"{self.container_image} does not exist trying to pull it", self.out_log, self.global_log)
-                container_image_name = str(Path(self.container_image).with_suffix('.sif').name)
-                singularity_pull_cmd = [self.container_path, 'pull', '--name', container_image_name, self.container_image]
+                fu.log(
+                    f"{self.container_image} does not exist trying to pull it",
+                    self.out_log,
+                    self.global_log,
+                )
+                container_image_name = str(
+                    Path(self.container_image).with_suffix(".sif").name
+                )
+                singularity_pull_cmd = [
+                    self.container_path,
+                    "pull",
+                    "--name",
+                    container_image_name,
+                    self.container_image,
+                ]
                 try:
                     from biobb_common.command_wrapper import cmd_wrapper
-                    cmd_wrapper.CmdWrapper(singularity_pull_cmd, self.out_log).launch()
+
+                    cmd_wrapper.CmdWrapper(
+                        singularity_pull_cmd, self.shell_path, self.out_log
+                    ).launch()
                     if Path(container_image_name).exists():
                         self.container_image = container_image_name
                     else:
                         raise FileNotFoundError
                 except FileNotFoundError:
-                    fu.log(f"{' '.join(singularity_pull_cmd)} not found", self.out_log, self.global_log)
+                    fu.log(
+                        f"{' '.join(singularity_pull_cmd)} not found",
+                        self.out_log,
+                        self.global_log,
+                    )
                     raise FileNotFoundError
-            singularity_cmd = [self.container_path, self.container_generic_command, '-e']
+            singularity_cmd = [
+                self.container_path,
+                self.container_generic_command,
+                "-e",
+            ]
 
             if self.env_vars_dict:
-                singularity_cmd.append('--env')
-                singularity_cmd.append(",".join(f"{env_var_name}='{env_var_value}'" for env_var_name, env_var_value in self.env_vars_dict.items()))
+                singularity_cmd.append("--env")
+                singularity_cmd.append(
+                    ",".join(
+                        f"{env_var_name}='{env_var_value}'"
+                        for env_var_name, env_var_value in self.env_vars_dict.items()
+                    )
+                )
 
-            singularity_cmd.extend(['--bind', host_volume + ':' + self.container_volume_path, self.container_image])
+            singularity_cmd.extend(
+                [
+                    "--bind",
+                    host_volume + ":" + self.container_volume_path,
+                    self.container_image,
+                ]
+            )
 
             # If we are working on a mac remove -e option because is still no available
             if platform == "darwin":
-                if '-e' in singularity_cmd:
-                    singularity_cmd.remove('-e')
+                if "-e" in singularity_cmd:
+                    singularity_cmd.remove("-e")
 
             if not self.cmd and not self.container_shell_path:
-                fu.log("WARNING: The command-line is empty your container should know what to do automatically.", self.out_log, self.global_log)
+                fu.log(
+                    "WARNING: The command-line is empty your container should know what to do automatically.",
+                    self.out_log,
+                    self.global_log,
+                )
             else:
                 cmd = ['"' + " ".join(self.cmd) + '"']
                 singularity_cmd.append(self.container_shell_path)
                 singularity_cmd.extend(cmd)
             self.cmd = singularity_cmd
         # Docker
-        elif self.container_path.endswith('docker'):
-            fu.log('Using Docker image %s' % self.container_image, self.out_log, self.global_log)
+        elif self.container_path.endswith("docker"):
+            fu.log(
+                "Using Docker image %s" % self.container_image,
+                self.out_log,
+                self.global_log,
+            )
             docker_cmd = [self.container_path, self.container_generic_command]
-            for env_var_name, env_var_value in self.env_vars_dict:
-                docker_cmd.append('-e')
-                docker_cmd.append(f"{env_var_name}='{env_var_value}'")
+            if self.env_vars_dict:
+                for env_var_name, env_var_value in self.env_vars_dict.items():
+                    docker_cmd.append("-e")
+                    docker_cmd.append(f"{env_var_name}='{env_var_value}'")
             if self.container_working_dir:
-                docker_cmd.append('-w')
+                docker_cmd.append("-w")
                 docker_cmd.append(self.container_working_dir)
             if self.container_volume_path:
-                docker_cmd.append('-v')
-                docker_cmd.append(host_volume + ':' + self.container_volume_path)
+                docker_cmd.append("-v")
+                docker_cmd.append(host_volume + ":" +
+                                  self.container_volume_path)
             if self.container_user_id:
-                docker_cmd.append('--user')
+                docker_cmd.append("--user")
                 docker_cmd.append(self.container_user_id)
 
             docker_cmd.append(self.container_image)
 
             if not self.cmd and not self.container_shell_path:
-                fu.log("WARNING: The command-line is empty your container should know what to do automatically.", self.out_log, self.global_log)
+                fu.log(
+                    "WARNING: The command-line is empty your container should know what to do automatically.",
+                    self.out_log,
+                    self.global_log,
+                )
             else:
                 cmd = ['"' + " ".join(self.cmd) + '"']
                 docker_cmd.append(self.container_shell_path)
                 docker_cmd.extend(cmd)
             self.cmd = docker_cmd
         # Pcocc
-        elif self.container_path.endswith('pcocc'):
+        elif self.container_path.endswith("pcocc"):
             # pcocc run -I racov56:pmx cli.py mutate -h
-            fu.log('Using pcocc image %s' % self.container_image, self.out_log, self.global_log)
-            pcocc_cmd = [self.container_path, self.container_generic_command, '-I', self.container_image]
+            fu.log(
+                "Using pcocc image %s" % self.container_image,
+                self.out_log,
+                self.global_log,
+            )
+            pcocc_cmd = [
+                self.container_path,
+                self.container_generic_command,
+                "-I",
+                self.container_image,
+            ]
             if self.container_working_dir:
-                pcocc_cmd.append('--cwd')
+                pcocc_cmd.append("--cwd")
                 pcocc_cmd.append(self.container_working_dir)
             if self.container_volume_path:
-                pcocc_cmd.append('--mount')
-                pcocc_cmd.append(host_volume + ':' + self.container_volume_path)
+                pcocc_cmd.append("--mount")
+                pcocc_cmd.append(host_volume + ":" +
+                                 self.container_volume_path)
             if self.container_user_id:
-                pcocc_cmd.append('--user')
+                pcocc_cmd.append("--user")
                 pcocc_cmd.append(self.container_user_id)
 
             if not self.cmd and not self.container_shell_path:
-                fu.log("WARNING: The command-line is empty your container should know what to do automatically.", self.out_log, self.global_log)
+                fu.log(
+                    "WARNING: The command-line is empty your container should know what to do automatically.",
+                    self.out_log,
+                    self.global_log,
+                )
             else:
                 cmd = ['\\"' + " ".join(self.cmd) + '\\"']
                 pcocc_cmd.append(self.container_shell_path)
@@ -271,7 +397,14 @@ class BiobbObject:
             cwd = os.getcwd()
             os.chdir(self.stage_io_dict["unique_dir"])
 
-        self.return_code = cmd_wrapper.CmdWrapper(self.cmd, self.shell_path, self.out_log, self.err_log, self.global_log, self.env_vars_dict).launch()
+        self.return_code = cmd_wrapper.CmdWrapper(
+            self.cmd,
+            self.shell_path,
+            self.out_log,
+            self.err_log,
+            self.global_log,
+            self.env_vars_dict,
+        ).launch()
 
         if self.chdir_sandbox:
             os.chdir(cwd)
@@ -279,16 +412,25 @@ class BiobbObject:
     def copy_to_host(self):
         for file_ref, file_path in self.stage_io_dict["out"].items():
             if file_path:
-                sandbox_file_path = str(Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name))
+                sandbox_file_path = str(
+                    Path(self.stage_io_dict["unique_dir"]).joinpath(
+                        Path(file_path).name
+                    )
+                )
                 if Path(sandbox_file_path).exists():
                     # Dest file exists
                     if Path(self.io_dict["out"][file_ref]).exists():
                         # Dest file exists and is NOT the same as the source file
-                        if not Path(sandbox_file_path).samefile(Path(self.io_dict["out"][file_ref])):
-                            shutil.copy2(sandbox_file_path, self.io_dict["out"][file_ref])
+                        if not Path(sandbox_file_path).samefile(
+                            Path(self.io_dict["out"][file_ref])
+                        ):
+                            shutil.copy2(
+                                sandbox_file_path, self.io_dict["out"][file_ref]
+                            )
                     # Dest file does not exist
                     else:
-                        shutil.copy2(sandbox_file_path, self.io_dict["out"][file_ref])
+                        shutil.copy2(sandbox_file_path,
+                                     self.io_dict["out"][file_ref])
 
     def run_biobb(self):
         self.create_cmd_line()

@@ -36,27 +36,30 @@ import json
 import logging
 from pathlib import Path
 from biobb_common.tools import file_utils as fu
+from typing import Optional
 
-GALAXY_CHARACTER_MAP = {                       
-        '__gt__':'>',                          
-        '__lt__': '<',                         
-        '__sq__': "'",                         
-        '__dq__': '"',                         
-        '__ob__': '[',                         
-        '__cb__': ']',                         
-        '__oc__': '{',  
-        '__cc__': '}',  
-        '__cn__': '\n',
-        '__cr__': '\r',
-        '__tc__': '\t',
-        '__pd__': '#'  
-}                      
-                       
+GALAXY_CHARACTER_MAP = {
+    "__gt__": ">",
+    "__lt__": "<",
+    "__sq__": "'",
+    "__dq__": '"',
+    "__ob__": "[",
+    "__cb__": "]",
+    "__oc__": "{",
+    "__cc__": "}",
+    "__cn__": "\n",
+    "__cr__": "\r",
+    "__tc__": "\t",
+    "__pd__": "#",
+}
+
+
 def trans_galaxy_charmap(input_str):
-    '''Fixes escape characters introduced by Galaxy on Json inputs'''
+    """Fixes escape characters introduced by Galaxy on Json inputs"""
     for ch in GALAXY_CHARACTER_MAP:
         input_str = input_str.replace(ch, GALAXY_CHARACTER_MAP[ch])
     return input_str
+
 
 class ConfReader:
     """Configuration file loader for yaml format files.
@@ -66,19 +69,28 @@ class ConfReader:
         system (str): System name from the systems section in the configuration file.
     """
 
-    def __init__(self, config: str = None, system: str = None):
+    def __init__(self, config: Optional[str] = None, system: Optional[str] = None):
         if not config:
             config = "{}"
         self.config = config
         self.system = system
         self.properties = self._read_config()
         if self.system:
-            self.properties[self.system]['working_dir_path'] = fu.get_working_dir_path(self.properties[self.system].get('working_dir_path'), restart=self.properties[self.system].get('restart', False))
+            self.properties[self.system]["working_dir_path"] = fu.get_working_dir_path(
+                self.properties[self.system].get("working_dir_path"),
+                restart=self.properties[self.system].get("restart", False),
+            )
         else:
-            self.properties['working_dir_path'] = fu.get_working_dir_path(self.properties.get('working_dir_path'), restart=self.properties.get('restart', False))
+            self.properties["working_dir_path"] = fu.get_working_dir_path(
+                self.properties.get("working_dir_path"),
+                restart=self.properties.get("restart", False),
+            )
 
     def _read_config(self):
-        file_name_elements = str(self.config).split('#')
+        # Read just one step specified in the configuration file path
+        # i.e: Read just Editconf step from workflow_configuration.yaml file
+        # "/home/user/workflow_configuration.yaml#Editconf"
+        file_name_elements = str(self.config).split("#")
         self.config = file_name_elements[0]
         step = None
         if len(file_name_elements) > 1:
@@ -86,11 +98,11 @@ class ConfReader:
         try:
             config_file = str(Path(self.config).resolve())
             with open(config_file) as stream:
-                if config_file.lower().endswith((".yaml",".yml")):
+                try:
                     config_dict = yaml.safe_load(stream)
-                else:
+                except yaml.YAMLError:
                     config_dict = json.load(stream)
-        except:
+        except Exception:
             config_dict = json.loads(trans_galaxy_charmap(self.config))
         if step:
             return config_dict[step]
@@ -98,11 +110,13 @@ class ConfReader:
 
     def get_working_dir_path(self) -> str:
         if self.system:
-            return self.properties[self.system].get('working_dir_path')
+            return self.properties[self.system].get("working_dir_path")
 
-        return self.properties.get('working_dir_path')
+        return self.properties.get("working_dir_path")
 
-    def get_prop_dic(self, prefix: str = None, global_log: logging.Logger = None) -> dict:
+    def get_prop_dic(
+        self, prefix: Optional[str] = None, global_log: Optional[logging.Logger] = None
+    ) -> dict:
         """get_prop_dic() returns the properties dictionary where keys are the
         step names in the configuration YAML file and every value contains another
         nested dictionary containing the keys and values of each step properties section.
@@ -123,90 +137,137 @@ class ConfReader:
             dict: Dictionary of properties.
         """
         prop_dic = dict()
-        prefix = '' if prefix is None else prefix.strip()
+        prefix = "" if prefix is None else prefix.strip()
 
         # There is no step
-        if 'paths' in self.properties or 'properties' in self.properties:
+        if "paths" in self.properties or "properties" in self.properties:
             prop_dic = dict()
             if self.system:
-                prop_dic['path'] = str(Path(self.properties[self.system]['working_dir_path']).joinpath(prefix))
+                prop_dic["path"] = str(
+                    Path(self.properties[self.system]["working_dir_path"]).joinpath(
+                        prefix
+                    )
+                )
             else:
-                prop_dic['path'] = str(Path(self.properties['working_dir_path']).joinpath(prefix))
-            prop_dic['step'] = None
-            prop_dic['prefix'] = prefix
-            prop_dic['global_log'] = global_log
-            prop_dic['system'] = self.system
+                prop_dic["path"] = str(
+                    Path(self.properties["working_dir_path"]).joinpath(prefix)
+                )
+            prop_dic["step"] = None
+            prop_dic["prefix"] = prefix
+            prop_dic["global_log"] = global_log
+            prop_dic["system"] = self.system
             if self.system:
                 prop_dic.update(self.properties[self.system].copy())
             else:
-                prop_dic['working_dir_path'] = self.properties.get('working_dir_path')
-                prop_dic['restart'] = self.properties.get('restart', False)
-                prop_dic['remove_tmp'] = self.properties.get('remove_tmp', True)
+                prop_dic["working_dir_path"] = self.properties.get("working_dir_path")
+                prop_dic["restart"] = self.properties.get("restart", False)
+                prop_dic["remove_tmp"] = self.properties.get("remove_tmp", True)
 
-            if 'properties' in self.properties and isinstance(self.properties['properties'], dict):
-                prop_dic.update(self.properties['properties'].copy())
+            if "properties" in self.properties and isinstance(
+                self.properties["properties"], dict
+            ):
+                prop_dic.update(self.properties["properties"].copy())
                 if self.system:
-                    if self.properties[self.system].get('log_level', None):
-                        prop_dic['log_level'] = self.properties[self.system]['log_level']
+                    if self.properties[self.system].get("log_level", None):
+                        prop_dic["log_level"] = self.properties[self.system][
+                            "log_level"
+                        ]
                 else:
-                    if self.properties.get('log_level', None):
-                        prop_dic['log_level'] = self.properties['log_level']
+                    if self.properties.get("log_level", None):
+                        prop_dic["log_level"] = self.properties["log_level"]
         # There is step name
         else:
             for key in self.properties:
                 if isinstance(self.properties[key], dict):
-                    if 'paths' in self.properties[key] or 'properties' in self.properties[key]:
+                    if (
+                        "paths" in self.properties[key]
+                        or "properties" in self.properties[key]
+                    ):
                         prop_dic[key] = dict()
                         if self.system:
-                            prop_dic[key]['path'] = str(Path(self.properties[self.system]['working_dir_path']).joinpath(prefix, key))
+                            prop_dic[key]["path"] = str(
+                                Path(
+                                    self.properties[self.system]["working_dir_path"]
+                                ).joinpath(prefix, key)
+                            )
                         else:
-                            prop_dic[key]['path'] = str(Path(self.properties['working_dir_path']).joinpath(prefix, key))
-                        prop_dic[key]['step'] = key
-                        prop_dic[key]['prefix'] = prefix
-                        prop_dic[key]['global_log'] = global_log
-                        prop_dic[key]['system'] = self.system
+                            prop_dic[key]["path"] = str(
+                                Path(self.properties["working_dir_path"]).joinpath(
+                                    prefix, key
+                                )
+                            )
+                        prop_dic[key]["step"] = key
+                        prop_dic[key]["prefix"] = prefix
+                        prop_dic[key]["global_log"] = global_log
+                        prop_dic[key]["system"] = self.system
                         if self.system:
                             prop_dic[key].update(self.properties[self.system].copy())
                         else:
-                            prop_dic[key]['working_dir_path'] = self.properties.get('working_dir_path')
-                            prop_dic[key]['can_write_console_log'] = self.properties.get('can_write_console_log', True)
-                            prop_dic[key]['restart'] = self.properties.get('restart', False)
-                            prop_dic[key]['remove_tmp'] = self.properties.get('remove_tmp', True)
+                            prop_dic[key]["working_dir_path"] = self.properties.get(
+                                "working_dir_path"
+                            )
+                            prop_dic[key][
+                                "can_write_console_log"
+                            ] = self.properties.get("can_write_console_log", True)
+                            prop_dic[key]["restart"] = self.properties.get(
+                                "restart", False
+                            )
+                            prop_dic[key]["remove_tmp"] = self.properties.get(
+                                "remove_tmp", True
+                            )
 
-                    if ('properties' in self.properties[key]) and isinstance(self.properties[key]['properties'], dict):
+                    if ("properties" in self.properties[key]) and isinstance(
+                        self.properties[key]["properties"], dict
+                    ):
                         if self.system:
-                            if self.properties[self.system].get('log_level', None):
-                                prop_dic[key]['log_level'] = self.properties[self.system]['log_level']
-                            prop_dic[key]['can_write_console_log'] = self.properties[self.system].get('can_write_console_log', True)
+                            if self.properties[self.system].get("log_level", None):
+                                prop_dic[key]["log_level"] = self.properties[
+                                    self.system
+                                ]["log_level"]
+                            prop_dic[key]["can_write_console_log"] = self.properties[
+                                self.system
+                            ].get("can_write_console_log", True)
                         else:
-                            if self.properties.get('log_level', None):
-                                prop_dic[key]['log_level'] = self.properties['log_level']
-                            prop_dic[key]['can_write_console_log'] = self.properties.get('can_write_console_log', True)
-                        prop_dic[key].update(self.properties[key]['properties'].copy())
+                            if self.properties.get("log_level", None):
+                                prop_dic[key]["log_level"] = self.properties[
+                                    "log_level"
+                                ]
+                            prop_dic[key][
+                                "can_write_console_log"
+                            ] = self.properties.get("can_write_console_log", True)
+                        prop_dic[key].update(self.properties[key]["properties"].copy())
 
         # There is no step name and there is no properties or paths key return input
         if not prop_dic:
             prop_dic = dict()
             prop_dic.update(self.properties)
             if self.system:
-                prop_dic['path'] = str(Path(self.properties[self.system]['working_dir_path']).joinpath(prefix))
+                prop_dic["path"] = str(
+                    Path(self.properties[self.system]["working_dir_path"]).joinpath(
+                        prefix
+                    )
+                )
             else:
-                prop_dic['path'] = str(Path(self.properties['working_dir_path']).joinpath(prefix))
-            prop_dic['step'] = None
-            prop_dic['prefix'] = prefix
-            prop_dic['global_log'] = global_log
-            prop_dic['system'] = self.system
+                prop_dic["path"] = str(
+                    Path(self.properties["working_dir_path"]).joinpath(prefix)
+                )
+            prop_dic["step"] = None
+            prop_dic["prefix"] = prefix
+            prop_dic["global_log"] = global_log
+            prop_dic["system"] = self.system
             if self.system:
                 prop_dic.update(self.properties[self.system].copy())
             else:
-                prop_dic['working_dir_path'] = self.properties.get('working_dir_path')
-                prop_dic['can_write_console_log'] = self.properties.get('can_write_console_log', True)
-                prop_dic['restart'] = self.properties.get('restart', False)
-                prop_dic['remove_tmp'] = self.properties.get('remove_tmp', True)
+                prop_dic["working_dir_path"] = self.properties.get("working_dir_path")
+                prop_dic["can_write_console_log"] = self.properties.get(
+                    "can_write_console_log", True
+                )
+                prop_dic["restart"] = self.properties.get("restart", False)
+                prop_dic["remove_tmp"] = self.properties.get("remove_tmp", True)
 
         return prop_dic
 
-    def get_paths_dic(self, prefix: str = None) -> dict:
+    def get_paths_dic(self, prefix: Optional[str] = None) -> dict:
         """get_paths_dic() returns the paths dictionary where keys are the
         step names in the configuration YAML file and every value contains another
         nested dictionary containing the keys and values of each step paths section.
@@ -221,20 +282,21 @@ class ConfReader:
             dict: Dictionary of paths.
         """
         prop_dic = dict()
-        prefix = '' if prefix is None else prefix.strip()
+        prefix = "" if prefix is None else prefix.strip()
         # Filtering just paths
         # Properties without step name
-        if 'paths' in self.properties:
+        if "paths" in self.properties:
             step = False
-            prop_dic = self.properties['paths'].copy()
+            prop_dic = self.properties["paths"].copy()
 
         # Properties with name
         else:
             step = True
+
             for key in self.properties:
                 if isinstance(self.properties[key], dict):
-                    if 'paths' in self.properties[key]:
-                        prop_dic[key] = self.properties[key]['paths'].copy()
+                    if "paths" in self.properties[key]:
+                        prop_dic[key] = self.properties[key]["paths"].copy()
                     else:
                         prop_dic[key] = {}
 
@@ -242,32 +304,56 @@ class ConfReader:
         # Properties without step name: Do not solving dependencies
         if not step:
             for key2, value in prop_dic.items():
-                if isinstance(value, str) and value.startswith('file:'):
-                    prop_dic[key2] = value.split(':')[1]
+                if isinstance(value, str) and value.startswith("file:"):
+                    prop_dic[key2] = value.split(":")[1]
                 else:
                     if self.system:
-                        prop_dic[key2] = str(Path(self.properties[self.system]['working_dir_path']).joinpath(prefix, key, value))
+                        prop_dic[key2] = str(
+                            Path(
+                                self.properties[self.system]["working_dir_path"]
+                            ).joinpath(prefix, key, value)
+                        )
                     else:
-                        prop_dic[key2] = str(Path(self.properties['working_dir_path']).joinpath(prefix, value))
+                        prop_dic[key2] = str(
+                            Path(self.properties["working_dir_path"]).joinpath(
+                                prefix, value
+                            )
+                        )
 
         # Properties with step name
         else:
             for key in prop_dic:
                 for key2, value in prop_dic[key].items():
-                    if isinstance(value, str) and value.startswith('dependency'):
-                        while isinstance(value, str) and value.startswith('dependency'):
-                            dependency_step = value.split('/')[1]
-                            value = prop_dic[value.split('/')[1]][value.split('/')[2]]
+                    if isinstance(value, str) and value.startswith("dependency"):
+                        while isinstance(value, str) and value.startswith("dependency"):
+                            dependency_step = value.split("/")[1]
+                            value = prop_dic[value.split("/")[1]][value.split("/")[2]]
                         if self.properties.get(self.system):
-                            prop_dic[key][key2] = str(Path(self.properties[self.system]['working_dir_path']).joinpath(prefix, dependency_step, value))
+                            prop_dic[key][key2] = str(
+                                Path(
+                                    self.properties[self.system]["working_dir_path"]
+                                ).joinpath(prefix, dependency_step, value)
+                            )
                         else:
-                            prop_dic[key][key2] = str(Path(self.properties['working_dir_path']).joinpath(prefix, dependency_step, value))
-                    elif isinstance(value, str) and value.startswith('file:'):
-                        prop_dic[key][key2] = value.split(':')[1]
+                            prop_dic[key][key2] = str(
+                                Path(self.properties["working_dir_path"]).joinpath(
+                                    prefix, dependency_step, value
+                                )
+                            )
+                    elif isinstance(value, str) and value.startswith("file:"):
+                        prop_dic[key][key2] = value.split(":")[1]
                     else:
                         if self.system:
-                            prop_dic[key][key2] = str(Path(self.properties[self.system]['working_dir_path']).joinpath(prefix, key, value))
+                            prop_dic[key][key2] = str(
+                                Path(
+                                    self.properties[self.system]["working_dir_path"]
+                                ).joinpath(prefix, key, value)
+                            )
                         else:
-                            prop_dic[key][key2] = str(Path(self.properties['working_dir_path']).joinpath(prefix, key, value))
+                            prop_dic[key][key2] = str(
+                                Path(self.properties["working_dir_path"]).joinpath(
+                                    prefix, key, value
+                                )
+                            )
 
         return prop_dic

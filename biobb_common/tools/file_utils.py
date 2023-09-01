@@ -14,6 +14,7 @@ import zipfile
 from sys import platform
 from pathlib import Path
 import typing
+from typing import Optional
 import sys
 
 
@@ -21,9 +22,9 @@ def create_unique_file_path(parent_dir: str = None, extension: str = None) -> st
     if not parent_dir:
         parent_dir = Path.cwd()
     if not extension:
-        extension = ''
+        extension = ""
     while True:
-        name = str(uuid.uuid4())+extension
+        name = str(uuid.uuid4()) + extension
         file_path = Path.joinpath(Path(parent_dir).resolve(), name)
         if not file_path.exists():
             return str(file_path)
@@ -44,13 +45,18 @@ def create_dir(dir_path: str) -> str:
 
 
 def create_stdin_file(intput_string: str) -> str:
-    file_path = create_unique_file_path(extension='.stdin')
-    with open(file_path, 'w') as file_handler:
+    file_path = create_unique_file_path(extension=".stdin")
+    with open(file_path, "w") as file_handler:
         file_handler.write(intput_string)
     return file_path
 
 
-def create_unique_dir(path: str = '', prefix: str = '', number_attempts: int = 10, out_log: logging.Logger = None) -> str:
+def create_unique_dir(
+    path: str = "",
+    prefix: str = "",
+    number_attempts: int = 10,
+    out_log: Optional[logging.Logger] = None,
+) -> str:
     """Create a directory with a prefix + computed unique name. If the
     computed name collides with an existing file name it attemps
     **number_attempts** times to create another unique id and create
@@ -73,18 +79,18 @@ def create_unique_dir(path: str = '', prefix: str = '', number_attempts: int = 1
             oldumask = os.umask(0)
             Path(new_dir).mkdir(mode=0o777, parents=True, exist_ok=False)
             if out_log:
-                out_log.info('%s directory successfully created' % new_dir)
+                out_log.info("%s directory successfully created" % new_dir)
             os.umask(oldumask)
             return new_dir
         except OSError:
             if out_log:
-                out_log.info(new_dir + ' Already exists')
-                out_log.info('Retrying %i times more' % (number_attempts - i))
+                out_log.info(new_dir + " Already exists")
+                out_log.info("Retrying %i times more" % (number_attempts - i))
             new_dir = prefix + str(uuid.uuid4().hex)
             if path:
                 new_dir = str(Path(path).joinpath(new_dir))
             if out_log:
-                out_log.info('Trying with: ' + new_dir)
+                out_log.info("Trying with: " + new_dir)
     raise FileExistsError
 
 
@@ -110,13 +116,17 @@ def get_working_dir_path(working_dir_path: str = None, restart: bool = False) ->
 
     cont = 1
     while Path(working_dir_path).exists():
-        working_dir_path = re.split(r"_[0-9]+$", str(working_dir_path))[0] + '_' + str(cont)
+        working_dir_path = (
+            re.split(r"_[0-9]+$", str(working_dir_path))[0] + "_" + str(cont)
+        )
         cont += 1
     return str(working_dir_path)
 
 
-def zip_list(zip_file: str, file_list: typing.Iterable[str], out_log: logging.Logger = None):
-    """ Compress all files listed in **file_list** into **zip_file** zip file.
+def zip_list(
+    zip_file: str, file_list: typing.Iterable[str], out_log: logging.Logger = None
+):
+    """Compress all files listed in **file_list** into **zip_file** zip file.
 
     Args:
         zip_file (str): Output compressed zip file.
@@ -125,12 +135,12 @@ def zip_list(zip_file: str, file_list: typing.Iterable[str], out_log: logging.Lo
     """
     file_list.sort()
     Path(zip_file).parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zip_file, 'w') as zip_f:
+    with zipfile.ZipFile(zip_file, "w") as zip_f:
         inserted = []
         for index, f in enumerate(file_list):
             base_name = Path(f).name
             if base_name in inserted:
-                base_name = 'file_' + str(index) + '_' + base_name
+                base_name = "file_" + str(index) + "_" + base_name
             inserted.append(base_name)
             zip_f.write(f, arcname=base_name)
     if out_log:
@@ -139,8 +149,10 @@ def zip_list(zip_file: str, file_list: typing.Iterable[str], out_log: logging.Lo
         out_log.info("to: " + str(Path(zip_file).resolve()))
 
 
-def unzip_list(zip_file: str, dest_dir: str = None, out_log: logging.Logger = None) -> typing.List[str]:
-    """ Extract all files in the zipball file and return a list containing the
+def unzip_list(
+    zip_file: str, dest_dir: str = None, out_log: logging.Logger = None
+) -> typing.List[str]:
+    """Extract all files in the zipball file and return a list containing the
         absolute path of the extracted files.
 
     Args:
@@ -151,7 +163,7 @@ def unzip_list(zip_file: str, dest_dir: str = None, out_log: logging.Logger = No
     Returns:
         :obj:`list` of :obj:`str`: List of paths of the extracted files.
     """
-    with zipfile.ZipFile(zip_file, 'r') as zip_f:
+    with zipfile.ZipFile(zip_file, "r") as zip_f:
         zip_f.extractall(path=dest_dir)
         file_list = [str(Path(dest_dir).joinpath(f)) for f in zip_f.namelist()]
 
@@ -163,8 +175,10 @@ def unzip_list(zip_file: str, dest_dir: str = None, out_log: logging.Logger = No
     return file_list
 
 
-def search_topology_files(top_file: str, out_log: logging.Logger = None) -> typing.List[str]:
-    """ Search the top and itp files to create a list of the topology files
+def search_topology_files(
+    top_file: str, out_log: logging.Logger = None
+) -> typing.List[str]:
+    """Search the top and itp files to create a list of the topology files
 
     Args:
         top_file (str): Topology GROMACS top file.
@@ -190,8 +204,13 @@ def search_topology_files(top_file: str, out_log: logging.Logger = None) -> typi
     return file_list + [top_file]
 
 
-def zip_top(zip_file: str, top_file: str, out_log: logging.Logger = None, remove_original_files: bool = True) -> typing.List[str]:
-    """ Compress all *.itp and *.top files in the cwd into **zip_file** zip file.
+def zip_top(
+    zip_file: str,
+    top_file: str,
+    out_log: logging.Logger = None,
+    remove_original_files: bool = True,
+) -> typing.List[str]:
+    """Compress all *.itp and *.top files in the cwd into **zip_file** zip file.
 
     Args:
         zip_file (str): Output compressed zip file.
@@ -209,8 +228,12 @@ def zip_top(zip_file: str, top_file: str, out_log: logging.Logger = None, remove
     return file_list
 
 
-def unzip_top(zip_file: str, out_log: logging.Logger = None, unique_dir: typing.Union[pathlib.Path, str] = None) -> str:
-    """ Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
+def unzip_top(
+    zip_file: str,
+    out_log: logging.Logger = None,
+    unique_dir: typing.Union[pathlib.Path, str] = None,
+) -> str:
+    """Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
 
     Args:
         zip_file (str): Input topology zipball file path.
@@ -225,20 +248,27 @@ def unzip_top(zip_file: str, out_log: logging.Logger = None, unique_dir: typing.
     top_list = unzip_list(zip_file, unique_dir, out_log)
     top_file = next(name for name in top_list if name.endswith(".top"))
     if out_log:
-        out_log.info('Unzipping: ')
+        out_log.info("Unzipping: ")
         out_log.info(zip_file)
-        out_log.info('To: ')
+        out_log.info("To: ")
         for file_name in top_list:
             out_log.info(file_name)
     return top_file
 
 
 def get_logs_prefix():
-    return 4 * ' '
+    return 4 * " "
 
 
-def get_logs(path: str = None, prefix: str = None, step: str = None, can_write_console: bool = True, level: str = 'INFO', light_format: bool = False) -> typing.Tuple[logging.Logger, logging.Logger]:
-    """ Get the error and and out Python Logger objects.
+def get_logs(
+    path: str = None,
+    prefix: str = None,
+    step: str = None,
+    can_write_console: bool = True,
+    level: str = "INFO",
+    light_format: bool = False,
+) -> typing.Tuple[logging.Logger, logging.Logger]:
+    """Get the error and and out Python Logger objects.
 
     Args:
         path (str): (current working directory) Path to the log file directory.
@@ -251,26 +281,26 @@ def get_logs(path: str = None, prefix: str = None, step: str = None, can_write_c
     Returns:
         :obj:`tuple` of :obj:`logging.Logger` and :obj:`logging.Logger`: Out and err Logger objects.
     """
-    prefix = prefix if prefix else ''
-    step = step if step else ''
+    prefix = prefix if prefix else ""
+    step = step if step else ""
     path = path if path else str(Path.cwd())
 
-    out_log_path = create_name(path=path, prefix=prefix, step=step, name='log.out')
-    err_log_path = create_name(path=path, prefix=prefix, step=step, name='log.err')
+    out_log_path = create_name(path=path, prefix=prefix, step=step, name="log.out")
+    err_log_path = create_name(path=path, prefix=prefix, step=step, name="log.err")
 
     # If logfile exists create a new one adding a number at the end
     if Path(out_log_path).exists():
-        name = 'log.out'
+        name = "log.out"
         cont = 1
         while Path(out_log_path).exists():
-            name = name.split('.')[0].rstrip('\\/0123456789_') + str(cont) + '.out'
+            name = name.split(".")[0].rstrip("\\/0123456789_") + str(cont) + ".out"
             out_log_path = create_name(path=path, prefix=prefix, step=step, name=name)
             cont += 1
     if Path(err_log_path).exists():
-        name = 'log.err'
+        name = "log.err"
         cont = 1
         while Path(err_log_path).exists():
-            name = name.split('.')[0].rstrip('\\/0123456789_') + str(cont) + '.err'
+            name = name.split(".")[0].rstrip("\\/0123456789_") + str(cont) + ".err"
             err_log_path = create_name(path=path, prefix=prefix, step=step, name=name)
             cont += 1
 
@@ -278,7 +308,9 @@ def get_logs(path: str = None, prefix: str = None, step: str = None, can_write_c
     create_dir(str(Path(out_log_path).resolve().parent))
 
     # Create logging format
-    logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+    logFormatter = logging.Formatter(
+        "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
+    )
     if light_format:
         logFormatter = logging.Formatter("%(asctime)s %(message)s", "%H:%M:%S")
     # Create logging objects
@@ -286,8 +318,12 @@ def get_logs(path: str = None, prefix: str = None, step: str = None, can_write_c
     err_Logger = logging.getLogger(err_log_path)
 
     # Create FileHandler
-    out_fileHandler = logging.FileHandler(out_log_path, mode='a', encoding=None, delay=False)
-    err_fileHandler = logging.FileHandler(err_log_path, mode='a', encoding=None, delay=False)
+    out_fileHandler = logging.FileHandler(
+        out_log_path, mode="a", encoding=None, delay=False
+    )
+    err_fileHandler = logging.FileHandler(
+        err_log_path, mode="a", encoding=None, delay=False
+    )
 
     # Asign format to FileHandler
     out_fileHandler.setFormatter(logFormatter)
@@ -317,14 +353,22 @@ def get_logs(path: str = None, prefix: str = None, step: str = None, can_write_c
 def launchlogger(func):
     @functools.wraps(func)
     def wrapper_log(*args, **kwargs):
-        args[0].out_log, args[0].err_log = get_logs(path=args[0].path, prefix=args[0].prefix, step=args[0].step,
-                                                    can_write_console=args[0].can_write_console_log)
+        args[0].out_log, args[0].err_log = get_logs(
+            path=args[0].path,
+            prefix=args[0].prefix,
+            step=args[0].step,
+            can_write_console=args[0].can_write_console_log,
+        )
         value = func(*args, **kwargs)
-        handlers = args[0].out_log.handlers[:]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
+        handlers = args[0].out_log.handlers[
+            :
+        ]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
         for handler in handlers:
             handler.close()
             args[0].out_log.removeHandler(handler)
-        handlers = args[0].err_log.handlers[:]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
+        handlers = args[0].err_log.handlers[
+            :
+        ]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
         for handler in handlers:
             handler.close()
             args[0].err_log.removeHandler(handler)
@@ -333,7 +377,7 @@ def launchlogger(func):
     return wrapper_log
 
 
-def log(string: str, local_log: logging.Logger = None, global_log: logging.Logger = None):
+def log(string: str, local_log: Optional[logging.Logger] = None, global_log: Optional[logging.Logger] = None):
     """Checks if log exists
 
     Args:
@@ -357,11 +401,17 @@ def human_readable_time(time_ps: int) -> str:
     Returns:
         str: Human readable time.
     """
-    time_units = ['femto seconds', 'pico seconds', 'nano seconds', 'micro seconds', 'mili seconds']
+    time_units = [
+        "femto seconds",
+        "pico seconds",
+        "nano seconds",
+        "micro seconds",
+        "mili seconds",
+    ]
     t = time_ps * 1000
     for tu in time_units:
         if t < 1000:
-            return str(t) + ' ' + tu
+            return str(t) + " " + tu
 
         t /= 1000
     return str(time_ps)
@@ -371,17 +421,25 @@ def check_properties(obj: object, properties: dict, reserved_properties: dict = 
     if not reserved_properties:
         reserved_properties = []
     reserved_properties = set(["system", "working_dir_path"] + reserved_properties)
-    error_properties = set([prop for prop in properties.keys() if prop not in obj.__dict__.keys()])
+    error_properties = set(
+        [prop for prop in properties.keys() if prop not in obj.__dict__.keys()]
+    )
     error_properties -= reserved_properties
     for error_property in error_properties:
-        close_property = difflib.get_close_matches(error_property, obj.__dict__.keys(), n=1, cutoff=0.01)
+        close_property = difflib.get_close_matches(
+            error_property, obj.__dict__.keys(), n=1, cutoff=0.01
+        )
         close_property = close_property[0] if close_property else ""
-        warnings.warn("Warning: %s is not a recognized property. The most similar property is: %s" % (
-            error_property, close_property))
+        warnings.warn(
+            "Warning: %s is not a recognized property. The most similar property is: %s"
+            % (error_property, close_property)
+        )
 
 
-def create_name(path: str = None, prefix: str = None, step: str = None, name: str = None) -> str:
-    """ Return file name.
+def create_name(
+    path: str = None, prefix: str = None, step: str = None, name: str = None
+) -> str:
+    """Return file name.
 
     Args:
         path (str): Path to the file directory.
@@ -392,16 +450,16 @@ def create_name(path: str = None, prefix: str = None, step: str = None, name: st
     Returns:
         str: Composed file name.
     """
-    name = '' if name is None else name.strip()
+    name = "" if name is None else name.strip()
     if step:
         if name:
-            name = step + '_' + name
+            name = step + "_" + name
         else:
             name = step
     if prefix:
         prefix = prefix.replace("/", "_")
         if name:
-            name = prefix + '_' + name
+            name = prefix + "_" + name
         else:
             name = prefix
     if path:
@@ -413,8 +471,8 @@ def create_name(path: str = None, prefix: str = None, step: str = None, name: st
 
 
 def write_failed_output(file_name: str):
-    with open(file_name, 'w') as f:
-        f.write('Error\n')
+    with open(file_name, "w") as f:
+        f.write("Error\n")
 
 
 def rm(file_name: str) -> str:
@@ -432,10 +490,12 @@ def rm(file_name: str) -> str:
     return None
 
 
-def rm_file_list(file_list: typing.Iterable[str], out_log: logging.Logger = None) -> typing.List[str]:
+def rm_file_list(
+    file_list: typing.Iterable[str], out_log: logging.Logger = None
+) -> typing.List[str]:
     removed_files = [f for f in file_list if rm(f)]
     if out_log:
-        log('Removed: %s' % str(removed_files), out_log)
+        log("Removed: %s" % str(removed_files), out_log)
     return removed_files
 
 
@@ -446,8 +506,12 @@ def check_complete_files(output_file_list: typing.Iterable[str]) -> bool:
     return True
 
 
-def copy_to_container(container_path: str, container_volume_path: str, io_dict: typing.Mapping,
-                      out_log: logging.Logger = None) -> dict:
+def copy_to_container(
+    container_path: str,
+    container_volume_path: str,
+    io_dict: typing.Mapping,
+    out_log: logging.Logger = None,
+) -> dict:
     if not container_path:
         return io_dict
 
@@ -459,8 +523,10 @@ def copy_to_container(container_path: str, container_volume_path: str, io_dict: 
         if file_path:
             if Path(file_path).exists():
                 shutil.copy2(file_path, unique_dir)
-                log(f'Copy: {file_path} to {unique_dir}')
-                container_io_dict["in"][file_ref] = str(Path(container_volume_path).joinpath(Path(file_path).name))
+                log(f"Copy: {file_path} to {unique_dir}")
+                container_io_dict["in"][file_ref] = str(
+                    Path(container_volume_path).joinpath(Path(file_path).name)
+                )
             else:
                 # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
                 container_io_dict["in"][file_ref] = file_path
@@ -468,7 +534,9 @@ def copy_to_container(container_path: str, container_volume_path: str, io_dict: 
     # OUT files assign INTERNAL PATH
     for file_ref, file_path in io_dict["out"].items():
         if file_path:
-            container_io_dict["out"][file_ref] = str(Path(container_volume_path).joinpath(Path(file_path).name))
+            container_io_dict["out"][file_ref] = str(
+                Path(container_volume_path).joinpath(Path(file_path).name)
+            )
 
     return container_io_dict
 
@@ -480,25 +548,45 @@ def copy_to_host(container_path: str, container_io_dict: dict, io_dict: dict):
     # OUT files COPY
     for file_ref, file_path in container_io_dict["out"].items():
         if file_path:
-            container_file_path = str(Path(container_io_dict["unique_dir"]).joinpath(Path(file_path).name))
+            container_file_path = str(
+                Path(container_io_dict["unique_dir"]).joinpath(Path(file_path).name)
+            )
             if Path(container_file_path).exists():
                 shutil.copy2(container_file_path, io_dict["out"][file_ref])
 
 
-def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_volume: str = None,
-                    container_volume: str = None, container_working_dir: str = None,
-                    container_user_uid: str = None, container_shell_path: str = None,
-                    container_image: str = None, out_log: logging.Logger = None,
-                    global_log: logging.Logger = None) -> typing.List[str]:
-    container_path = container_path or ''
-    if container_path.endswith('singularity'):
-        log('Using Singularity image %s' % container_image, out_log, global_log)
+def create_cmd_line(
+    cmd: typing.Iterable[str],
+    container_path: str = "",
+    host_volume: str = None,
+    container_volume: str = None,
+    container_working_dir: str = None,
+    container_user_uid: str = None,
+    container_shell_path: str = None,
+    container_image: str = None,
+    out_log: logging.Logger = None,
+    global_log: logging.Logger = None,
+) -> typing.List[str]:
+    container_path = container_path or ""
+    if container_path.endswith("singularity"):
+        log("Using Singularity image %s" % container_image, out_log, global_log)
         if not Path(container_image).exists():
-            log(f"{container_image} does not exist trying to pull it", out_log, global_log)
-            container_image_name = str(Path(container_image).with_suffix('.sif').name)
-            singularity_pull_cmd = [container_path, 'pull', '--name', container_image_name, container_image]
+            log(
+                f"{container_image} does not exist trying to pull it",
+                out_log,
+                global_log,
+            )
+            container_image_name = str(Path(container_image).with_suffix(".sif").name)
+            singularity_pull_cmd = [
+                container_path,
+                "pull",
+                "--name",
+                container_image_name,
+                container_image,
+            ]
             try:
                 from biobb_common.command_wrapper import cmd_wrapper
+
                 cmd_wrapper.CmdWrapper(singularity_pull_cmd, out_log).launch()
                 if Path(container_image_name).exists():
                     container_image = container_image_name
@@ -507,51 +595,58 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
             except FileNotFoundError:
                 log(f"{' '.join(singularity_pull_cmd)} not found", out_log, global_log)
                 raise FileNotFoundError
-        singularity_cmd = [container_path, 'exec', '-e', '--bind', host_volume + ':' + container_volume, container_image]
+        singularity_cmd = [
+            container_path,
+            "exec",
+            "-e",
+            "--bind",
+            host_volume + ":" + container_volume,
+            container_image,
+        ]
         # If we are working on a mac remove -e option because is still no available
         if platform == "darwin":
-            if '-e' in singularity_cmd:
-                singularity_cmd.remove('-e')
+            if "-e" in singularity_cmd:
+                singularity_cmd.remove("-e")
 
         cmd = ['"' + " ".join(cmd) + '"']
-        singularity_cmd.extend([container_shell_path, '-c'])
+        singularity_cmd.extend([container_shell_path, "-c"])
         return singularity_cmd + cmd
 
-    elif container_path.endswith('docker'):
-        log('Using Docker image %s' % container_image, out_log, global_log)
-        docker_cmd = [container_path, 'run']
+    elif container_path.endswith("docker"):
+        log("Using Docker image %s" % container_image, out_log, global_log)
+        docker_cmd = [container_path, "run"]
         if container_working_dir:
-            docker_cmd.append('-w')
+            docker_cmd.append("-w")
             docker_cmd.append(container_working_dir)
         if container_volume:
-            docker_cmd.append('-v')
-            docker_cmd.append(host_volume + ':' + container_volume)
+            docker_cmd.append("-v")
+            docker_cmd.append(host_volume + ":" + container_volume)
         if container_user_uid:
-            docker_cmd.append('--user')
+            docker_cmd.append("--user")
             docker_cmd.append(container_user_uid)
 
         docker_cmd.append(container_image)
 
         cmd = ['"' + " ".join(cmd) + '"']
-        docker_cmd.extend([container_shell_path, '-c'])
+        docker_cmd.extend([container_shell_path, "-c"])
         return docker_cmd + cmd
 
-    elif container_path.endswith('pcocc'):
+    elif container_path.endswith("pcocc"):
         # pcocc run -I racov56:pmx cli.py mutate -h
-        log('Using pcocc image %s' % container_image, out_log, global_log)
-        pcocc_cmd = [container_path, 'run', '-I', container_image]
+        log("Using pcocc image %s" % container_image, out_log, global_log)
+        pcocc_cmd = [container_path, "run", "-I", container_image]
         if container_working_dir:
-            pcocc_cmd.append('--cwd')
+            pcocc_cmd.append("--cwd")
             pcocc_cmd.append(container_working_dir)
         if container_volume:
-            pcocc_cmd.append('--mount')
-            pcocc_cmd.append(host_volume + ':' + container_volume)
+            pcocc_cmd.append("--mount")
+            pcocc_cmd.append(host_volume + ":" + container_volume)
         if container_user_uid:
-            pcocc_cmd.append('--user')
+            pcocc_cmd.append("--user")
             pcocc_cmd.append(container_user_uid)
 
         cmd = ['\\"' + " ".join(cmd) + '\\"']
-        pcocc_cmd.extend([container_shell_path, '-c'])
+        pcocc_cmd.extend([container_shell_path, "-c"])
         return pcocc_cmd + cmd
 
     else:
@@ -559,60 +654,102 @@ def create_cmd_line(cmd: typing.Iterable[str], container_path: str = '', host_vo
         return cmd
 
 
-def get_doc_dicts(doc: str):
-    regex_argument = re.compile(r'(?P<argument>\w*)\ *(?:\()(?P<type>\w*)(?:\)):?\ *(?P<optional>\(\w*\):)?\ *(?P<description>.*?)(?:\.)\ *(?:File type:\ *)(?P<input_output>\w+)\.\ *(\`(?:.+)\<(?P<sample_file>.*?)\>\`\_\.)?\ *(?:Accepted formats:\ *)(?P<formats>.+)(?:\.)?')
-    regex_argument_formats = re.compile(r"(?P<extension>\w*)\ *(\(\ *)\ *edam\ *:\ *(?P<edam>\w*)")
-    regex_property = re.compile(r"(?:\*\ *\*\*)(?P<property>.*?)(?:\*\*)\ *(?:\(\*)(?P<type>\w*)(?:\*\))\ *\-\ ?(?:\()(?P<default_value>.*?)(?:\))\ *(?:(?:\[)(?P<wf_property>WF property)(?:\]))?\ *(?:(?:\[)(?P<range_start>[\-]?\d+(?:\.\d+)?)\~(?P<range_stop>[\-]?\d+(?:\.\d+)?)(?:\|)?(?P<range_step>\d+(?:\.\d+)?)?(?:\]))?\ *(?:(?:\[)(.*?)(?:\]))?\ *(?P<description>.*)")
-    regex_property_value = re.compile(r"(?P<value>\w*)\ *(?:(?:\()(?P<description>.*?)?(?:\)))?")
+def get_doc_dicts(doc: Optional[str]):
+    regex_argument = re.compile(
+        r"(?P<argument>\w*)\ *(?:\()(?P<type>\w*)(?:\)):?\ *(?P<optional>\(\w*\):)?\ *(?P<description>.*?)(?:\.)\ *(?:File type:\ *)(?P<input_output>\w+)\.\ *(\`(?:.+)\<(?P<sample_file>.*?)\>\`\_\.)?\ *(?:Accepted formats:\ *)(?P<formats>.+)(?:\.)?"
+    )
+    regex_argument_formats = re.compile(
+        r"(?P<extension>\w*)\ *(\(\ *)\ *edam\ *:\ *(?P<edam>\w*)"
+    )
+    regex_property = re.compile(
+        r"(?:\*\ *\*\*)(?P<property>.*?)(?:\*\*)\ *(?:\(\*)(?P<type>\w*)(?:\*\))\ *\-\ ?(?:\()(?P<default_value>.*?)(?:\))\ *(?:(?:\[)(?P<wf_property>WF property)(?:\]))?\ *(?:(?:\[)(?P<range_start>[\-]?\d+(?:\.\d+)?)\~(?P<range_stop>[\-]?\d+(?:\.\d+)?)(?:\|)?(?P<range_step>\d+(?:\.\d+)?)?(?:\]))?\ *(?:(?:\[)(.*?)(?:\]))?\ *(?P<description>.*)"
+    )
+    regex_property_value = re.compile(
+        r"(?P<value>\w*)\ *(?:(?:\()(?P<description>.*?)?(?:\)))?"
+    )
 
-    doc_lines = list(map(str.strip, filter(lambda line: line.strip(), doc.splitlines())))
-    args_index = doc_lines.index(next(filter(lambda line: line.lower().startswith('args'), doc_lines)))
-    properties_index = doc_lines.index(next(filter(lambda line: line.lower().startswith('properties'), doc_lines)))
-    examples_index = doc_lines.index(next(filter(lambda line: line.lower().startswith('examples'), doc_lines)))
-    arguments_lines_list = doc_lines[args_index+1:properties_index]
-    properties_lines_list = doc_lines[properties_index+1:examples_index]
+    doc_lines = list(
+        map(str.strip, filter(lambda line: line.strip(), doc.splitlines()))
+    )
+    args_index = doc_lines.index(
+        next(filter(lambda line: line.lower().startswith("args"), doc_lines))
+    )
+    properties_index = doc_lines.index(
+        next(filter(lambda line: line.lower().startswith("properties"), doc_lines))
+    )
+    examples_index = doc_lines.index(
+        next(filter(lambda line: line.lower().startswith("examples"), doc_lines))
+    )
+    arguments_lines_list = doc_lines[args_index + 1 : properties_index]
+    properties_lines_list = doc_lines[properties_index + 1 : examples_index]
 
     doc_arguments_dict = {}
     for argument_line in arguments_lines_list:
         argument_dict = regex_argument.match(argument_line).groupdict()
-        argument_dict['formats'] = {match.group('extension'): match.group('edam') for match in regex_argument_formats.finditer(argument_dict['formats'])}
+        argument_dict["formats"] = {
+            match.group("extension"): match.group("edam")
+            for match in regex_argument_formats.finditer(argument_dict["formats"])
+        }
         doc_arguments_dict[argument_dict.pop("argument")] = argument_dict
 
     doc_properties_dict = {}
     for property_line in properties_lines_list:
         property_dict = regex_property.match(property_line).groupdict()
-        property_dict['values'] = None
-        if "Values:" in property_dict['description']:
-            property_dict['description'], property_dict['values'] = property_dict['description'].split('Values:')
-            property_dict['values'] = {match.group('value'): match.group('description') for match in regex_property_value.finditer(property_dict['values']) if match.group('value')}
+        property_dict["values"] = None
+        if "Values:" in property_dict["description"]:
+            property_dict["description"], property_dict["values"] = property_dict[
+                "description"
+            ].split("Values:")
+            property_dict["values"] = {
+                match.group("value"): match.group("description")
+                for match in regex_property_value.finditer(property_dict["values"])
+                if match.group("value")
+            }
         doc_properties_dict[property_dict.pop("property")] = property_dict
 
     return doc_arguments_dict, doc_properties_dict
 
 
-def check_argument(path: pathlib.Path, argument: str,  optional: bool, module_name: str, input_output: str = None, output_files_created: bool = False,
-                   extension_list: typing.List[str] = None, raise_exception: bool = True,  check_extensions: bool = True, out_log: logging.Logger = None) -> None:
-
+def check_argument(
+    path: Optional[pathlib.Path],
+    argument: str,
+    optional: bool,
+    module_name: str,
+    input_output: Optional[str] = None,
+    output_files_created: bool = False,
+    extension_list: Optional[typing.List[str]] = None,
+    raise_exception: bool = True,
+    check_extensions: bool = True,
+    out_log: Optional[logging.Logger] = None,
+) -> None:
     if optional and not path:
         return None
 
-    if input_output in ['in', 'input']:
+    if input_output in ["in", "input"]:
         input_file = True
-    elif input_output in ['out', 'output']:
+    elif input_output in ["out", "output"]:
         input_file = False
     else:
-        unable_to_determine_string = f"{module_name} {argument}: Unable to determine if input or output file."
+        unable_to_determine_string = (
+            f"{module_name} {argument}: Unable to determine if input or output file."
+        )
         log(unable_to_determine_string, out_log)
         if raise_exception:
-            raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), unable_to_determine_string)
+            raise FileNotFoundError(
+                errno.ENOENT, os.strerror(errno.ENOENT), unable_to_determine_string
+            )
         warnings.warn(unable_to_determine_string)
 
     if input_file or output_files_created:
-        not_found_error_string = f"Path {path} --- {module_name}: Unexisting {argument} file."
+        not_found_error_string = (
+            f"Path {path} --- {module_name}: Unexisting {argument} file."
+        )
         if not path.exists():
             log(not_found_error_string, out_log)
             if raise_exception:
-                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), not_found_error_string)
+                raise FileNotFoundError(
+                    errno.ENOENT, os.strerror(errno.ENOENT), not_found_error_string
+                )
             warnings.warn(not_found_error_string)
     # else:
     #     if not path.parent.exists():
