@@ -14,7 +14,7 @@ setuptools.setup(
     keywords="Bioinformatics Workflows BioExcel Compatibility",
     url="https://github.com/bioexcel/biobb_common",
     project_urls={
-        "Documentation": "http://biobb_common.readthedocs.io/en/latest/",
+        "Documentation": "http://biobb-common.readthedocs.io/en/latest/",
         "Bioexcel": "https://bioexcel.eu/",
     },
     packages=setuptools.find_packages(exclude=["docs"]),
