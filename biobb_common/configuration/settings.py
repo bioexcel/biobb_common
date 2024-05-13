@@ -36,7 +36,7 @@ import json
 import logging
 from pathlib import Path
 from biobb_common.tools import file_utils as fu
-from typing import Optional
+from typing import Dict, Any, Optional
 
 GALAXY_CHARACTER_MAP = {
     "__gt__": ">",
@@ -50,7 +50,7 @@ GALAXY_CHARACTER_MAP = {
     "__cn__": "\n",
     "__cr__": "\r",
     "__tc__": "\t",
-    "__pd__": "#",
+    "__pd__": "#"
 }
 
 
@@ -114,9 +114,7 @@ class ConfReader:
 
         return self.properties.get("working_dir_path")
 
-    def get_prop_dic(
-        self, prefix: Optional[str] = None, global_log: Optional[logging.Logger] = None
-    ) -> dict:
+    def get_prop_dic(self, prefix: Optional[str] = None, global_log: Optional[logging.Logger] = None) -> Dict[str, Any]:
         """get_prop_dic() returns the properties dictionary where keys are the
         step names in the configuration YAML file and every value contains another
         nested dictionary containing the keys and values of each step properties section.
@@ -136,7 +134,8 @@ class ConfReader:
         Returns:
             dict: Dictionary of properties.
         """
-        prop_dic = dict()
+
+        prop_dic: Dict[str, Any] = dict()
         prefix = "" if prefix is None else prefix.strip()
 
         # There is no step
@@ -311,7 +310,7 @@ class ConfReader:
                         prop_dic[key2] = str(
                             Path(
                                 self.properties[self.system]["working_dir_path"]
-                            ).joinpath(prefix, key, value)
+                            ).joinpath(prefix, key2, value)
                         )
                     else:
                         prop_dic[key2] = str(
@@ -322,9 +321,11 @@ class ConfReader:
 
         # Properties with step name
         else:
+
             for key in prop_dic:
                 for key2, value in prop_dic[key].items():
                     if isinstance(value, str) and value.startswith("dependency"):
+                        dependency_step = value.split("/")[1]
                         while isinstance(value, str) and value.startswith("dependency"):
                             dependency_step = value.split("/")[1]
                             value = prop_dic[value.split("/")[1]][value.split("/")[2]]

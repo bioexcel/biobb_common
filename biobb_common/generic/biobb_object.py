@@ -3,7 +3,7 @@ import os
 import importlib
 import difflib
 import typing
-from typing import Optional, Mapping, Set, Union, Dict, List
+from typing import Optional, Mapping, Set, Union, Dict, List, Any
 import warnings
 from pathlib import Path
 from sys import platform
@@ -11,6 +11,7 @@ import shutil
 from pydoc import locate
 from biobb_common.tools import file_utils as fu
 from biobb_common.command_wrapper import cmd_wrapper
+from logging import Logger
 
 
 class BiobbObject:
@@ -36,59 +37,57 @@ class BiobbObject:
             * **container_generic_command** (*str*) - ("run") Which command typically run or exec will be used to execute your image.
     """
 
-    def __init__(self, properties: Optional[dict] = None, **kwargs) -> None:
+    def __init__(self, properties=None, **kwargs) -> None:  # type: ignore
         properties = properties or {}
 
         # Input/Output files
-        self.io_dict: Dict[str, Union[str, Dict[str, Union[str, Path]]]] = {"in": {}, "out": {}}
+        self.io_dict: Dict[str, Dict] = {"in": {}, "out": {}}
 
         # container Specific
-        self.container_path = properties.get("container_path")
+        self.container_path: Optional[str] = properties.get("container_path")
         self.container_image: str = properties.get("container_image", '')
-        self.container_volume_path = properties.get(
+        self.container_volume_path: str = properties.get(
             "container_volume_path", "/data")
-        self.container_working_dir = properties.get("container_working_dir")
-        self.container_user_id = properties.get("container_user_id")
-        self.container_shell_path = properties.get(
+        self.container_working_dir: Optional[str] = properties.get("container_working_dir")
+        self.container_user_id: Optional[str] = properties.get("container_user_id")
+        self.container_shell_path: str = properties.get(
             "container_shell_path", "/bin/bash -c"
         )
-        self.container_generic_command = properties.get(
+        self.container_generic_command: str = properties.get(
             "container_generic_command", "run"
         )
 
         # stage
-        self.stage_io_dict: Dict[str, Union[str, Dict[str, Union[str, Path]]]] = {"in": {}, "out": {}}
+        self.stage_io_dict: Dict[str, Any] = {"in": {}, "out": {}}
 
         # Properties common in all BB
         self.disable_sandbox: bool = properties.get("disable_sandbox", False)
         self.chdir_sandbox: bool = properties.get("chdir_sandbox", False)
-        self.binary_path = properties.get("binary_path")
-        self.can_write_console_log = properties.get(
+        self.binary_path: Optional[str] = properties.get("binary_path")
+        self.can_write_console_log: bool = properties.get(
             "can_write_console_log", True)
-        self.global_log = properties.get("global_log", None)
-        self.out_log = None
-        self.err_log = None
-        self.prefix = properties.get("prefix", None)
-        self.step = properties.get("step", None)
-        self.path = properties.get("path", "")
-        self.remove_tmp = properties.get("remove_tmp", True)
-        self.restart = properties.get("restart", False)
+        self.global_log: Optional[Logger] = properties.get("global_log", None)
+        self.out_log: Optional[Logger] = None
+        self.err_log: Optional[Logger] = None
+        self.prefix: Optional[str] = properties.get("prefix", None)
+        self.step: Optional[str] = properties.get("step", None)
+        self.path: str = properties.get("path", "")
+        self.remove_tmp: bool = properties.get("remove_tmp", True)
+        self.restart: bool = properties.get("restart", False)
         self.cmd: List[str] = []
-        self.return_code = None
+        self.return_code: Optional[int] = None
         self.tmp_files: List[Union[str, Path]] = []
-        self.env_vars_dict: typing.Mapping = properties.get(
+        self.env_vars_dict: typing.Dict = properties.get(
             "env_vars_dict", {})
         self.shell_path: typing.Union[str, Path] = properties.get(
             "shell_path", os.getenv("SHELL", "/bin/bash")
         )
 
-        self.dev = properties.get("dev", None)
-        self.check_extensions = properties.get("check_extensions", True)
-        self.check_var_typing = properties.get("check_var_typing", True)
+        self.dev: Optional[str] = properties.get("dev", None)
+        self.check_extensions: bool = properties.get("check_extensions", True)
+        self.check_var_typing: bool = properties.get("check_var_typing", True)
         self.locals_var_dict: Mapping[str, str] = dict()
-        self.doc_arguments_dict, self.doc_properties_dict = fu.get_doc_dicts(
-            self.__doc__
-        )
+        self.doc_arguments_dict, self.doc_properties_dict = fu.get_doc_dicts(self.__doc__)
 
         try:
             self.version = importlib.import_module(
@@ -135,7 +134,10 @@ class BiobbObject:
             for prop, value in properties.items():
                 if self.doc_properties_dict.get(prop):
                     property_type = self.doc_properties_dict[prop].get("type")
-                    if not isinstance(value, locate(property_type)):
+                    classinfo: object = locate(property_type).__class__
+                    if classinfo == type:
+                        classinfo = locate(property_type)
+                    if not isinstance(value, classinfo):  # type: ignore
                         warnings.warn(
                             f"Warning: {prop} property type not recognized. Got {type(value)} Expected {locate(property_type)}"
                         )
@@ -163,7 +165,7 @@ class BiobbObject:
             )
 
         if self.restart:
-            if fu.check_complete_files(self.io_dict["out"].values()):
+            if fu.check_complete_files(self.io_dict["out"].values()):  # type: ignore
                 fu.log(
                     "Restart is enabled, this step: %s will the skipped" % self.step,
                     self.out_log,

@@ -139,6 +139,9 @@ def equal(file_a: str, file_b: str, ignore_list: Optional[typing.List[typing.Uni
 
 
 def compare_line_by_line(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, int]]) -> bool:
+    print(f"Comparing ignoring lines containing this words: {ignore_list}")
+    print("     FILE_A: "+file_a)
+    print("     FILE_B: "+file_b)
     with open(file_a) as fa, open(file_b) as fb:
         for index, (line_a, line_b) in enumerate(zip(fa, fb)):
             if index in ignore_list or any(word in line_a for word in ignore_list if isinstance(word, str)):
