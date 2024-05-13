@@ -3,7 +3,7 @@
 [![](https://img.shields.io/conda/vn/bioconda/biobb_common?label=Conda)](https://anaconda.org/bioconda/biobb_common)
 [![](https://img.shields.io/conda/dn/bioconda/biobb_common?label=Conda%20Downloads)](https://anaconda.org/bioconda/biobb_common)
 [![](https://img.shields.io/badge/Docker-Quay.io-blue)](https://quay.io/repository/biocontainers/biobb_common?tab=tags)
-[![](https://img.shields.io/badge/Singularity-GalaxyProject-blue)](https://depot.galaxyproject.org/singularity/biobb_common:4.1.0--pyhdfd78af_0)
+[![](https://img.shields.io/badge/Singularity-GalaxyProject-blue)](https://depot.galaxyproject.org/singularity/biobb_common:4.1.0--pyhdfd78af_1)
 
 [![](https://img.shields.io/badge/OS-Unix%20%7C%20MacOS-blue)]()
 [![](https://img.shields.io/pypi/pyversions/biobb-common.svg?label=Python%20Versions)]()
@@ -32,10 +32,10 @@ Biobb (BioExcel building blocks) packages are Python building blocks that
 create new layer of compatibility and interoperability over popular
 bioinformatics tools.
 The latest documentation of this package can be found in our readthedocs site:
-[latest API documentation](http://biobb_common.readthedocs.io/en/latest/).
+[latest API documentation](http://biobb-common.readthedocs.io/en/latest/).
 
 ### Version
-v4.1.0 2023.1
+v4.1.0 2023.3
 
 ### Copyright & Licensing
 This software has been developed in the [MMB group](http://mmb.irbbarcelona.org) at the [BSC](http://www.bsc.es/) & [IRB](https://www.irbbarcelona.org/) for the [European BioExcel](http://bioexcel.eu/), funded by the European Commission (EU H2020 [823830](http://cordis.europa.eu/projects/823830), EU H2020 [675728](http://cordis.europa.eu/projects/675728)).
