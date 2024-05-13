@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import shutil
 import hashlib
-import Bio.PDB
+import Bio.PDB  # type: ignore
 import codecs
 from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
@@ -23,7 +23,7 @@ def test_setup(test_object, dict_key: Optional[str] = None, config: Optional[str
         dict_key (str): Key of the test parameters in the yaml config file.
         config (str): Path to the configuration file.
     """
-    test_object.testfile_dir = str(Path(Path(sys.modules[test_object.__module__].__file__).resolve()).parent)
+    test_object.testfile_dir = str(Path(Path(str(sys.modules[test_object.__module__].__file__)).resolve()).parent)
     test_object.unitest_dir = str(Path(test_object.testfile_dir).parent)
     test_object.test_dir = str(Path(test_object.unitest_dir).parent)
     test_object.data_dir = str(Path(test_object.test_dir).joinpath('data'))
@@ -207,9 +207,10 @@ def compare_pdb(pdb_a: str, pdb_b: str, rmsd_cutoff: int = 1, remove_hetatm: boo
     super_imposer = Bio.PDB.Superimposer()
     super_imposer.set_atoms(atoms_a, atoms_b)
     super_imposer.apply(atoms_b)
-    print('     RMS: '+str(super_imposer.rms))
+    super_imposer_rms = super_imposer.rms if super_imposer.rms is not None else float('inf')
+    print('     RMS: '+str(super_imposer_rms))
     print('     RMS_CUTOFF: '+str(rmsd_cutoff))
-    return super_imposer.rms < rmsd_cutoff
+    return super_imposer_rms < rmsd_cutoff
 
 
 def compare_top_itp(file_a: str, file_b: str) -> bool:
@@ -268,7 +269,7 @@ def compare_xvg(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> boo
 
 def compare_images(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> bool:
     try:
-        from PIL import Image
+        from PIL import Image  # type: ignore
         import imagehash
     except ImportError:
         print("To compare images, please install the following packages: Pillow, imagehash")

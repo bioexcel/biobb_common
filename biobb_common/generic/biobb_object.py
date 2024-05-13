@@ -75,7 +75,7 @@ class BiobbObject:
         self.remove_tmp: bool = properties.get("remove_tmp", True)
         self.restart: bool = properties.get("restart", False)
         self.cmd: List[str] = []
-        self.return_code: Optional[int] = None
+        self.return_code: int = 0
         self.tmp_files: List[Union[str, Path]] = []
         self.env_vars_dict: typing.Dict = properties.get(
             "env_vars_dict", {})
