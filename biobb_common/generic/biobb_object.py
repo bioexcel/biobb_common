@@ -63,7 +63,7 @@ class BiobbObject:
         # Properties common in all BB
         self.disable_sandbox: bool = properties.get("disable_sandbox", False)
         self.chdir_sandbox: bool = properties.get("chdir_sandbox", False)
-        self.binary_path: Optional[str] = properties.get("binary_path")
+        self.binary_path: str = properties.get("binary_path", '')
         self.can_write_console_log: bool = properties.get(
             "can_write_console_log", True)
         self.global_log: Optional[Logger] = properties.get("global_log", None)
@@ -227,7 +227,7 @@ class BiobbObject:
                         self.stage_io_dict["out"][file_ref] = str(
                             Path(file_path).name)
 
-    def create_cmd_line(self):
+    def create_cmd_line(self) -> None:
         # Not documented and not listed option, only for devs
         if self.dev:
             fu.log(
