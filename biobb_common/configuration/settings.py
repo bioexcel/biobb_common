@@ -126,6 +126,7 @@ class ConfReader:
             | **global_log** (*Logger object*): Log from the main workflow.
             | **restart** (*bool*): Restart from previous execution.
             | **remove_tmp** (*bool*): Remove temporal files.
+            | **sandbox_path** (*str*) - ("./") Parent path to the sandbox directory.
 
         Args:
             prefix (str): Prefix if provided.
@@ -161,6 +162,7 @@ class ConfReader:
                 prop_dic["working_dir_path"] = self.properties.get("working_dir_path")
                 prop_dic["restart"] = self.properties.get("restart", False)
                 prop_dic["remove_tmp"] = self.properties.get("remove_tmp", True)
+                prop_dic["sandbox_path"] = self.properties.get("sandbox_path", Path.cwd())
 
             if "properties" in self.properties and isinstance(
                 self.properties["properties"], dict

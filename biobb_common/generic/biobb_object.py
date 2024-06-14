@@ -22,6 +22,7 @@ class BiobbObject:
 
     Args:
         properties (dict - Python dictionary object containing the tool parameters, not input/output files):
+            * **sandbox_path** (*str*) - ("./") Parent path to the sandbox directory.
             * **disable_sandbox** (*bool*) - (False) Disable the use of temporal unique directories aka sandbox. Only for local execution.
             * **chdir_sandbox** (*bool*) - (False) Change directory to the sandbox using just file names in the command line. Only for local execution.
             * **dev** (*str*) - (None) Adding additional options to command line.
@@ -59,9 +60,10 @@ class BiobbObject:
 
         # stage
         self.stage_io_dict: Dict[str, Any] = {"in": {}, "out": {}}
+        self.sandbox_path: Union[str, Path] = properties.get("sandbox_path", Path().cwd())
+        self.disable_sandbox: bool = properties.get("disable_sandbox", False)
 
         # Properties common in all BB
-        self.disable_sandbox: bool = properties.get("disable_sandbox", False)
         self.chdir_sandbox: bool = properties.get("chdir_sandbox", False)
         self.binary_path: str = properties.get("binary_path", '')
         self.can_write_console_log: bool = properties.get(
@@ -180,7 +182,7 @@ class BiobbObject:
             self.stage_io_dict["unique_dir"] = os.getcwd()
             return
 
-        unique_dir = str(Path(fu.create_unique_dir()).resolve())
+        unique_dir = str(Path(fu.create_unique_dir(path=str(self.sandbox_path), prefix="sandbox_", out_log=self.out_log)).resolve())
         self.stage_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
 
         # IN files COPY and assign INTERNAL PATH
