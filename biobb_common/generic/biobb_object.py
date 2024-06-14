@@ -22,12 +22,13 @@ class BiobbObject:
 
     Args:
         properties (dict - Python dictionary object containing the tool parameters, not input/output files):
-            * **sandbox_path** (*str*) - ("./") Parent path to the sandbox directory.
+            * **sandbox_path** (*str*) - ("./") [WF property] Parent path to the sandbox directory.
             * **disable_sandbox** (*bool*) - (False) Disable the use of temporal unique directories aka sandbox. Only for local execution.
             * **chdir_sandbox** (*bool*) - (False) Change directory to the sandbox using just file names in the command line. Only for local execution.
             * **dev** (*str*) - (None) Adding additional options to command line.
             * **remove_tmp** (*bool*) - (True) [WF property] Remove temporal files.
             * **restart** (*bool*) - (False) [WF property] Do not execute if output files exist.
+            * **sandbox_path** (*str*) - ("./") [WF property] Parent path to the sandbox directory.
             * **env_vars_dict** (*dict*) - ({}) Environment Variables Dictionary.
             * **container_path** (*str*) - (None)  Path to the binary executable of your container.
             * **container_image** (*str*) - (None) Container Image identifier.
