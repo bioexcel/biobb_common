@@ -1,0 +1,13 @@
+
+can_write_console_log: False
+remove_tmp: False
+working_dir_path: /tmp/biobb/unitests
+
+confreader:
+  paths:
+    config: file:test_data_dir/settings/confreader.yaml
+    ref_properties_pkl_path: file:test_reference_dir/settings/confreader_properties.pkl
+    ref_paths_pkl_path: file:test_reference_dir/settings/confreader_paths.pkl
+  properties:
+    remove_tmp: False
+

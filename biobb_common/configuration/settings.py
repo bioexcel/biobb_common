@@ -7,6 +7,9 @@ This module contains the classes to read the different formats of the configurat
 The configuration files are composed by paths to the files and properties. There are several common properties for all
 the building blocks.
 
+Some yaml files contain a tool key with the name of the tool to be executed inside the step key. The tool key is used
+by the resp API to identify the tool to be executed. This reader will ignore the tool key.
+
 
 Syntax:
     - **property** (*dataType*) - (Default value) Short description.
@@ -181,7 +184,7 @@ class ConfReader:
                         ] = self.properties.get("can_write_console_log", True)
                         prop_dic[key].update(self.properties[key]["properties"].copy())
 
-        # There is no step name and there is no properties or paths key return input
+        # There is no step name and there is no properties or paths key: return input
         if not prop_dic:
             prop_dic = dict()
             prop_dic.update(self.properties)
