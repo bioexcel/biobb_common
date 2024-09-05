@@ -5,7 +5,7 @@ from biobb_common.configuration.settings import ConfReader
 
 class TestConfReader():
     def setup_class(self):
-        fx.test_setup(self, 'settings')
+        fx.test_setup(self, 'confreader')
 
     def teardown_class(self):
         # pass
