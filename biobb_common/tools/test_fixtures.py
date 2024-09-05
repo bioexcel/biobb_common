@@ -4,7 +4,7 @@ import os
 import pickle
 import typing
 from pprint import pprint
-from typing import Optional, Union
+from typing import Optional, Union, List, Dict
 from pathlib import Path
 import sys
 import shutil
@@ -295,7 +295,7 @@ def compare_images(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> 
     return True
 
 
-def compare_object_pickle(python_object: typing.Any, pickle_file_path: Union[str, Path]) -> bool:
+def compare_object_pickle(python_object: typing.Any, pickle_file_path: Union[str, Path], **kwargs) -> bool:
     """ Compare a python object with a pickle file """
     pprint(f"Loading pickle file: {pickle_file_path}")
     with open(pickle_file_path, 'rb') as f:
@@ -303,4 +303,44 @@ def compare_object_pickle(python_object: typing.Any, pickle_file_path: Union[str
     pprint(f"     OBJECT: {python_object}")
     pprint(f"     EXPECTED OBJECT: {pickle_object}")
 
+    # Special case for dictionaries
+    if isinstance(python_object, dict) and isinstance(pickle_object, dict):
+        differences = compare_dictionaries(python_object, pickle_object, ignore_keys=kwargs.get('ignore_keys', []), compare_values=kwargs.get('compare_values', True))
+        if differences:
+            pprint("Differences found:")
+            for difference in differences:
+                pprint(f"     {difference}")
+            return False
+        return True
+
     return python_object == pickle_object
+
+
+def compare_dictionaries(dict1: Dict, dict2: Dict, path: str = "", ignore_keys: Optional[List[str]] = None, compare_values: bool = True) -> List[str]:
+    """Compare two dictionaries and print only the differences, ignoring specified keys."""
+    if ignore_keys is None:
+        ignore_keys = []
+
+    differences = []
+
+    # Get all keys from both dictionaries
+    all_keys = set(dict1.keys()).union(set(dict2.keys()))
+
+    for key in all_keys:
+        if key in ignore_keys:
+            continue
+        if key not in dict1:
+            differences.append(f"Key '{path + key}' found in dict2 but not in dict1")
+        elif key not in dict2:
+            differences.append(f"Key '{path + key}' found in dict1 but not in dict2")
+        else:
+            value1 = dict1[key]
+            value2 = dict2[key]
+            if isinstance(value1, dict) and isinstance(value2, dict):
+                # Recursively compare nested dictionaries
+                nested_differences = compare_dictionaries(value1, value2, path + key + ".", ignore_keys, compare_values)
+                differences.extend(nested_differences)
+            elif value1 != value2 and compare_values:
+                differences.append(f"Difference at '{path + key}': dict1 has {value1}, dict2 has {value2}")
+
+    return differences

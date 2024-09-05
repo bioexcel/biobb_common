@@ -7,7 +7,7 @@ confreader:
   paths:
     config: file:test_data_dir/configuration/confreader.yml
     ref_properties_pkl_path: file:test_reference_dir/configuration/confreader_properties.pkl
-    ref_paths_pkl_path: file:test_reference_dir/setticonfigurationngs/confreader_paths.pkl
+    ref_paths_pkl_path: file:test_reference_dir/configuration/confreader_paths.pkl
   properties:
     remove_tmp: False
 

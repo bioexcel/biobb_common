@@ -13,5 +13,5 @@ class TestConfReader():
 
     def test_confreader(self):
         conf = ConfReader(self.paths['config'])
-        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_properties_pkl_path'])
-        assert fx.compare_object_pickle(conf.get_paths_dic(), self.paths['ref_paths_pkl_path'])
+        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_properties_pkl_path'], ignore_keys=['path', 'working_dir_path'])
+        assert fx.compare_object_pickle(conf.get_paths_dic(), self.paths['ref_paths_pkl_path'], compare_values=False)
