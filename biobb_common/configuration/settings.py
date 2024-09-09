@@ -38,6 +38,7 @@ import yaml
 import json
 import logging
 from pathlib import Path
+from copy import deepcopy
 from biobb_common.tools import file_utils as fu
 from typing import Dict, Any, Optional
 
@@ -72,34 +73,100 @@ class ConfReader:
         system (str): System name from the systems section in the configuration file.
     """
 
-    def __init__(self, config: Optional[str] = None):
-        self.config = config or "{}"
-        self.properties = self._read_config()
-        self.properties["working_dir_path"] = fu.get_working_dir_path(self.properties.get("working_dir_path"), restart=self.properties.get("restart", False))
+    def __init__(self, config: Optional[str] = None, **kwargs):
+        self.properties = self._read_config(config)
+        self.default_properties = self._get_default_properties()
+        self.global_properties = self._get_global_properties()
 
-    def _read_config(self):
+    def _read_config(self, config: Optional[str] = None) -> Dict[str, Any]:
+        """_read_config() reads the configuration file and returns a dictionary.
+        """
+        if not config:
+            return dict()
+        config_dict = dict()
+        config_tokens = str(config).split("#")
+        if (json_string := config_tokens[0].strip()).startswith("{"):
+            config_dict = json.loads(trans_galaxy_charmap(json_string))
+        else:
+            config_file_path = Path(config_tokens[0]).resolve()
+            if not config_file_path.exists():
+                raise FileNotFoundError(f"Configuration file {config_file_path} not found.")
+            with open(config_file_path) as stream:
+                try:
+                    config_dict = yaml.safe_load(stream) or {}
+                except yaml.YAMLError as yaml_error:
+                    try:
+                        config_dict = json.load(stream) or {}
+                    except json.JSONDecodeError as json_error:
+                        raise Exception(f"Error reading configuration file {config_file_path} is not a valid YAML: {yaml_error} or a valid JSON: {json_error}")
+
         # Read just one step specified in the configuration file path
         # i.e: Read just Editconf step from workflow_configuration.yaml file
         # "/home/user/workflow_configuration.yaml#Editconf"
-        file_name_elements = str(self.config).split("#")
-        self.config = file_name_elements[0]
-        step = None
-        if len(file_name_elements) > 1:
-            step = file_name_elements[1]
-        try:
-            config_file = str(Path(self.config).resolve())
-            with open(config_file) as stream:
-                try:
-                    config_dict = yaml.safe_load(stream)
-                except yaml.YAMLError:
-                    config_dict = json.load(stream)
-        except Exception:
-            config_dict = json.loads(trans_galaxy_charmap(self.config))
-        if step:
-            return config_dict[step]
+        if len(config_tokens) > 1:
+            return config_dict[config_tokens[1]]
+
         return config_dict
 
-    def get_prop_dic(self, prefix: Optional[str] = None, global_log: Optional[logging.Logger] = None) -> Dict[str, Any]:
+    def _get_default_properties(self) -> Dict[str, Any]:
+        """_get_default_properties() returns the default properties of the configuration file.
+
+        Returns:
+            dict: Dictionary of default properties.
+        """
+
+        return {
+            "path": None,
+            "step": None,
+            "prefix": None,
+            "global_log": None,
+            "can_write_console_log": True,
+            "working_dir_path": str(fu.get_working_dir_path()),
+            "restart": False,
+            "remove_tmp": True,
+            "sandbox_path": str(Path.cwd())
+        }
+
+    def _get_global_properties(self) -> Dict[str, Any]:
+        """_get_global_properties() returns the global properties of the configuration file.
+
+        Returns:
+            dict: Dictionary of global properties.
+        """
+        # Add default properties to the global properties
+        global_properties = deepcopy(self.default_properties)
+        global_properties.update(deepcopy((self.properties.get("global_properties") or {})))
+        return global_properties
+
+    def _get_step_properties(self, key: str = "", prefix: str = "", global_log: Optional[logging.Logger] = None) -> Dict[str, Any]:
+        """_get_step_properties() returns the properties of the configuration file.
+
+        Args:
+            global_properties (dict): Global properties.
+            key (str): Step name.
+            prefix (str): Prefix if provided.
+            global_log (Logger): Log from the main workflow.
+
+        Returns:
+            dict: Dictionary of properties.
+        """
+        prop_dic = dict()
+        prop_dic.update(deepcopy(self.global_properties))
+        prop_dic["step"] = key
+        prop_dic["prefix"] = prefix
+        prop_dic["global_log"] = global_log
+        prop_dic["working_dir_path"] = fu.get_working_dir_path(working_dir_path=prop_dic.get("working_dir_path", None), restart=prop_dic.get("restart", False))
+        prop_dic["path"] = str(Path(prop_dic["working_dir_path"]).joinpath(prefix, key))
+        if key:
+            prop_dic["tool"] = self.properties[key].get("tool", None)
+            prop_dic.update(deepcopy((self.properties[key].get("properties") or {})))
+        else:
+            prop_dic["tool"] = self.properties.get("tool", None)
+            prop_dic.update(deepcopy((self.properties.get("properties") or {})))
+
+        return prop_dic
+
+    def get_prop_dic(self, prefix: str = "", global_log: Optional[logging.Logger] = None) -> Dict[str, Any]:
         """get_prop_dic() returns the properties dictionary where keys are the
         step names in the configuration YAML file and every value contains another
         nested dictionary containing the keys and values of each step properties section.
@@ -122,86 +189,119 @@ class ConfReader:
         """
 
         prop_dic: Dict[str, Any] = dict()
-        prefix = "" if prefix is None else prefix.strip()
+        for key in self.properties:
+            if key in ["global_properties", "paths", "properties", "tool"]:
+                continue
+            prop_dic[key] = self._get_step_properties(key=key, prefix=prefix, global_log=global_log)
 
-        # There is no step
-        if "paths" in self.properties or "properties" in self.properties:
-            prop_dic = dict()
-            prop_dic["path"] = str(Path(self.properties["working_dir_path"]).joinpath(prefix))
-            prop_dic["step"] = None
-            prop_dic["prefix"] = prefix
-            prop_dic["global_log"] = global_log
-            prop_dic["working_dir_path"] = self.properties.get("working_dir_path")
-            prop_dic["restart"] = self.properties.get("restart", False)
-            prop_dic["remove_tmp"] = self.properties.get("remove_tmp", True)
-            prop_dic["sandbox_path"] = self.properties.get("sandbox_path", Path.cwd())
-
-            if "properties" in self.properties and isinstance(
-                self.properties["properties"], dict
-            ):
-                prop_dic.update(self.properties["properties"].copy())
-                if self.properties.get("log_level", None):
-                    prop_dic["log_level"] = self.properties["log_level"]
-        # There is step name
-        else:
-            for key in self.properties:
-                if isinstance(self.properties[key], dict):
-                    if (
-                        "paths" in self.properties[key]
-                        or "properties" in self.properties[key]
-                    ):
-                        prop_dic[key] = dict()
-                        prop_dic[key]["path"] = str(
-                            Path(self.properties["working_dir_path"]).joinpath(
-                                prefix, key
-                            )
-                        )
-                        prop_dic[key]["step"] = key
-                        prop_dic[key]["prefix"] = prefix
-                        prop_dic[key]["global_log"] = global_log
-                        prop_dic[key]["working_dir_path"] = self.properties.get(
-                            "working_dir_path"
-                        )
-                        prop_dic[key][
-                            "can_write_console_log"
-                        ] = self.properties.get("can_write_console_log", True)
-                        prop_dic[key]["restart"] = self.properties.get(
-                            "restart", False
-                        )
-                        prop_dic[key]["remove_tmp"] = self.properties.get(
-                            "remove_tmp", True
-                        )
-
-                    if ("properties" in self.properties[key]) and isinstance(
-                        self.properties[key]["properties"], dict
-                    ):
-                        if self.properties.get("log_level", None):
-                            prop_dic[key]["log_level"] = self.properties[
-                                "log_level"
-                            ]
-                        prop_dic[key][
-                            "can_write_console_log"
-                        ] = self.properties.get("can_write_console_log", True)
-                        prop_dic[key].update(self.properties[key]["properties"].copy())
-
-        # There is no step name and there is no properties or paths key: return input
         if not prop_dic:
-            prop_dic = dict()
-            prop_dic.update(self.properties)
-            prop_dic["path"] = str(
-                Path(self.properties["working_dir_path"]).joinpath(prefix)
-            )
-            prop_dic["step"] = None
-            prop_dic["prefix"] = prefix
-            prop_dic["global_log"] = global_log
-            prop_dic["working_dir_path"] = self.properties.get("working_dir_path")
-            prop_dic["can_write_console_log"] = self.properties.get(
-                "can_write_console_log", True
-            )
-            prop_dic["restart"] = self.properties.get("restart", False)
-            prop_dic["remove_tmp"] = self.properties.get("remove_tmp", True)
+            return self._get_step_properties(prefix=prefix, global_log=global_log)
 
         return prop_dic
+
+    # def get_prop_dic(self, prefix: Optional[str] = None, global_log: Optional[logging.Logger] = None) -> Dict[str, Any]:
+    #     """get_prop_dic() returns the properties dictionary where keys are the
+    #     step names in the configuration YAML file and every value contains another
+    #     nested dictionary containing the keys and values of each step properties section.
+    #     All the paths in the system section are copied in each nested dictionary.
+    #     For each nested dictionary the following keys are added:
+    #         | **path** (*str*): Absolute path to the step working dir.
+    #         | **step** (*str*): Name of the step.
+    #         | **prefix** (*str*): Prefix if provided.
+    #         | **global_log** (*Logger object*): Log from the main workflow.
+    #         | **restart** (*bool*): Restart from previous execution.
+    #         | **remove_tmp** (*bool*): Remove temporal files.
+    #         | **sandbox_path** (*str*) - ("./") Parent path to the sandbox directory.
+
+    #     Args:
+    #         prefix (str): Prefix if provided.
+    #         global_log (:obj:Logger): Log from the main workflow.
+
+    #     Returns:
+    #         dict: Dictionary of properties.
+    #     """
+
+    #     prop_dic: Dict[str, Any] = dict()
+    #     prefix = "" if prefix is None else prefix.strip()
+
+    #     # There is no step
+    #     if "paths" in self.properties or "properties" in self.properties:
+    #         prop_dic = dict()
+    #         prop_dic["path"] = str(Path(self.properties["working_dir_path"]).joinpath(prefix))
+    #         prop_dic["step"] = None
+    #         prop_dic["prefix"] = prefix
+    #         prop_dic["global_log"] = global_log
+    #         prop_dic["working_dir_path"] = self.properties.get("working_dir_path")
+    #         prop_dic["restart"] = self.properties.get("restart", False)
+    #         prop_dic["remove_tmp"] = self.properties.get("remove_tmp", True)
+    #         prop_dic["sandbox_path"] = self.properties.get("sandbox_path", Path.cwd())
+
+    #         if "properties" in self.properties and isinstance(
+    #             self.properties["properties"], dict
+    #         ):
+    #             prop_dic.update(self.properties["properties"].copy())
+    #             if self.properties.get("", None):
+    #                 prop_dic[""] = self.properties[""]
+    #     # There is step name
+    #     else:
+    #         for key in self.properties:
+    #             if isinstance(self.properties[key], dict):
+    #                 if (
+    #                     "paths" in self.properties[key]
+    #                     or "properties" in self.properties[key]
+    #                 ):
+    #                     prop_dic[key] = dict()
+    #                     prop_dic[key]["path"] = str(
+    #                         Path(self.properties["working_dir_path"]).joinpath(
+    #                             prefix, key
+    #                         )
+    #                     )
+    #                     prop_dic[key]["step"] = key
+    #                     prop_dic[key]["prefix"] = prefix
+    #                     prop_dic[key]["global_log"] = global_log
+    #                     prop_dic[key]["working_dir_path"] = self.properties.get(
+    #                         "working_dir_path"
+    #                     )
+    #                     prop_dic[key][
+    #                         "can_write_console_log"
+    #                     ] = self.properties.get("can_write_console_log", True)
+    #                     prop_dic[key]["restart"] = self.properties.get(
+    #                         "restart", False
+    #                     )
+    #                     prop_dic[key]["remove_tmp"] = self.properties.get(
+    #                         "remove_tmp", True
+    #                     )
+
+    #                 if ("properties" in self.properties[key]) and isinstance(
+    #                     self.properties[key]["properties"], dict
+    #                 ):
+    #                     if self.properties.get("", None):
+    #                         prop_dic[key][""] = self.properties[
+    #                             ""
+    #                         ]
+    #                     prop_dic[key][
+    #                         "can_write_console_log"
+    #                     ] = self.properties.get("can_write_console_log", True)
+    #                     prop_dic[key].update(self.properties[key]["properties"].copy())
+
+    #     # There is no step name and there is no properties or paths key: return input
+    #     if not prop_dic:
+    #         prop_dic = dict()
+    #         prop_dic.update(self.properties)
+    #         prop_dic["path"] = str(
+    #             Path(self.properties["working_dir_path"]).joinpath(prefix)
+    #         )
+    #         prop_dic["step"] = None
+    #         prop_dic["prefix"] = prefix
+    #         prop_dic["global_log"] = global_log
+    #         prop_dic["working_dir_path"] = self.properties.get("working_dir_path")
+    #         prop_dic["can_write_console_log"] = self.properties.get(
+    #             "can_write_console_log", True
+    #         )
+    #         prop_dic["restart"] = self.properties.get("restart", False)
+    #         prop_dic["remove_tmp"] = self.properties.get("remove_tmp", True)
+
+    #     return prop_dic
 
     def get_paths_dic(self, prefix: Optional[str] = None) -> dict:
         """get_paths_dic() returns the paths dictionary where keys are the
