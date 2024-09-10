@@ -28,7 +28,7 @@ step5_pdb2gmx:
 
 step9_make_ndx:
   paths:
-    input_structure_path: /path/to/inputs/ligand.gro
+    input_structure_path: file:/path/to/inputs/ligand.gro
     output_ndx_path: ligand.index.ndx
   properties:
     selection: 0 & ! a H*

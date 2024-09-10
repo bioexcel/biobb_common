@@ -77,6 +77,7 @@ class ConfReader:
         self.properties = self._read_config(config)
         self.default_properties = self._get_default_properties()
         self.global_properties = self._get_global_properties()
+        self.working_dir_path = fu.get_working_dir_path(working_dir_path=self.global_properties.get("working_dir_path", None), restart=self.global_properties.get("restart", False))
 
     def _read_config(self, config: Optional[str] = None) -> Dict[str, Any]:
         """_read_config() reads the configuration file and returns a dictionary.
@@ -121,7 +122,6 @@ class ConfReader:
             "prefix": None,
             "global_log": None,
             "can_write_console_log": True,
-            "working_dir_path": str(fu.get_working_dir_path()),
             "restart": False,
             "remove_tmp": True,
             "sandbox_path": str(Path.cwd())
@@ -155,8 +155,8 @@ class ConfReader:
         prop_dic["step"] = key
         prop_dic["prefix"] = prefix
         prop_dic["global_log"] = global_log
-        prop_dic["working_dir_path"] = fu.get_working_dir_path(working_dir_path=prop_dic.get("working_dir_path", None), restart=prop_dic.get("restart", False))
-        prop_dic["path"] = str(Path(prop_dic["working_dir_path"]).joinpath(prefix, key))
+        prop_dic["working_dir_path"] = self.working_dir_path
+        prop_dic["path"] = str(Path(self.working_dir_path).joinpath(prefix, key))
         if key:
             prop_dic["tool"] = self.properties[key].get("tool", None)
             prop_dic.update(deepcopy((self.properties[key].get("properties") or {})))
@@ -374,3 +374,38 @@ class ConfReader:
                         )
 
         return prop_dic
+
+    def _get_paths(self, prefix: str = "") -> Dict[str, Any]:
+        paths_dic: Dict[str, Any] = dict()
+        for key in self.properties:
+            if key in ["global_properties", "paths", "properties", "tool"]:
+                continue
+            paths_dic[key] = self._get_step_paths(key=key, prefix=prefix)
+
+        if not paths_dic:
+            return self._get_step_paths(prefix=prefix)
+
+        return paths_dic
+
+    def _get_step_paths(self, key: str = "", prefix: str = "") -> Dict[str, Any]:
+        step_paths_dic = dict()
+        if key:
+            paths_dic = self.properties[key].get("paths", {})
+        else:
+            paths_dic = self.properties.get("paths", {})
+        for file_key, path_value in paths_dic.items():
+            step_paths_dic[file_key] = self._join_paths(prefix=prefix, value=self._solve_dependency(paths_dic, key, path_value))
+        return step_paths_dic
+
+    def _solve_dependency(self, paths_dic: Dict[str, Any], step, dependency_str: str) -> str:
+        """_solve_dependency() solves the dependency of a path in the configuration file.
+        """
+        dependency_tokens = dependency_str.strip().split("/")
+        if dependency_tokens[0] != "dependency":
+            return str(Path(step).joinpath(dependency_str))
+        return str(Path(dependency_tokens[1]).joinpath(paths_dic[dependency_tokens[1]][dependency_tokens[2]]))
+
+    def _join_paths(self, prefix: str = "", value: str = "") -> str:
+        """_join_working_dir_path() returns the absolute path to the step working dir.
+        """
+        return str(Path(self.working_dir_path).joinpath(prefix, value))

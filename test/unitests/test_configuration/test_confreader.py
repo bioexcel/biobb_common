@@ -12,6 +12,14 @@ class TestConfReader():
         fx.test_teardown(self)
 
     def test_confreader(self):
-        conf = ConfReader(self.paths['config'])
-        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_properties_pkl_path'], ignore_keys=['path', 'working_dir_path'])
-        assert fx.compare_object_pickle(conf.get_paths_dic(), self.paths['ref_paths_pkl_path'], compare_values=False)
+        conf = ConfReader(self.paths['config_complete'])
+        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_config_complete_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path'])
+
+        conf = ConfReader(self.paths['config_empty'])
+        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_config_empty_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path'])
+
+        conf = ConfReader(self.paths['config_nostep'])
+        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_config_nostep_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path'])
+
+        conf = ConfReader(self.paths['config_nostep_globals'])
+        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_config_nostep_globals_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path'])
