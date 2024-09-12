@@ -1,0 +1,25 @@
+global_properties:
+  can_write_console_log: False
+  remove_tmp: False
+  working_dir_path: /tmp/biobb/unitests
+
+confreader:
+  paths:
+    config_complete: file:test_data_dir/configuration/config_complete.yml
+    config_empty: file:test_data_dir/configuration/config_empty.yml
+    config_nostep_globals: file:test_data_dir/configuration/config_nostep_globals.yml
+    config_nostep: file:test_data_dir/configuration/config_nostep.yml
+
+    ref_config_complete_pkl: file:test_reference_dir/configuration/config_complete.pkl
+    ref_config_empty_pkl: file:test_reference_dir/configuration/config_empty.pkl
+    ref_config_nostep_globals_pkl: file:test_reference_dir/configuration/config_nostep_globals.pkl
+    ref_config_nostep_pkl: file:test_reference_dir/configuration/config_nostep.pkl
+
+    ref_config_complete_paths_pkl: file:test_reference_dir/configuration/config_complete_paths.pkl
+    ref_config_empty_paths_pkl: file:test_reference_dir/configuration/config_empty_paths.pkl
+    ref_config_nostep_globals_paths_pkl: file:test_reference_dir/configuration/config_nostep_globals_paths.pkl
+    ref_config_nostep_paths_pkl: file:test_reference_dir/configuration/config_nostep_paths.pkl
+
+  properties:
+    remove_tmp: False
+
