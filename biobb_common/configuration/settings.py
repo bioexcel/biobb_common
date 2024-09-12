@@ -199,183 +199,7 @@ class ConfReader:
 
         return prop_dic
 
-    # def get_prop_dic(self, prefix: Optional[str] = None, global_log: Optional[logging.Logger] = None) -> Dict[str, Any]:
-    #     """get_prop_dic() returns the properties dictionary where keys are the
-    #     step names in the configuration YAML file and every value contains another
-    #     nested dictionary containing the keys and values of each step properties section.
-    #     All the paths in the system section are copied in each nested dictionary.
-    #     For each nested dictionary the following keys are added:
-    #         | **path** (*str*): Absolute path to the step working dir.
-    #         | **step** (*str*): Name of the step.
-    #         | **prefix** (*str*): Prefix if provided.
-    #         | **global_log** (*Logger object*): Log from the main workflow.
-    #         | **restart** (*bool*): Restart from previous execution.
-    #         | **remove_tmp** (*bool*): Remove temporal files.
-    #         | **sandbox_path** (*str*) - ("./") Parent path to the sandbox directory.
-
-    #     Args:
-    #         prefix (str): Prefix if provided.
-    #         global_log (:obj:Logger): Log from the main workflow.
-
-    #     Returns:
-    #         dict: Dictionary of properties.
-    #     """
-
-    #     prop_dic: Dict[str, Any] = dict()
-    #     prefix = "" if prefix is None else prefix.strip()
-
-    #     # There is no step
-    #     if "paths" in self.properties or "properties" in self.properties:
-    #         prop_dic = dict()
-    #         prop_dic["path"] = str(Path(self.properties["working_dir_path"]).joinpath(prefix))
-    #         prop_dic["step"] = None
-    #         prop_dic["prefix"] = prefix
-    #         prop_dic["global_log"] = global_log
-    #         prop_dic["working_dir_path"] = self.properties.get("working_dir_path")
-    #         prop_dic["restart"] = self.properties.get("restart", False)
-    #         prop_dic["remove_tmp"] = self.properties.get("remove_tmp", True)
-    #         prop_dic["sandbox_path"] = self.properties.get("sandbox_path", Path.cwd())
-
-    #         if "properties" in self.properties and isinstance(
-    #             self.properties["properties"], dict
-    #         ):
-    #             prop_dic.update(self.properties["properties"].copy())
-    #             if self.properties.get("", None):
-    #                 prop_dic[""] = self.properties[""]
-    #     # There is step name
-    #     else:
-    #         for key in self.properties:
-    #             if isinstance(self.properties[key], dict):
-    #                 if (
-    #                     "paths" in self.properties[key]
-    #                     or "properties" in self.properties[key]
-    #                 ):
-    #                     prop_dic[key] = dict()
-    #                     prop_dic[key]["path"] = str(
-    #                         Path(self.properties["working_dir_path"]).joinpath(
-    #                             prefix, key
-    #                         )
-    #                     )
-    #                     prop_dic[key]["step"] = key
-    #                     prop_dic[key]["prefix"] = prefix
-    #                     prop_dic[key]["global_log"] = global_log
-    #                     prop_dic[key]["working_dir_path"] = self.properties.get(
-    #                         "working_dir_path"
-    #                     )
-    #                     prop_dic[key][
-    #                         "can_write_console_log"
-    #                     ] = self.properties.get("can_write_console_log", True)
-    #                     prop_dic[key]["restart"] = self.properties.get(
-    #                         "restart", False
-    #                     )
-    #                     prop_dic[key]["remove_tmp"] = self.properties.get(
-    #                         "remove_tmp", True
-    #                     )
-
-    #                 if ("properties" in self.properties[key]) and isinstance(
-    #                     self.properties[key]["properties"], dict
-    #                 ):
-    #                     if self.properties.get("", None):
-    #                         prop_dic[key][""] = self.properties[
-    #                             ""
-    #                         ]
-    #                     prop_dic[key][
-    #                         "can_write_console_log"
-    #                     ] = self.properties.get("can_write_console_log", True)
-    #                     prop_dic[key].update(self.properties[key]["properties"].copy())
-
-    #     # There is no step name and there is no properties or paths key: return input
-    #     if not prop_dic:
-    #         prop_dic = dict()
-    #         prop_dic.update(self.properties)
-    #         prop_dic["path"] = str(
-    #             Path(self.properties["working_dir_path"]).joinpath(prefix)
-    #         )
-    #         prop_dic["step"] = None
-    #         prop_dic["prefix"] = prefix
-    #         prop_dic["global_log"] = global_log
-    #         prop_dic["working_dir_path"] = self.properties.get("working_dir_path")
-    #         prop_dic["can_write_console_log"] = self.properties.get(
-    #             "can_write_console_log", True
-    #         )
-    #         prop_dic["restart"] = self.properties.get("restart", False)
-    #         prop_dic["remove_tmp"] = self.properties.get("remove_tmp", True)
-
-    #     return prop_dic
-
-    def get_paths_dic(self, prefix: Optional[str] = None) -> dict:
-        """get_paths_dic() returns the paths dictionary where keys are the
-        step names in the configuration YAML file and every value contains another
-        nested dictionary containing the keys and values of each step paths section.
-        All the paths starting with 'dependency' are resolved. If the path starts
-        with the string 'file:' nothing is done, however if the path starts with
-        any other string path is prefixed with the absolute step path.
-
-        Args:
-            prefix (str): Prefix if provided.
-
-        Returns:
-            dict: Dictionary of paths.
-        """
-        prop_dic = dict()
-        prefix = "" if prefix is None else prefix.strip()
-        # Filtering just paths
-        # Properties without step name
-        if "paths" in self.properties:
-            step = False
-            prop_dic = self.properties["paths"].copy()
-
-        # Properties with name
-        else:
-            step = True
-
-            for key in self.properties:
-                if isinstance(self.properties[key], dict):
-                    if "paths" in self.properties[key]:
-                        prop_dic[key] = self.properties[key]["paths"].copy()
-                    else:
-                        prop_dic[key] = {}
-
-        # Solving dependencies and adding workflow and step path
-        # Properties without step name: Do not solving dependencies
-        if not step:
-            for key2, value in prop_dic.items():
-                if isinstance(value, str) and value.startswith("file:"):
-                    prop_dic[key2] = value.split(":")[1]
-                else:
-                    prop_dic[key2] = str(
-                        Path(self.properties["working_dir_path"]).joinpath(
-                            prefix, value
-                        )
-                    )
-
-        # Properties with step name
-        else:
-
-            for key in prop_dic:
-                for key2, value in prop_dic[key].items():
-                    if isinstance(value, str) and value.startswith("dependency"):
-                        dependency_step = value.split("/")[1]
-                        while isinstance(value, str) and value.startswith("dependency"):
-                            dependency_step = value.split("/")[1]
-                            value = prop_dic[value.split("/")[1]][value.split("/")[2]]
-                        prop_dic[key][key2] = str(
-                            Path(self.properties["working_dir_path"]).joinpath(
-                                prefix, dependency_step, value
-                            )
-                        )
-                    elif isinstance(value, str) and value.startswith("file:"):
-                        prop_dic[key][key2] = value.split(":")[1]
-                    else:
-                        prop_dic[key][key2] = str(
-                            Path(self.properties["working_dir_path"]).joinpath(
-                                prefix, key, value
-                            )
-                        )
-
-        return prop_dic
-
-    def _get_paths(self, prefix: str = "") -> Dict[str, Any]:
+    def get_paths_dic(self, prefix: str = "") -> Dict[str, Any]:
         paths_dic: Dict[str, Any] = dict()
         for key in self.properties:
             if key in ["global_properties", "paths", "properties", "tool"]:
@@ -394,18 +218,28 @@ class ConfReader:
         else:
             paths_dic = self.properties.get("paths", {})
         for file_key, path_value in paths_dic.items():
-            step_paths_dic[file_key] = self._join_paths(prefix=prefix, value=self._solve_dependency(paths_dic, key, path_value))
+            if path_value.startswith("file:"):
+                step_paths_dic[file_key] = path_value.replace("file:", "")
+                continue
+            step_paths_dic[file_key] = self._join_paths(prefix=prefix, value=self._solve_dependency(key, path_value))
         return step_paths_dic
 
-    def _solve_dependency(self, paths_dic: Dict[str, Any], step, dependency_str: str) -> str:
+    def _solve_dependency(self, step, dependency_str: str) -> str:
         """_solve_dependency() solves the dependency of a path in the configuration file.
         """
         dependency_tokens = dependency_str.strip().split("/")
         if dependency_tokens[0] != "dependency":
             return str(Path(step).joinpath(dependency_str))
-        return str(Path(dependency_tokens[1]).joinpath(paths_dic[dependency_tokens[1]][dependency_tokens[2]]))
+
+        if not step:
+            raise Exception("Step name is required to solve dependency")
+
+        return str(Path(dependency_tokens[1]).joinpath(self.properties.get(dependency_tokens[1], {}).get('paths', {}).get(dependency_tokens[2], "")))
 
     def _join_paths(self, prefix: str = "", value: str = "") -> str:
         """_join_working_dir_path() returns the absolute path to the step working dir.
         """
+        if value.startswith("/"):
+            value = value[1:]
+
         return str(Path(self.working_dir_path).joinpath(prefix, value))

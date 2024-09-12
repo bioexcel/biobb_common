@@ -11,15 +11,14 @@ class TestConfReader():
         # pass
         fx.test_teardown(self)
 
-    def test_confreader(self):
-        conf = ConfReader(self.paths['config_complete'])
-        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_config_complete_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path'])
+    def test_confreader_properties(self):
+        print()  # Add a new line for better readability in the console
+        for file_name in ['config_complete', 'config_empty', 'config_nostep', 'config_nostep_globals']:
+            conf = ConfReader(self.paths[file_name])
+            assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths[f'ref_{file_name}_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path'])
 
-        conf = ConfReader(self.paths['config_empty'])
-        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_config_empty_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path'])
-
-        conf = ConfReader(self.paths['config_nostep'])
-        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_config_nostep_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path'])
-
-        conf = ConfReader(self.paths['config_nostep_globals'])
-        assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths['ref_config_nostep_globals_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path'])
+    def test_confreader_paths(self):
+        print()  # Add a new line for better readability in the console
+        for file_name in ['config_complete', 'config_empty', 'config_nostep', 'config_nostep_globals']:
+            conf = ConfReader(self.paths[file_name])
+            assert fx.compare_object_pickle(conf.get_paths_dic(), self.paths[f'ref_{file_name}_paths_pkl'], ignore_keys=['working_dir_path', 'sandbox_path'], ignore_substring='/Users/pau/projects/biobb_common/')

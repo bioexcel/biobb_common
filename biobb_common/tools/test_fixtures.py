@@ -3,7 +3,6 @@
 import os
 import pickle
 import typing
-from pprint import pprint
 from typing import Optional, Union, List, Dict
 from pathlib import Path
 import sys
@@ -56,7 +55,7 @@ def test_teardown(test_object):
         test_object (:obj:`test`): The test object.
     """
     unitests_path = Path(test_object.properties['path']).resolve().parent
-    pprint(f"\nRemoving: {unitests_path}")
+    print(f"\nRemoving: {unitests_path}")
     shutil.rmtree(unitests_path)
 
 
@@ -81,19 +80,19 @@ def not_empty(file_path: str) -> bool:
     Returns:
         bool: True if **file_path** exists and is not empty.
     """
-    pprint("Checking if empty file: "+file_path)
+    print("Checking if empty file: "+file_path)
     return Path(file_path).is_file() and Path(file_path).stat().st_size > 0
 
 
 def compare_hash(file_a: str, file_b: str) -> bool:
     """Compute and compare the hashes of two files"""
-    pprint("Comparing: ")
-    pprint("        File_A: "+file_a)
-    pprint("        File_B: "+file_b)
+    print("Comparing: ")
+    print("        File_A: "+file_a)
+    print("        File_B: "+file_b)
     file_a_hash = hashlib.sha256(open(file_a, 'rb').read()).digest()
     file_b_hash = hashlib.sha256(open(file_b, 'rb').read()).digest()
-    pprint("        File_A hash: "+str(file_a_hash))
-    pprint("        File_B hash: "+str(file_b_hash))
+    print("        File_A hash: "+str(file_a_hash))
+    print("        File_B hash: "+str(file_b_hash))
     return file_a_hash == file_b_hash
 
 
@@ -141,9 +140,9 @@ def equal(file_a: str, file_b: str, ignore_list: Optional[typing.List[typing.Uni
 
 
 def compare_line_by_line(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, int]]) -> bool:
-    pprint(f"Comparing ignoring lines containing this words: {ignore_list}")
-    pprint("     FILE_A: "+file_a)
-    pprint("     FILE_B: "+file_b)
+    print(f"Comparing ignoring lines containing this words: {ignore_list}")
+    print("     FILE_A: "+file_a)
+    print("     FILE_B: "+file_b)
     with open(file_a) as fa, open(file_b) as fb:
         for index, (line_a, line_b) in enumerate(zip(fa, fb)):
             if index in ignore_list or any(word in line_a for word in ignore_list if isinstance(word, str)):
@@ -160,12 +159,12 @@ def equal_txt(file_a: str, file_b: str) -> bool:
 
 def compare_zip(zip_a: str, zip_b: str) -> bool:
     """ Compare zip files """
-    pprint("This is a ZIP comparison!")
-    pprint("Unzipping:")
-    pprint("Creating a unique_dir for: %s" % zip_a)
+    print("This is a ZIP comparison!")
+    print("Unzipping:")
+    print("Creating a unique_dir for: %s" % zip_a)
     zip_a_dir = fu.create_unique_dir()
     zip_a_list = fu.unzip_list(zip_a, dest_dir=zip_a_dir)
-    pprint("Creating a unique_dir for: %s" % zip_b)
+    print("Creating a unique_dir for: %s" % zip_b)
     zip_b_dir = fu.create_unique_dir()
     zip_b_list = fu.unzip_list(zip_b, dest_dir=zip_b_dir)
 
@@ -182,15 +181,15 @@ def compare_zip(zip_a: str, zip_b: str) -> bool:
 
 def compare_pdb(pdb_a: str, pdb_b: str, rmsd_cutoff: int = 1, remove_hetatm: bool = True, remove_hydrogen: bool = True, **kwargs):
     """ Compare pdb files """
-    pprint("Checking RMSD between:")
-    pprint("     PDB_A: "+pdb_a)
-    pprint("     PDB_B: "+pdb_b)
+    print("Checking RMSD between:")
+    print("     PDB_A: "+pdb_a)
+    print("     PDB_B: "+pdb_b)
     pdb_parser = Bio.PDB.PDBParser(PERMISSIVE=True, QUIET=True)
     st_a = pdb_parser.get_structure("st_a", pdb_a)[0]
     st_b = pdb_parser.get_structure("st_b", pdb_b)[0]
 
     if remove_hetatm:
-        pprint("     Ignoring HETAMT in RMSD")
+        print("     Ignoring HETAMT in RMSD")
         residues_a = [list(res.get_atoms()) for res in st_a.get_residues() if not res.id[0].startswith('H_')]
         residues_b = [list(res.get_atoms()) for res in st_b.get_residues() if not res.id[0].startswith('H_')]
         atoms_a = [atom for residue in residues_a for atom in residue]
@@ -200,26 +199,26 @@ def compare_pdb(pdb_a: str, pdb_b: str, rmsd_cutoff: int = 1, remove_hetatm: boo
         atoms_b = st_b.get_atoms()
 
     if remove_hydrogen:
-        pprint("     Ignoring Hydrogen atoms in RMSD")
+        print("     Ignoring Hydrogen atoms in RMSD")
         atoms_a = [atom for atom in atoms_a if not atom.get_name().startswith('H')]
         atoms_b = [atom for atom in atoms_b if not atom.get_name().startswith('H')]
 
-    pprint("     Atoms ALIGNED in PDB_A: "+str(len(atoms_a)))
-    pprint("     Atoms ALIGNED in PDB_B: "+str(len(atoms_b)))
+    print("     Atoms ALIGNED in PDB_A: "+str(len(atoms_a)))
+    print("     Atoms ALIGNED in PDB_B: "+str(len(atoms_b)))
     super_imposer = Bio.PDB.Superimposer()
     super_imposer.set_atoms(atoms_a, atoms_b)
     super_imposer.apply(atoms_b)
     super_imposer_rms = super_imposer.rms if super_imposer.rms is not None else float('inf')
-    pprint('     RMS: '+str(super_imposer_rms))
-    pprint('     RMS_CUTOFF: '+str(rmsd_cutoff))
+    print('     RMS: '+str(super_imposer_rms))
+    print('     RMS_CUTOFF: '+str(rmsd_cutoff))
     return super_imposer_rms < rmsd_cutoff
 
 
 def compare_top_itp(file_a: str, file_b: str) -> bool:
     """ Compare top/itp files """
-    pprint("Comparing TOP/ITP:")
-    pprint("     FILE_A: "+file_a)
-    pprint("     FILE_B: "+file_b)
+    print("Comparing TOP/ITP:")
+    print("     FILE_A: "+file_a)
+    print("     FILE_B: "+file_b)
     with codecs.open(file_a, 'r', encoding='utf-8', errors='ignore') as f_a:
         next(f_a)
         with codecs.open(file_b, 'r', encoding='utf-8', errors='ignore') as f_b:
@@ -229,9 +228,9 @@ def compare_top_itp(file_a: str, file_b: str) -> bool:
 
 def compare_ignore_first(file_a: str, file_b: str) -> bool:
     """ Compare two files ignoring the first line """
-    pprint("Comparing ignoring first line of both files:")
-    pprint("     FILE_A: "+file_a)
-    pprint("     FILE_B: "+file_b)
+    print("Comparing ignoring first line of both files:")
+    print("     FILE_A: "+file_a)
+    print("     FILE_B: "+file_b)
     with open(file_a) as f_a:
         next(f_a)
         with open(file_b) as f_b:
@@ -241,26 +240,26 @@ def compare_ignore_first(file_a: str, file_b: str) -> bool:
 
 def compare_size(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> bool:
     """ Compare two files using size """
-    pprint("Comparing size of both files:")
-    pprint(f"     FILE_A: {file_a}")
-    pprint(f"     FILE_B: {file_b}")
+    print("Comparing size of both files:")
+    print(f"     FILE_A: {file_a}")
+    print(f"     FILE_B: {file_b}")
     size_a = Path(file_a).stat().st_size
     size_b = Path(file_b).stat().st_size
     average_size = (size_a + size_b) / 2
     tolerance = average_size * percent_tolerance / 100
     tolerance_low = average_size - tolerance
     tolerance_high = average_size + tolerance
-    pprint(f"     SIZE_A: {size_a} bytes")
-    pprint(f"     SIZE_B: {size_b} bytes")
-    pprint(f"     TOLERANCE: {percent_tolerance}%, Low: {tolerance_low} bytes, High: {tolerance_high} bytes")
+    print(f"     SIZE_A: {size_a} bytes")
+    print(f"     SIZE_B: {size_b} bytes")
+    print(f"     TOLERANCE: {percent_tolerance}%, Low: {tolerance_low} bytes, High: {tolerance_high} bytes")
     return (tolerance_low <= size_a <= tolerance_high) and (tolerance_low <= size_b <= tolerance_high)
 
 
 def compare_xvg(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> bool:
     """ Compare two files using size """
-    pprint("Comparing size of both files:")
-    pprint(f"     FILE_A: {file_a}")
-    pprint(f"     FILE_B: {file_b}")
+    print("Comparing size of both files:")
+    print(f"     FILE_A: {file_a}")
+    print(f"     FILE_B: {file_b}")
     arrays_tuple_a = np.loadtxt(file_a, comments="@", unpack=True)
     arrays_tuple_b = np.loadtxt(file_b, comments="@", unpack=True)
     for array_a, array_b in zip(arrays_tuple_a, arrays_tuple_b):
@@ -274,22 +273,22 @@ def compare_images(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> 
         from PIL import Image  # type: ignore
         import imagehash
     except ImportError:
-        pprint("To compare images, please install the following packages: Pillow, imagehash")
+        print("To compare images, please install the following packages: Pillow, imagehash")
         return False
 
     """ Compare two files using size """
-    pprint("Comparing images of both files:")
-    pprint(f"     IMAGE_A: {file_a}")
-    pprint(f"     IMAGE_B: {file_b}")
+    print("Comparing images of both files:")
+    print(f"     IMAGE_A: {file_a}")
+    print(f"     IMAGE_B: {file_b}")
     hash_a = imagehash.average_hash(Image.open(file_a))
     hash_b = imagehash.average_hash(Image.open(file_b))
     tolerance = (len(hash_a) + len(hash_b)) / 2 * percent_tolerance / 100
     if tolerance < 1:
         tolerance = 1
     difference = hash_a - hash_b
-    pprint(f"     IMAGE_A HASH: {hash_a} SIZE: {len(hash_a)} bits")
-    pprint(f"     IMAGE_B HASH: {hash_b} SIZE: {len(hash_b)} bits")
-    pprint(f"     TOLERANCE: {percent_tolerance}%, ABS TOLERANCE: {tolerance} bits, DIFFERENCE: {difference} bits")
+    print(f"     IMAGE_A HASH: {hash_a} SIZE: {len(hash_a)} bits")
+    print(f"     IMAGE_B HASH: {hash_b} SIZE: {len(hash_b)} bits")
+    print(f"     TOLERANCE: {percent_tolerance}%, ABS TOLERANCE: {tolerance} bits, DIFFERENCE: {difference} bits")
     if difference > tolerance:
         return False
     return True
@@ -297,26 +296,34 @@ def compare_images(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> 
 
 def compare_object_pickle(python_object: typing.Any, pickle_file_path: Union[str, Path], **kwargs) -> bool:
     """ Compare a python object with a pickle file """
-    pprint(f"Loading pickle file: {pickle_file_path}")
+    print(f"Loading pickle file: {pickle_file_path}")
     with open(pickle_file_path, 'rb') as f:
         pickle_object = pickle.load(f)
-    pprint(f"     OBJECT: {python_object}")
-    pprint(f"     EXPECTED OBJECT: {pickle_object}")
 
     # Special case for dictionaries
     if isinstance(python_object, dict) and isinstance(pickle_object, dict):
-        differences = compare_dictionaries(python_object, pickle_object, ignore_keys=kwargs.get('ignore_keys', []), compare_values=kwargs.get('compare_values', True))
+        differences = compare_dictionaries(python_object, pickle_object, ignore_keys=kwargs.get('ignore_keys', []), compare_values=kwargs.get('compare_values', True), ignore_substring=kwargs.get('ignore_substring', ""))
         if differences:
-            pprint("Differences found:")
+            print(50*'*')
+            print("OBJECT:")
+            print(python_object)
+            print(50*'*')
+            print()
+            print(50*'*')
+            print("EXPECTED OBJECT:")
+            print(pickle_object)
+            print(50*'*')
+
+            print("Differences found:")
             for difference in differences:
-                pprint(f"     {difference}")
+                print(f"     {difference}")
             return False
         return True
 
     return python_object == pickle_object
 
 
-def compare_dictionaries(dict1: Dict, dict2: Dict, path: str = "", ignore_keys: Optional[List[str]] = None, compare_values: bool = True) -> List[str]:
+def compare_dictionaries(dict1: Dict, dict2: Dict, path: str = "", ignore_keys: Optional[List[str]] = None, compare_values: bool = True, ignore_substring: str = "") -> List[str]:
     """Compare two dictionaries and print only the differences, ignoring specified keys."""
     if ignore_keys is None:
         ignore_keys = []
@@ -338,9 +345,14 @@ def compare_dictionaries(dict1: Dict, dict2: Dict, path: str = "", ignore_keys: 
             value2 = dict2[key]
             if isinstance(value1, dict) and isinstance(value2, dict):
                 # Recursively compare nested dictionaries
-                nested_differences = compare_dictionaries(value1, value2, path + key + ".", ignore_keys, compare_values)
+                nested_differences = compare_dictionaries(value1, value2, path + key + ".", ignore_keys, compare_values, ignore_substring)
                 differences.extend(nested_differences)
-            elif value1 != value2 and compare_values:
-                differences.append(f"Difference at '{path + key}': dict1 has {value1}, dict2 has {value2}")
+            elif (value1 != value2) and compare_values:
+                if ignore_substring:
+                    if (not str(value1).endswith(str(value2).replace(ignore_substring, ""))) and (not str(value2).endswith(str(value1).replace(ignore_substring, ""))):
+                        differences.append(f"Difference at '{path + key}': dict1 has {value1}, dict2 has {value2}")
+
+                else:
+                    differences.append(f"Difference at '{path + key}': dict1 has {value1}, dict2 has {value2}")
 
     return differences
