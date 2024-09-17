@@ -21,6 +21,7 @@ Available common step properties: (Each Biobb step also has their specific prope
     - **step** (*str*) - (None) Name of the step.
     - **path** (*str*) - ('') Absolute path to the step working dir.
     - **working_dir_path** (*str*) - (Current working dir) Workflow output directory.
+    - **global_properties_list** (*list*) - ([]) List of global properties.
 """
 
 import yaml
@@ -109,6 +110,7 @@ class ConfReader:
         """
         prop_dic = dict()
         prop_dic.update(deepcopy(self.global_properties))
+        prop_dic["global_properties_list"] = list(self.global_properties.keys())
         prop_dic["step"] = key
         prop_dic["prefix"] = prefix
         prop_dic["global_log"] = global_log
@@ -135,6 +137,7 @@ class ConfReader:
             | **global_log** (*Logger object*): Log from the main workflow.
             | **tool** (*str*): Name of the tool to be executed, mostly used by the biobbAPI.
             | **working_dir_path** (*str*): Workflow output directory.
+            | **global_properties_list** (*list*): List of global properties.
 
         Args:
             prefix (str): Prefix if provided.

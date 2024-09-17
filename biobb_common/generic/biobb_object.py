@@ -60,6 +60,7 @@ class BiobbObject:
         self.disable_sandbox: bool = properties.get("disable_sandbox", False)
 
         # Properties common in all BB
+        self.global_properties_list: List[str] = properties.get("global_properties_list", [])
         self.chdir_sandbox: bool = properties.get("chdir_sandbox", False)
         self.binary_path: str = properties.get("binary_path", '')
         self.can_write_console_log: bool = properties.get("can_write_console_log", True)
@@ -119,9 +120,8 @@ class BiobbObject:
         if not reserved_properties:
             reserved_properties = set()
         reserved_properties = {"system", "working_dir_path"}.union(reserved_properties)
-        error_properties = set(
-            [prop for prop in properties.keys() if prop not in self.__dict__.keys()]
-        )
+        reserved_properties = reserved_properties.union(set(self.global_properties_list))
+        error_properties = set([prop for prop in properties.keys() if prop not in self.__dict__.keys()])
 
         # Check types
         if check_var_typing and self.doc_properties_dict:
