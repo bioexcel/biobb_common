@@ -15,7 +15,7 @@ class CmdWrapper:
     """
 
     def __init__(self, cmd: typing.Iterable[str], shell_path: typing.Union[str, Path] = os.getenv('SHELL', '/bin/sh'), out_log: Optional[logging.Logger] = None, err_log: Optional[logging.Logger] = None,
-                 global_log: Optional[logging.Logger] = None, env: Optional[typing.Mapping] = None) -> None:
+                 global_log: Optional[logging.Logger] = None, env: Optional[typing.Mapping] = None, timeout: Optional[int] = None) -> None:
 
         self.cmd = cmd
         self.shell_path = shell_path
@@ -23,6 +23,7 @@ class CmdWrapper:
         self.err_log = err_log
         self.global_log = global_log
         self.env = env
+        self.timeout = timeout
 
     def launch(self) -> int:
         cmd = " ".join(self.cmd)
@@ -40,7 +41,7 @@ class CmdWrapper:
                                    executable=self.shell_path,
                                    env=new_env)
 
-        out, err = process.communicate()
+        out, err = process.communicate(timeout=self.timeout)
         if self.out_log is None:
             print("Exit, code {}".format(process.returncode))
         process.wait()

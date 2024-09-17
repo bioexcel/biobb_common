@@ -2,6 +2,8 @@ global_properties:
   working_dir_path: biobb_wf_protein-complex_md_setup
   can_write_console_log: False
   run_md: false
+  restart: False
+  remove_tmp: True
 
 tool: pdb2gmx
 paths:

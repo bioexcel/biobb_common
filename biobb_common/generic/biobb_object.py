@@ -48,16 +48,11 @@ class BiobbObject:
         # container Specific
         self.container_path: Optional[str] = properties.get("container_path")
         self.container_image: str = properties.get("container_image", '')
-        self.container_volume_path: str = properties.get(
-            "container_volume_path", "/data")
+        self.container_volume_path: str = properties.get("container_volume_path", "/data")
         self.container_working_dir: Optional[str] = properties.get("container_working_dir")
         self.container_user_id: Optional[str] = properties.get("container_user_id")
-        self.container_shell_path: str = properties.get(
-            "container_shell_path", "/bin/bash -c"
-        )
-        self.container_generic_command: str = properties.get(
-            "container_generic_command", "run"
-        )
+        self.container_shell_path: str = properties.get("container_shell_path", "/bin/bash -c")
+        self.container_generic_command: str = properties.get("container_generic_command", "run")
 
         # stage
         self.stage_io_dict: Dict[str, Any] = {"in": {}, "out": {}}
@@ -67,8 +62,7 @@ class BiobbObject:
         # Properties common in all BB
         self.chdir_sandbox: bool = properties.get("chdir_sandbox", False)
         self.binary_path: str = properties.get("binary_path", '')
-        self.can_write_console_log: bool = properties.get(
-            "can_write_console_log", True)
+        self.can_write_console_log: bool = properties.get("can_write_console_log", True)
         self.global_log: Optional[Logger] = properties.get("global_log", None)
         self.out_log: Optional[Logger] = None
         self.err_log: Optional[Logger] = None
@@ -79,13 +73,10 @@ class BiobbObject:
         self.restart: bool = properties.get("restart", False)
         self.cmd: List[str] = []
         self.return_code: int = 0
+        self.timeout: Optional[int] = properties.get("timeout", None)
         self.tmp_files: List[Union[str, Path]] = []
-        self.env_vars_dict: typing.Dict = properties.get(
-            "env_vars_dict", {})
-        self.shell_path: typing.Union[str, Path] = properties.get(
-            "shell_path", os.getenv("SHELL", "/bin/bash")
-        )
-
+        self.env_vars_dict: typing.Dict = properties.get("env_vars_dict", {})
+        self.shell_path: typing.Union[str, Path] = properties.get("shell_path", os.getenv("SHELL", "/bin/bash"))
         self.dev: Optional[str] = properties.get("dev", None)
         self.check_extensions: bool = properties.get("check_extensions", True)
         self.check_var_typing: bool = properties.get("check_var_typing", True)

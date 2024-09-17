@@ -8,30 +8,19 @@ The configuration files are composed by paths to the files and properties. There
 the building blocks.
 
 Some yaml files contain a tool key with the name of the tool to be executed inside the step key. The tool key is used
-by the resp API to identify the tool to be executed. This reader will ignore the tool key.
+by the resp API to identify the tool to be executed.
 
 
 Syntax:
     - **property** (*dataType*) - (Default value) Short description.
 
-Available Workflow properties:
-    - **working_dir_path** (*str*) - (Current working dir) Workflow output directory.
-    - **can_write_console_log** (*bool*) - (True) Output log to console.
-    - **restart** (*bool*) - (False) Do not execute steps if output files are already created.
-    - **remove_tmp** (*bool*) - (True) Remove temporal files.
-
 Available common step properties: (Each Biobb step also has their specific properties)
-    - **can_write_console_log** (*bool*) - (True) Overwrite **can_write_console_log** workflow property on this step.
-    - **restart** (*bool*) - (False) Overwrite **restart** workflow property on this step.
-    - **remove_tmp** (*bool*) - (True) Overwrite **remove_tmp** workflow property on this step.
-
-Available common step properties for containerized applications:
-    - **container_path** (*string*) - (None)  Path to the binary executable of your container.
-    - **container_image** (*string*) - (None) Container Image identifier.
-    - **container_volume_path** (*string*) - (None) Path to an internal directory in the container.
-    - **container_working_dir** (*string*) - (None) Path to the internal CWD in the container.
-    - **container_user_id** (*string*) - (None) User number id to be mapped inside the container.
-    - **container_shell_path** (*string*) - ("/bin/bash") Path to the binary executable of the container shell.
+    - **tool** (*str*) - (None) Name of the tool to be executed, mostly used by the biobbAPI.
+    - **global_log** (*Logger object*) - (None) Log from the main workflow.
+    - **prefix** (*str*) - (None) Prefix if provided.
+    - **step** (*str*) - (None) Name of the step.
+    - **path** (*str*) - ('') Absolute path to the step working dir.
+    - **working_dir_path** (*str*) - (Current working dir) Workflow output directory.
 """
 
 import yaml
@@ -43,19 +32,8 @@ from biobb_common.tools import file_utils as fu
 from typing import Dict, Any, Optional
 
 GALAXY_CHARACTER_MAP = {
-    "__gt__": ">",
-    "__lt__": "<",
-    "__sq__": "'",
-    "__dq__": '"',
-    "__ob__": "[",
-    "__cb__": "]",
-    "__oc__": "{",
-    "__cc__": "}",
-    "__cn__": "\n",
-    "__cr__": "\r",
-    "__tc__": "\t",
-    "__pd__": "#"
-}
+    "__gt__": ">", "__lt__": "<", "__sq__": "'", "__dq__": '"', "__ob__": "[", "__cb__": "]",
+    "__oc__": "{", "__cc__": "}", "__cn__": "\n", "__cr__": "\r", "__tc__": "\t", "__pd__": "#"}
 
 
 def trans_galaxy_charmap(input_str):
@@ -75,7 +53,6 @@ class ConfReader:
 
     def __init__(self, config: Optional[str] = None, **kwargs):
         self.properties = self._read_config(config)
-        self.default_properties = self._get_default_properties()
         self.global_properties = self._get_global_properties()
         self.working_dir_path = fu.get_working_dir_path(working_dir_path=self.global_properties.get("working_dir_path", None), restart=self.global_properties.get("restart", False))
 
@@ -109,24 +86,6 @@ class ConfReader:
 
         return config_dict
 
-    def _get_default_properties(self) -> Dict[str, Any]:
-        """_get_default_properties() returns the default properties of the configuration file.
-
-        Returns:
-            dict: Dictionary of default properties.
-        """
-
-        return {
-            "path": None,
-            "step": None,
-            "prefix": None,
-            "global_log": None,
-            "can_write_console_log": True,
-            "restart": False,
-            "remove_tmp": True,
-            "sandbox_path": str(Path.cwd())
-        }
-
     def _get_global_properties(self) -> Dict[str, Any]:
         """_get_global_properties() returns the global properties of the configuration file.
 
@@ -134,9 +93,7 @@ class ConfReader:
             dict: Dictionary of global properties.
         """
         # Add default properties to the global properties
-        global_properties = deepcopy(self.default_properties)
-        global_properties.update(deepcopy((self.properties.get("global_properties") or {})))
-        return global_properties
+        return deepcopy((self.properties.get("global_properties") or {}))
 
     def _get_step_properties(self, key: str = "", prefix: str = "", global_log: Optional[logging.Logger] = None) -> Dict[str, Any]:
         """_get_step_properties() returns the properties of the configuration file.
@@ -176,9 +133,8 @@ class ConfReader:
             | **step** (*str*): Name of the step.
             | **prefix** (*str*): Prefix if provided.
             | **global_log** (*Logger object*): Log from the main workflow.
-            | **restart** (*bool*): Restart from previous execution.
-            | **remove_tmp** (*bool*): Remove temporal files.
-            | **sandbox_path** (*str*) - ("./") Parent path to the sandbox directory.
+            | **tool** (*str*): Name of the tool to be executed, mostly used by the biobbAPI.
+            | **working_dir_path** (*str*): Workflow output directory.
 
         Args:
             prefix (str): Prefix if provided.
