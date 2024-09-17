@@ -91,6 +91,10 @@ class BiobbObject:
         except Exception:
             self.version = None
 
+        if self.disable_sandbox:
+            self.remove_tmp = False
+            fu.log("WARNING: Disabling remove_tmp because disable_sandbox is enabled", self.out_log, self.global_log)
+
     def check_arguments(
         self, output_files_created: bool = False, raise_exception: bool = True
     ):
