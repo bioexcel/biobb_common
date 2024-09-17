@@ -22,14 +22,8 @@ class BiobbObject:
 
     Args:
         properties (dict - Python dictionary object containing the tool parameters, not input/output files):
-            * **sandbox_path** (*str*) - ("./") [WF property] Parent path to the sandbox directory.
-            * **disable_sandbox** (*bool*) - (False) Disable the use of temporal unique directories aka sandbox. Only for local execution.
-            * **chdir_sandbox** (*bool*) - (False) Change directory to the sandbox using just file names in the command line. Only for local execution.
-            * **dev** (*str*) - (None) Adding additional options to command line.
-            * **remove_tmp** (*bool*) - (True) [WF property] Remove temporal files.
-            * **restart** (*bool*) - (False) [WF property] Do not execute if output files exist.
-            * **sandbox_path** (*str*) - ("./") [WF property] Parent path to the sandbox directory.
-            * **env_vars_dict** (*dict*) - ({}) Environment Variables Dictionary.
+
+            * **io_dict** (*dict*) - ({}) Input/Output files dictionary.
             * **container_path** (*str*) - (None)  Path to the binary executable of your container.
             * **container_image** (*str*) - (None) Container Image identifier.
             * **container_volume_path** (*str*) - ("/data") Path to an internal directory in the container.
@@ -37,6 +31,35 @@ class BiobbObject:
             * **container_user_id** (*str*) - (None) User number id to be mapped inside the container.
             * **container_shell_path** (*str*) - ("/bin/bash -c") Path to the binary executable of the container shell.
             * **container_generic_command** (*str*) - ("run") Which command typically run or exec will be used to execute your image.
+            * **stage_io_dict** (*dict*) - ({}) Stage Input/Output files dictionary.
+            * **sandbox_path** (*str*) - ("./") [WF property] Parent path to the sandbox directory.
+            * **disable_sandbox** (*bool*) - (False) Disable the use of temporal unique directories aka sandbox. Only for local execution.
+            * **global_properties_list** (*list*) - ([]) List of global properties.
+            * **chdir_sandbox** (*bool*) - (False) Change directory to the sandbox using just file names in the command line. Only for local execution.
+            * **binary_path** (*str*) - ('') Path to the binary executable.
+            * **can_write_console_log** (*bool*) - (True) Can write console log.
+            * **global_log** (*Logger object*) - (None) Log from the main workflow.
+            * **out_log** (*Logger object*) - (None) Log from the step.
+            * **err_log** (*Logger object*) - (None) Error log from the step.
+            * **prefix** (*str*) - (None) Prefix if provided.
+            * **step** (*str*) - (None) Name of the step.
+            * **path** (*str*) - ('') Absolute path to the step working dir.
+            * **remove_tmp** (*bool*) - (True) [WF property] Remove temporal files.
+            * **restart** (*bool*) - (False) [WF property] Do not execute if output files exist.
+            * **cmd** (*list*) - ([]) Command line list, NOT read from the dictionary.
+            * **return_code** (*int*) - (0) Return code of the command execution, NOT read from the dictionary.
+            * **timeout** (*int*) - (None) Timeout for the execution of the command.
+            * **tmp_files** (*list*) - ([]) List of temporal files, NOT read from the dictionary.
+            * **env_vars_dict** (*dict*) - ({}) Environment Variables Dictionary.
+            * **shell_path** (*str*) - ("/bin/bash") Path to the binary executable of the shell.
+            * **dev** (*str*) - (None) Development options.
+            * **check_extensions** (*bool*) - (True) Check extensions of the input/output files.
+            * **check_var_typing** (*bool*) - (True) Check typing of the input/output files.
+            * **locals_var_dict** (*dict*) - ({}) Local variables dictionary.
+            * **doc_arguments_dict** (*dict*) - ({}) Documentation arguments dictionary.
+            * **doc_properties_dict** (*dict*) - ({}) Documentation properties dictionary.
+
+
     """
 
     def __init__(self, properties=None, **kwargs) -> None:  # type: ignore
