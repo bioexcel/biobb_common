@@ -146,7 +146,7 @@ class BiobbObject:
     ):
         if not reserved_properties:
             reserved_properties = set()
-        reserved_properties = {"system", "working_dir_path"}.union(reserved_properties)
+        reserved_properties = {"system", "working_dir_path", "tool"}.union(reserved_properties)
         reserved_properties = reserved_properties.union(set(self.global_properties_list))
         error_properties = set([prop for prop in properties.keys() if prop not in self.__dict__.keys()])
 

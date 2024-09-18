@@ -52,10 +52,18 @@ class ConfReader:
         system (str): System name from the systems section in the configuration file.
     """
 
-    def __init__(self, config: Optional[str] = None, **kwargs):
+    def __init__(self, config: Optional[str] = None, *args, **kwargs):
         self.properties = self._read_config(config)
         self.global_properties = self._get_global_properties()
         self.working_dir_path = fu.get_working_dir_path(working_dir_path=self.global_properties.get("working_dir_path", None), restart=self.global_properties.get("restart", False))
+
+    def get_working_dir_path(self) -> str:
+        """get_working_dir_path() returns the working directory path.
+
+        Returns:
+            str: Working directory path.
+        """
+        return self.working_dir_path
 
     def _read_config(self, config: Optional[str] = None) -> Dict[str, Any]:
         """_read_config() reads the configuration file and returns a dictionary.
