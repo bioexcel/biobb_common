@@ -114,7 +114,7 @@ class BiobbObject:
         except Exception:
             self.version = None
 
-        if self.disable_sandbox:
+        if self.disable_sandbox and self.remove_tmp:
             self.remove_tmp = False
             fu.log("WARNING: Disabling remove_tmp because disable_sandbox is enabled", self.out_log, self.global_log)
 
