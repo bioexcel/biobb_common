@@ -188,7 +188,8 @@ class ConfReader:
             if path_value.startswith("file:"):
                 step_paths_dic[file_key] = path_value.replace("file:", "")
                 continue
-            step_paths_dic[file_key] = self._join_paths(prefix=prefix, value=self._solve_dependency(key, path_value))
+            step_paths_dic[file_key] = str(Path(self.working_dir_path).joinpath(prefix, self._solve_dependency(key, path_value)))
+
         return step_paths_dic
 
     def _solve_dependency(self, step, dependency_str: str) -> str:
@@ -202,11 +203,3 @@ class ConfReader:
             raise Exception("Step name is required to solve dependency")
 
         return str(Path(dependency_tokens[1]).joinpath(self.properties.get(dependency_tokens[1], {}).get('paths', {}).get(dependency_tokens[2], "")))
-
-    def _join_paths(self, prefix: str = "", value: str = "") -> str:
-        """_join_working_dir_path() returns the absolute path to the step working dir.
-        """
-        if value.startswith("/"):
-            value = value[1:]
-
-        return str(Path(self.working_dir_path).joinpath(prefix, value))
