@@ -180,7 +180,7 @@ class BiobbObject:
     def check_restart(self) -> bool:
         if self.version:
             fu.log(
-                f"Executing {self.__module__} Version: {self.version}",
+                f"Module: {self.__module__} Version: {self.version}",
                 self.out_log,
                 self.global_log,
             )
@@ -422,12 +422,13 @@ class BiobbObject:
             os.chdir(self.stage_io_dict["unique_dir"])
 
         self.return_code = cmd_wrapper.CmdWrapper(
-            self.cmd,
-            self.shell_path,
-            self.out_log,
-            self.err_log,
-            self.global_log,
-            self.env_vars_dict,
+            cmd=self.cmd,
+            shell_path=self.shell_path,
+            out_log=self.out_log,
+            err_log=self.err_log,
+            global_log=self.global_log,
+            env=self.env_vars_dict,
+            timeout=self.timeout
         ).launch()
 
         if self.chdir_sandbox:

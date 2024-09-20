@@ -25,6 +25,32 @@ class CmdWrapper:
         self.env = env
         self.timeout = timeout
 
+    def log_output(self, exit_code: str, command: str, out: Optional[bytes] = None, err: Optional[bytes] = None, timeout: Optional[str] = None,
+                   out_log: Optional[logging.Logger] = None, err_log: Optional[logging.Logger] = None, global_log: Optional[logging.Logger] = None) -> None:
+
+        timeout_str = ''
+        if timeout:
+            timeout_str = f"Timeout: {timeout} seconds expired, killing process\n"
+        command_str = f"Executing: {command[0:80]}..."
+        exit_code_str = f"Exit code {exit_code}"
+        if out_log:
+            out_log.info(command_str)
+            out_log.info(exit_code_str)
+            out_log.info(timeout_str)
+            if out:
+                out_log.info(out.decode("utf-8"))
+        else:
+            print(command_str)
+            print(exit_code_str)
+            print(timeout_str)
+        if err_log and err:
+            err_log.info(err.decode("utf-8"))
+
+        if global_log:
+            global_log.info(f"{fu.get_logs_prefix()}{command_str}")
+            global_log.info(f"{fu.get_logs_prefix()}{exit_code_str}")
+            global_log.info(f"{fu.get_logs_prefix()}{timeout_str}")
+
     def launch(self) -> int:
         cmd = " ".join(self.cmd)
         if self.out_log is None:
@@ -40,24 +66,15 @@ class CmdWrapper:
                                    shell=True,
                                    executable=self.shell_path,
                                    env=new_env)
+        try:
+            out, err = process.communicate(timeout=self.timeout)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            out, err = process.communicate()
+            process.returncode = 1
+            self.log_output(exit_code=str(process.returncode), command=" ".join(self.cmd), out=out, err=err, timeout=str(self.timeout), out_log=self.out_log, err_log=self.err_log, global_log=self.global_log)
+            return process.returncode
 
-        out, err = process.communicate(timeout=self.timeout)
-        if self.out_log is None:
-            print("Exit, code {}".format(process.returncode))
         process.wait()
-
-        # Write output to log
-        if self.out_log is not None:
-            self.out_log.info("Exit code {}".format(process.returncode)+'\n')
-            if out:
-                self.out_log.info(out.decode("utf-8"))
-
-        if self.global_log is not None:
-            self.global_log.info(fu.get_logs_prefix()+'Executing: '+cmd[0:80]+'...')
-            self.global_log.info(fu.get_logs_prefix()+"Exit code {}".format(process.returncode))
-
-        if self.err_log is not None:
-            if err:
-                self.err_log.info(err.decode("utf-8"))
-
+        self.log_output(exit_code=str(process.returncode), command=" ".join(self.cmd), out=out, err=err, out_log=self.out_log, err_log=self.err_log, global_log=self.global_log)
         return process.returncode
