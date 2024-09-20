@@ -32,7 +32,7 @@ class CmdWrapper:
         if timeout:
             timeout_str = f"Timeout: {timeout} seconds expired, killing process\n"
         command_str = f"Executing: {command[0:80]}..."
-        exit_code_str = f"Exit code {exit_code}"
+        exit_code_str = f"Exit code: {exit_code}"
         if out_log:
             out_log.info(command_str)
             out_log.info(exit_code_str)
