@@ -36,20 +36,24 @@ class CmdWrapper:
         if out_log:
             out_log.info(command_str)
             out_log.info(exit_code_str)
-            out_log.info(timeout_str)
+            if timeout_str:
+                out_log.info(timeout_str)
             if out:
                 out_log.info(out.decode("utf-8"))
         else:
             print(command_str)
             print(exit_code_str)
-            print(timeout_str)
+            if timeout_str:
+                print(timeout_str)
+            print("")
         if err_log and err:
             err_log.info(err.decode("utf-8"))
 
         if global_log:
             global_log.info(f"{fu.get_logs_prefix()}{command_str}")
             global_log.info(f"{fu.get_logs_prefix()}{exit_code_str}")
-            global_log.info(f"{fu.get_logs_prefix()}{timeout_str}")
+            if timeout_str:
+                global_log.info(f"{fu.get_logs_prefix()}{timeout_str}")
 
     def launch(self) -> int:
         cmd = " ".join(self.cmd)

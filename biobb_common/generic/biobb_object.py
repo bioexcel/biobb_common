@@ -41,6 +41,9 @@ class BiobbObject:
             * **global_log** (*Logger object*) - (None) Log from the main workflow.
             * **out_log** (*Logger object*) - (None) Log from the step.
             * **err_log** (*Logger object*) - (None) Error log from the step.
+            * **out_log_path** (*str*) - (None) Path to the log file.
+            * **err_log_path** (*str*) - (None) Path to the error log file.
+            * **disable_logs** (*bool*) - (False) Disable the logs.
             * **prefix** (*str*) - (None) Prefix if provided.
             * **step** (*str*) - (None) Name of the step.
             * **path** (*str*) - ('') Absolute path to the step working dir.
@@ -90,6 +93,9 @@ class BiobbObject:
         self.global_log: Optional[Logger] = properties.get("global_log", None)
         self.out_log: Optional[Logger] = None
         self.err_log: Optional[Logger] = None
+        self.out_log_path: Optional[Union[Path, str]] = properties.get("out_log_path", None)
+        self.err_log_path: Optional[Union[Path, str]] = properties.get("err_log_path", None)
+        self.disable_logs: bool = properties.get("disable_logs", False)
         self.prefix: Optional[str] = properties.get("prefix", None)
         self.step: Optional[str] = properties.get("step", None)
         self.path: str = properties.get("path", "")
@@ -137,6 +143,8 @@ class BiobbObject:
                 raise_exception=raise_exception,
                 out_log=self.out_log,
             )
+        if output_files_created:
+            fu.log("", self.out_log, self.global_log)
 
     def check_properties(
         self,

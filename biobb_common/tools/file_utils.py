@@ -261,11 +261,31 @@ def get_logs_prefix():
     return 4 * " "
 
 
+def create_incremental_name(path: Union[Path, str]) -> str:
+    """Increment the name of the file by adding a number at the end.
+
+    Args:
+        path (str): path of the file.
+
+    Returns:
+        str: Incremented name of the file.
+    """
+    if (path_obj := Path(path)).exists():
+        cont = 1
+        while path_obj.exists():
+            new_name = f'{path_obj.stem.rstrip("0123456789_")}_{cont}{path_obj.suffix}'
+            path_obj = path_obj.with_name(new_name)
+            cont += 1
+    return str(path_obj)
+
+
 def get_logs(
     path: Optional[Union[str, Path]] = None,
     prefix: Optional[str] = None,
     step: Optional[str] = None,
     can_write_console: bool = True,
+    out_log_path: Optional[Union[str, Path]] = None,
+    err_log_path: Optional[Union[str, Path]] = None,
     level: str = "INFO",
     light_format: bool = False,
 ) -> typing.Tuple[logging.Logger, logging.Logger]:
@@ -276,6 +296,8 @@ def get_logs(
         prefix (str): Prefix added to the name of the log file.
         step (str):  String added between the **prefix** arg and the name of the log file.
         can_write_console (bool): (False) If True, show log in the execution terminal.
+        out_log_path (str): (None) Path to the out log file.
+        err_log_path (str): (None) Path to the err log file.
         level (str): ('INFO') Set Logging level. ['CRITICAL','ERROR','WARNING','INFO','DEBUG','NOTSET']
         light_format (bool): (False) Minimalist log format.
 
@@ -286,24 +308,14 @@ def get_logs(
     step = step if step else ""
     path = path if path else str(Path.cwd())
 
-    out_log_path = create_name(path=path, prefix=prefix, step=step, name="log.out")
-    err_log_path = create_name(path=path, prefix=prefix, step=step, name="log.err")
+    out_log_path = out_log_path or "log.out"
+    err_log_path = err_log_path or "log.err"
 
-    # If logfile exists create a new one adding a number at the end
-    if Path(out_log_path).exists():
-        name = "log.out"
-        cont = 1
-        while Path(out_log_path).exists():
-            name = name.split(".")[0].rstrip("\\/0123456789_") + str(cont) + ".out"
-            out_log_path = create_name(path=path, prefix=prefix, step=step, name=name)
-            cont += 1
-    if Path(err_log_path).exists():
-        name = "log.err"
-        cont = 1
-        while Path(err_log_path).exists():
-            name = name.split(".")[0].rstrip("\\/0123456789_") + str(cont) + ".err"
-            err_log_path = create_name(path=path, prefix=prefix, step=step, name=name)
-            cont += 1
+    # If paths are absolute create and return them
+    if not Path(out_log_path).is_absolute():
+        out_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(out_log_path)))
+    if not Path(err_log_path).is_absolute():
+        err_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(err_log_path)))
 
     # Create dir if it not exists
     create_dir(str(Path(out_log_path).resolve().parent))
@@ -315,8 +327,8 @@ def get_logs(
     if light_format:
         logFormatter = logging.Formatter("%(asctime)s %(message)s", "%H:%M:%S")
     # Create logging objects
-    out_Logger = logging.getLogger(out_log_path)
-    err_Logger = logging.getLogger(err_log_path)
+    out_Logger = logging.getLogger(str(out_log_path))
+    err_Logger = logging.getLogger(str(err_log_path))
 
     # Create FileHandler
     out_fileHandler = logging.FileHandler(
@@ -354,11 +366,17 @@ def get_logs(
 def launchlogger(func):
     @functools.wraps(func)
     def wrapper_log(*args, **kwargs):
+        create_dir(create_name(path=args[0].path))
+        if args[0].disable_logs:
+            return func(*args, **kwargs)
+
         args[0].out_log, args[0].err_log = get_logs(
             path=args[0].path,
             prefix=args[0].prefix,
             step=args[0].step,
             can_write_console=args[0].can_write_console_log,
+            out_log_path=args[0].out_log_path,
+            err_log_path=args[0].err_log_path
         )
         value = func(*args, **kwargs)
         handlers = args[0].out_log.handlers[
