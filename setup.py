@@ -19,7 +19,7 @@ setuptools.setup(
     },
     packages=setuptools.find_packages(exclude=["docs"]),
     package_data={'biobb_common': ['py.typed']},
-    install_requires=["pyyaml", "requests", "biopython"],
+    install_requires=["pyyaml", "requests", "biopython", "jsonschema"],
     python_requires='>=3.8',
     classifiers=[
         "Development Status :: 5 - Production/Stable",

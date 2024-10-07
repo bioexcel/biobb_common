@@ -13,6 +13,8 @@ import codecs
 from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
 import numpy as np
+import json
+import jsonschema
 
 
 def test_setup(test_object, dict_key: Optional[str] = None, config: Optional[str] = None):
@@ -356,3 +358,38 @@ def compare_dictionaries(dict1: Dict, dict2: Dict, path: str = "", ignore_keys: 
                     differences.append(f"Difference at '{path + key}': dict1 has {value1}, dict2 has {value2}")
 
     return differences
+
+
+def validate_json(json_file_path: Union[str, Path], json_schema_path: Union[str, Path]) -> bool:
+    """
+    Validates a JSON file against a provided JSON schema.
+
+    Args:
+        json_file_path (str): Path to the JSON file to validate.
+        json_schema_path (str): Path to the JSON schema file.
+
+    Returns:
+        bool: True if the JSON is valid, False if invalid.
+    """
+    print("Validating JSON file:")
+    print(f"     JSON file: {json_file_path}")
+    print(f"     JSON schema: {json_schema_path}")
+    try:
+        # Load the JSON file
+        with open(json_file_path, 'r') as json_file:
+            json_data = json.load(json_file)
+
+        # Load the JSON schema
+        with open(json_schema_path, 'r') as schema_file:
+            schema = json.load(schema_file)
+
+        # Validate the JSON data against the schema
+        jsonschema.validate(instance=json_data, schema=schema)
+
+        return True
+    except jsonschema.ValidationError as ve:
+        print(f"Validation error: {ve.message}")
+        return False
+    except json.JSONDecodeError as je:
+        print(f"Invalid JSON format: {je.msg}")
+        return False
