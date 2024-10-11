@@ -3,11 +3,13 @@
 ## What's new in version [5.0.0](https://github.com/bioexcel/biobb_common/releases/tag/v5.0.0)?
 
 ### Changes
+* [UPDATE] Update to Python 3.9
+* [FEATURE] Adding disable_logs property
+* [FEATURE] Adding log_path property
 * [FEATURE] Adding ConfReader Global Properties
 * [CI/CD] Adding new TestFixtures
 * [FEATURE] Adding timeout to CommandWrapper
 * [FEATURE] Refactor ConfigReader
-* [UPDATE] Update to Python 3.9
 
 
 ## What's new in version [4.2.0](https://github.com/bioexcel/biobb_common/releases/tag/v4.2.0)?
