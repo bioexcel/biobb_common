@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="biobb_common",
-    version="4.2.0",
+    version="5.0.0",
     author="Biobb developers",
     author_email="pau.andrio@bsc.es",
     description="Biobb_common is the base package required to use the biobb packages.",
@@ -20,12 +20,10 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=["docs"]),
     package_data={'biobb_common': ['py.typed']},
     install_requires=["pyyaml", "requests", "biopython", "jsonschema"],
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     classifiers=[
         "Development Status :: 5 - Production/Stable",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: POSIX",

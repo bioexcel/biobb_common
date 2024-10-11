@@ -18,7 +18,7 @@ import jsonschema
 
 
 def test_setup(test_object, dict_key: Optional[str] = None, config: Optional[str] = None):
-    """Add the unitest_dir, test_dir, conf_file_path, system, properties and path as
+    """Add the unitest_dir, test_dir, conf_file_path, properties and path as
     attributes to the **test_object** and create a directory to launch the unitest.
 
     Args:
@@ -36,7 +36,6 @@ def test_setup(test_object, dict_key: Optional[str] = None, config: Optional[str
     else:
         test_object.conf_file_path = str(Path(test_object.test_dir).joinpath('conf.yml'))
 
-    test_object.system = os.getenv('testsys')
     conf = settings.ConfReader(test_object.conf_file_path)
 
     if dict_key:
