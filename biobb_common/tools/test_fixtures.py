@@ -2,13 +2,12 @@
 """
 import os
 import pickle
-import typing
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, Any
 from pathlib import Path
 import sys
 import shutil
 import hashlib
-import Bio.PDB  # type: ignore
+from Bio.PDB import Superimposer, PDBParser  # type: ignore
 import codecs
 from biobb_common.configuration import settings
 from biobb_common.tools import file_utils as fu
@@ -97,7 +96,7 @@ def compare_hash(file_a: str, file_b: str) -> bool:
     return file_a_hash == file_b_hash
 
 
-def equal(file_a: str, file_b: str, ignore_list: Optional[typing.List[typing.Union[str, int]]] = None, **kwargs) -> bool:
+def equal(file_a: str, file_b: str, ignore_list: Optional[list[Union[str, int]]] = None, **kwargs) -> bool:
     """Check if two files are equal"""
     if ignore_list:
         # Line by line comparison
@@ -140,7 +139,7 @@ def equal(file_a: str, file_b: str, ignore_list: Optional[typing.List[typing.Uni
     return compare_hash(file_a, file_b)
 
 
-def compare_line_by_line(file_a: str, file_b: str, ignore_list: typing.List[typing.Union[str, int]]) -> bool:
+def compare_line_by_line(file_a: str, file_b: str, ignore_list: list[Union[str, int]]) -> bool:
     print(f"Comparing ignoring lines containing this words: {ignore_list}")
     print("     FILE_A: "+file_a)
     print("     FILE_B: "+file_b)
@@ -185,9 +184,14 @@ def compare_pdb(pdb_a: str, pdb_b: str, rmsd_cutoff: int = 1, remove_hetatm: boo
     print("Checking RMSD between:")
     print("     PDB_A: "+pdb_a)
     print("     PDB_B: "+pdb_b)
-    pdb_parser = Bio.PDB.PDBParser(PERMISSIVE=True, QUIET=True)
-    st_a = pdb_parser.get_structure("st_a", pdb_a)[0]
-    st_b = pdb_parser.get_structure("st_b", pdb_b)[0]
+    pdb_parser = PDBParser(PERMISSIVE=True, QUIET=True)
+    st_a = pdb_parser.get_structure("st_a", pdb_a)
+    st_b = pdb_parser.get_structure("st_b", pdb_b)
+    if st_a is None or st_b is None:
+        print("    One of the PDB structures could not be parsed.")
+        return False
+    st_a = st_a[0]
+    st_b = st_b[0]
 
     if remove_hetatm:
         print("     Ignoring HETAMT in RMSD")
@@ -204,9 +208,11 @@ def compare_pdb(pdb_a: str, pdb_b: str, rmsd_cutoff: int = 1, remove_hetatm: boo
         atoms_a = [atom for atom in atoms_a if not atom.get_name().startswith('H')]
         atoms_b = [atom for atom in atoms_b if not atom.get_name().startswith('H')]
 
-    print("     Atoms ALIGNED in PDB_A: "+str(len(atoms_a)))
-    print("     Atoms ALIGNED in PDB_B: "+str(len(atoms_b)))
-    super_imposer = Bio.PDB.Superimposer()
+    atoms_a_list = list(atoms_a)
+    atoms_b_list = list(atoms_b)
+    print("     Atoms ALIGNED in PDB_A: "+str(len(atoms_a_list)))
+    print("     Atoms ALIGNED in PDB_B: "+str(len(atoms_b_list)))
+    super_imposer = Superimposer()
     super_imposer.set_atoms(atoms_a, atoms_b)
     super_imposer.apply(atoms_b)
     super_imposer_rms = super_imposer.rms if super_imposer.rms is not None else float('inf')
@@ -295,7 +301,7 @@ def compare_images(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> 
     return True
 
 
-def compare_object_pickle(python_object: typing.Any, pickle_file_path: Union[str, Path], **kwargs) -> bool:
+def compare_object_pickle(python_object: Any, pickle_file_path: Union[str, Path], **kwargs) -> bool:
     """ Compare a python object with a pickle file """
     print(f"Loading pickle file: {pickle_file_path}")
     with open(pickle_file_path, 'rb') as f:
@@ -324,7 +330,7 @@ def compare_object_pickle(python_object: typing.Any, pickle_file_path: Union[str
     return python_object == pickle_object
 
 
-def compare_dictionaries(dict1: Dict, dict2: Dict, path: str = "", ignore_keys: Optional[List[str]] = None, compare_values: bool = True, ignore_substring: str = "") -> List[str]:
+def compare_dictionaries(dict1: dict, dict2: dict, path: str = "", ignore_keys: Optional[list[str]] = None, compare_values: bool = True, ignore_substring: str = "") -> list[str]:
     """Compare two dictionaries and print only the differences, ignoring specified keys."""
     if ignore_keys is None:
         ignore_keys = []

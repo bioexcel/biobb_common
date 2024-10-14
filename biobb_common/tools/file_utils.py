@@ -14,7 +14,7 @@ import zipfile
 from sys import platform
 from pathlib import Path
 import typing
-from typing import Optional, Union, List, Sequence, Dict
+from typing import Optional, Union
 import sys
 
 
@@ -124,7 +124,7 @@ def get_working_dir_path(working_dir_path: Optional[Union[str, Path]] = None, re
 
 
 def zip_list(
-    zip_file: Union[str, Path], file_list: Sequence[Union[str, Path]], out_log: Optional[logging.Logger] = None
+    zip_file: Union[str, Path], file_list: typing.Sequence[Union[str, Path]], out_log: Optional[logging.Logger] = None
 ):
     """Compress all files listed in **file_list** into **zip_file** zip file.
 
@@ -152,7 +152,7 @@ def zip_list(
 
 def unzip_list(
     zip_file: Union[str, Path], dest_dir: Optional[Union[str, Path]] = None, out_log: Optional[logging.Logger] = None
-) -> List[str]:
+) -> list[str]:
     """Extract all files in the zipball file and return a list containing the
         absolute path of the extracted files.
 
@@ -162,7 +162,7 @@ def unzip_list(
         out_log (:obj:`logging.Logger`): Input log object.
 
     Returns:
-        :obj:`list` of :obj:`str`: List of paths of the extracted files.
+        :obj:`list` of :obj:`str`: list of paths of the extracted files.
     """
     with zipfile.ZipFile(zip_file, "r") as zip_f:
         zip_f.extractall(path=dest_dir)
@@ -178,7 +178,7 @@ def unzip_list(
 
 def search_topology_files(
     top_file: Union[str, Path], out_log: Optional[logging.Logger] = None
-) -> List[str]:
+) -> list[str]:
     """Search the top and itp files to create a list of the topology files
 
     Args:
@@ -186,7 +186,7 @@ def search_topology_files(
         out_log (:obj:`logging.Logger`): Input log object.
 
     Returns:
-        :obj:`list` of :obj:`str`: List of paths of the extracted files.
+        :obj:`list` of :obj:`str`: list of paths of the extracted files.
     """
     top_dir_name = str(Path(top_file).parent)
     file_list = []
@@ -210,7 +210,7 @@ def zip_top(
     top_file: Union[str, Path],
     out_log: Optional[logging.Logger] = None,
     remove_original_files: bool = True,
-) -> List[str]:
+) -> list[str]:
     """Compress all *.itp and *.top files in the cwd into **zip_file** zip file.
 
     Args:
@@ -219,7 +219,7 @@ def zip_top(
         out_log (:obj:`logging.Logger`): Input log object.
 
     Returns:
-        :obj:`list` of :obj:`str`: List of compressed paths.
+        :obj:`list` of :obj:`str`: list of compressed paths.
     """
 
     file_list = search_topology_files(top_file, out_log)
@@ -232,7 +232,7 @@ def zip_top(
 def unzip_top(
     zip_file: Union[str, Path],
     out_log: Optional[logging.Logger] = None,
-    unique_dir: Optional[typing.Union[pathlib.Path, str]] = None,
+    unique_dir: Optional[Union[pathlib.Path, str]] = None,
 ) -> str:
     """Extract all files in the zip_file and copy the file extracted ".top" file to top_file.
 
@@ -288,7 +288,7 @@ def get_logs(
     err_log_path: Optional[Union[str, Path]] = None,
     level: str = "INFO",
     light_format: bool = False,
-) -> typing.Tuple[logging.Logger, logging.Logger]:
+) -> tuple[logging.Logger, logging.Logger]:
     """Get the error and and out Python Logger objects.
 
     Args:
@@ -436,7 +436,7 @@ def human_readable_time(time_ps: int) -> str:
     return str(time_ps)
 
 
-def check_properties(obj: object, properties: dict, reserved_properties: Optional[Sequence[str]] = None):
+def check_properties(obj: object, properties: dict, reserved_properties: Optional[list[str]] = None):
     if not reserved_properties:
         reserved_properties = []
     error_properties = set(
@@ -510,28 +510,29 @@ def rm(file_name: Union[str, Path]) -> Optional[Union[str, Path]]:
 
 
 def rm_file_list(
-    file_list: typing.Iterable[Union[str, Path]], out_log: Optional[logging.Logger] = None
-) -> List[str]:
+    file_list: typing.Sequence[Union[str, Path]], out_log: Optional[logging.Logger] = None
+) -> list[str]:
     removed_files = [str(f) for f in file_list if rm(f)]
     if out_log:
         log("Removed: %s" % str(removed_files), out_log)
     return removed_files
 
 
-def check_complete_files(output_file_list: typing.Iterable[str]) -> bool:
+def check_complete_files(output_file_list: list[Union[str, Path]]) -> bool:
     for output_file in filter(None, output_file_list):
-        if not (Path(output_file).is_file() and Path(output_file).stat().st_size > 0):
+        output_file = Path(str(output_file))
+        if not (output_file.is_file() and output_file.stat().st_size > 0):
             return False
     return True
 
 
 def copy_to_container(container_path: Optional[Union[str, Path]], container_volume_path: str,
-                      io_dict: Dict, out_log: Optional[logging.Logger] = None) -> Dict:
+                      io_dict: dict, out_log: Optional[logging.Logger] = None) -> dict:
     if not container_path:
         return io_dict
 
     unique_dir = str(Path(create_unique_dir()).resolve())
-    container_io_dict: Dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
+    container_io_dict: dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
 
     # IN files COPY and assign INTERNAL PATH
     for file_ref, file_path in io_dict["in"].items():
@@ -571,7 +572,7 @@ def copy_to_host(container_path: str, container_io_dict: dict, io_dict: dict):
 
 
 def create_cmd_line(
-    cmd: List[str],
+    cmd: list[str],
     container_path: Optional[Union[str, Path]] = "",
     host_volume: Optional[Union[str, Path]] = None,
     container_volume: Optional[Union[str, Path]] = None,
@@ -581,7 +582,7 @@ def create_cmd_line(
     container_image: Optional[Union[str, Path]] = None,
     out_log: Optional[logging.Logger] = None,
     global_log: Optional[logging.Logger] = None
-) -> List[str]:
+) -> list[str]:
     container_path = container_path or ""
     if str(container_path).endswith("singularity"):
         log("Using Singularity image %s" % container_image, out_log, global_log)
@@ -610,7 +611,7 @@ def create_cmd_line(
             except FileNotFoundError:
                 log(f"{' '.join(singularity_pull_cmd)} not found", out_log, global_log)
                 raise FileNotFoundError
-        singularity_cmd: List[str] = [
+        singularity_cmd: list[str] = [
             str(container_path),
             "exec",
             "-e",
@@ -734,7 +735,7 @@ def check_argument(
     module_name: str,
     input_output: Optional[str] = None,
     output_files_created: bool = False,
-    extension_list: Optional[Sequence[str]] = None,
+    extension_list: Optional[list[str]] = None,
     raise_exception: bool = True,
     check_extensions: bool = True,
     out_log: Optional[logging.Logger] = None,

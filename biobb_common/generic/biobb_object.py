@@ -2,8 +2,7 @@
 import os
 import importlib
 import difflib
-import typing
-from typing import Optional, Mapping, Set, Union, Dict, List, Any
+from typing import Optional, Union, Any
 import warnings
 from pathlib import Path
 from sys import platform
@@ -34,7 +33,7 @@ class BiobbObject:
             * **stage_io_dict** (*dict*) - ({}) Stage Input/Output files dictionary.
             * **sandbox_path** (*str*) - ("./") [WF property] Parent path to the sandbox directory.
             * **disable_sandbox** (*bool*) - (False) Disable the use of temporal unique directories aka sandbox. Only for local execution.
-            * **global_properties_list** (*list*) - ([]) List of global properties.
+            * **global_properties_list** (*list*) - ([]) list of global properties.
             * **chdir_sandbox** (*bool*) - (False) Change directory to the sandbox using just file names in the command line. Only for local execution.
             * **binary_path** (*str*) - ('') Path to the binary executable.
             * **can_write_console_log** (*bool*) - (True) Can write console log.
@@ -52,8 +51,8 @@ class BiobbObject:
             * **cmd** (*list*) - ([]) Command line list, NOT read from the dictionary.
             * **return_code** (*int*) - (0) Return code of the command execution, NOT read from the dictionary.
             * **timeout** (*int*) - (None) Timeout for the execution of the command.
-            * **tmp_files** (*list*) - ([]) List of temporal files, NOT read from the dictionary.
-            * **env_vars_dict** (*dict*) - ({}) Environment Variables Dictionary.
+            * **tmp_files** (*list*) - ([]) list of temporal files, NOT read from the dictionary.
+            * **env_vars_dict** (*dict*) - ({}) Environment Variables dictionary.
             * **shell_path** (*str*) - ("/bin/bash") Path to the binary executable of the shell.
             * **dev** (*str*) - (None) Development options.
             * **check_extensions** (*bool*) - (True) Check extensions of the input/output files.
@@ -69,7 +68,7 @@ class BiobbObject:
         properties = properties or {}
 
         # Input/Output files
-        self.io_dict: Dict[str, Dict] = {"in": {}, "out": {}}
+        self.io_dict: dict[str, dict] = {"in": {}, "out": {}}
 
         # container Specific
         self.container_path: Optional[str] = properties.get("container_path")
@@ -81,12 +80,12 @@ class BiobbObject:
         self.container_generic_command: str = properties.get("container_generic_command", "run")
 
         # stage
-        self.stage_io_dict: Dict[str, Any] = {"in": {}, "out": {}}
+        self.stage_io_dict: dict[str, Any] = {"in": {}, "out": {}}
         self.sandbox_path: Union[str, Path] = properties.get("sandbox_path", Path().cwd())
         self.disable_sandbox: bool = properties.get("disable_sandbox", False)
 
         # Properties common in all BB
-        self.global_properties_list: List[str] = properties.get("global_properties_list", [])
+        self.global_properties_list: list[str] = properties.get("global_properties_list", [])
         self.chdir_sandbox: bool = properties.get("chdir_sandbox", False)
         self.binary_path: str = properties.get("binary_path", '')
         self.can_write_console_log: bool = properties.get("can_write_console_log", True)
@@ -101,16 +100,16 @@ class BiobbObject:
         self.path: str = properties.get("path", "")
         self.remove_tmp: bool = properties.get("remove_tmp", True)
         self.restart: bool = properties.get("restart", False)
-        self.cmd: List[str] = []
+        self.cmd: list[str] = []
         self.return_code: int = 0
         self.timeout: Optional[int] = properties.get("timeout", None)
-        self.tmp_files: List[Union[str, Path]] = []
-        self.env_vars_dict: typing.Dict = properties.get("env_vars_dict", {})
-        self.shell_path: typing.Union[str, Path] = properties.get("shell_path", os.getenv("SHELL", "/bin/bash"))
+        self.tmp_files: list[Union[str, Path]] = []
+        self.env_vars_dict: dict = properties.get("env_vars_dict", {})
+        self.shell_path: Union[str, Path] = properties.get("shell_path", os.getenv("SHELL", "/bin/bash"))
         self.dev: Optional[str] = properties.get("dev", None)
         self.check_extensions: bool = properties.get("check_extensions", True)
         self.check_var_typing: bool = properties.get("check_var_typing", True)
-        self.locals_var_dict: Mapping[str, str] = dict()
+        self.locals_var_dict: dict[str, str] = dict()
         self.doc_arguments_dict, self.doc_properties_dict = fu.get_doc_dicts(self.__doc__)
 
         try:
@@ -149,7 +148,7 @@ class BiobbObject:
     def check_properties(
         self,
         properties: dict,
-        reserved_properties: Optional[Set[str]] = None,
+        reserved_properties: Optional[set[str]] = None,
         check_var_typing: bool = False,
     ):
         if not reserved_properties:

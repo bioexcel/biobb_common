@@ -30,7 +30,7 @@ import logging
 from pathlib import Path
 from copy import deepcopy
 from biobb_common.tools import file_utils as fu
-from typing import Dict, Any, Optional
+from typing import Any, Optional
 
 GALAXY_CHARACTER_MAP = {
     "__gt__": ">", "__lt__": "<", "__sq__": "'", "__dq__": '"', "__ob__": "[", "__cb__": "]",
@@ -65,7 +65,7 @@ class ConfReader:
         """
         return self.working_dir_path
 
-    def _read_config(self, config: Optional[str] = None) -> Dict[str, Any]:
+    def _read_config(self, config: Optional[str] = None) -> dict[str, Any]:
         """_read_config() reads the configuration file and returns a dictionary.
         """
         if not config:
@@ -95,16 +95,16 @@ class ConfReader:
 
         return config_dict
 
-    def _get_global_properties(self) -> Dict[str, Any]:
+    def _get_global_properties(self) -> dict[str, Any]:
         """_get_global_properties() returns the global properties of the configuration file.
 
         Returns:
-            dict: Dictionary of global properties.
+            dict: dictionary of global properties.
         """
         # Add default properties to the global properties
         return deepcopy((self.properties.get("global_properties") or {}))
 
-    def _get_step_properties(self, key: str = "", prefix: str = "", global_log: Optional[logging.Logger] = None) -> Dict[str, Any]:
+    def _get_step_properties(self, key: str = "", prefix: str = "", global_log: Optional[logging.Logger] = None) -> dict[str, Any]:
         """_get_step_properties() returns the properties of the configuration file.
 
         Args:
@@ -114,7 +114,7 @@ class ConfReader:
             global_log (Logger): Log from the main workflow.
 
         Returns:
-            dict: Dictionary of properties.
+            dict: dictionary of properties.
         """
         prop_dic = dict()
         prop_dic.update(deepcopy(self.global_properties))
@@ -133,7 +133,7 @@ class ConfReader:
 
         return prop_dic
 
-    def get_prop_dic(self, prefix: str = "", global_log: Optional[logging.Logger] = None) -> Dict[str, Any]:
+    def get_prop_dic(self, prefix: str = "", global_log: Optional[logging.Logger] = None) -> dict[str, Any]:
         """get_prop_dic() returns the properties dictionary where keys are the
         step names in the configuration YAML file and every value contains another
         nested dictionary containing the keys and values of each step properties section.
@@ -152,10 +152,10 @@ class ConfReader:
             global_log (:obj:Logger): Log from the main workflow.
 
         Returns:
-            dict: Dictionary of properties.
+            dict: dictionary of properties.
         """
 
-        prop_dic: Dict[str, Any] = dict()
+        prop_dic: dict[str, Any] = dict()
         for key in self.properties:
             if key in ["global_properties", "paths", "properties", "tool"]:
                 continue
@@ -166,8 +166,8 @@ class ConfReader:
 
         return prop_dic
 
-    def get_paths_dic(self, prefix: str = "") -> Dict[str, Any]:
-        paths_dic: Dict[str, Any] = dict()
+    def get_paths_dic(self, prefix: str = "") -> dict[str, Any]:
+        paths_dic: dict[str, Any] = dict()
         for key in self.properties:
             if key in ["global_properties", "paths", "properties", "tool"]:
                 continue
@@ -178,7 +178,7 @@ class ConfReader:
 
         return paths_dic
 
-    def _get_step_paths(self, key: str = "", prefix: str = "") -> Dict[str, Any]:
+    def _get_step_paths(self, key: str = "", prefix: str = "") -> dict[str, Any]:
         step_paths_dic = dict()
         if key:
             paths_dic = self.properties[key].get("paths", {})

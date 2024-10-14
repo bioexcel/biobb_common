@@ -4,8 +4,7 @@
 import os
 import subprocess
 from biobb_common.tools import file_utils as fu
-import typing
-from typing import Optional
+from typing import Optional, Union
 import logging
 from pathlib import Path
 
@@ -14,8 +13,8 @@ class CmdWrapper:
     """Command line wrapper using subprocess library
     """
 
-    def __init__(self, cmd: typing.Iterable[str], shell_path: typing.Union[str, Path] = os.getenv('SHELL', '/bin/sh'), out_log: Optional[logging.Logger] = None, err_log: Optional[logging.Logger] = None,
-                 global_log: Optional[logging.Logger] = None, env: Optional[typing.Mapping] = None, timeout: Optional[int] = None) -> None:
+    def __init__(self, cmd: list[str], shell_path: Union[str, Path] = os.getenv('SHELL', '/bin/sh'), out_log: Optional[logging.Logger] = None, err_log: Optional[logging.Logger] = None,
+                 global_log: Optional[logging.Logger] = None, env: Optional[dict] = None, timeout: Optional[int] = None) -> None:
 
         self.cmd = cmd
         self.shell_path = shell_path
