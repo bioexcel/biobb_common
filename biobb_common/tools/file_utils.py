@@ -444,10 +444,10 @@ def check_properties(obj: object, properties: dict, reserved_properties: Optiona
     )
     error_properties -= set(["system", "working_dir_path"] + list(reserved_properties))
     for error_property in error_properties:
-        close_property = difflib.get_close_matches(
+        close_property_list = difflib.get_close_matches(
             error_property, obj.__dict__.keys(), n=1, cutoff=0.01
         )
-        close_property = close_property[0] if close_property else ""
+        close_property = close_property_list[0] if close_property_list else ""
         warnings.warn(
             "Warning: %s is not a recognized property. The most similar property is: %s"
             % (error_property, close_property)
