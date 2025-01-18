@@ -1,16 +1,17 @@
 """Module containing the BiobbObject generic parent class."""
-import os
-import importlib
 import difflib
-from typing import Optional, Union, Any
-import warnings
-from pathlib import Path
-from sys import platform
+import importlib
+import os
 import shutil
-from pydoc import locate
-from biobb_common.tools import file_utils as fu
-from biobb_common.command_wrapper import cmd_wrapper
+import warnings
 from logging import Logger
+from pathlib import Path
+from pydoc import locate
+from sys import platform
+from typing import Any, Optional, Union
+
+from biobb_common.command_wrapper import cmd_wrapper
+from biobb_common.tools import file_utils as fu
 
 
 class BiobbObject:
@@ -178,7 +179,7 @@ class BiobbObject:
             close_property = difflib.get_close_matches(
                 error_property, self.__dict__.keys(), n=1, cutoff=0.01
             )
-            close_property = close_property[0] if close_property else ""
+            close_property = close_property[0] if close_property else "" # type: ignore
             warnings.warn(
                 "Warning: %s is not a recognized property. The most similar property is: %s"
                 % (error_property, close_property)
@@ -210,6 +211,9 @@ class BiobbObject:
 
         unique_dir = str(Path(fu.create_unique_dir(path=str(self.sandbox_path), prefix="sandbox_", out_log=self.out_log)).resolve())
         self.stage_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
+
+        # Add unique_dir to tmp_files
+        self.tmp_files.append(unique_dir)
 
         # IN files COPY and assign INTERNAL PATH
         for file_ref, file_path in self.io_dict.get("in", {}).items():
