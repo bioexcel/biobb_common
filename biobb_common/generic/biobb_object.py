@@ -179,7 +179,7 @@ class BiobbObject:
             close_property = difflib.get_close_matches(
                 error_property, self.__dict__.keys(), n=1, cutoff=0.01
             )
-            close_property = close_property[0] if close_property else "" # type: ignore
+            close_property = close_property[0] if close_property else ""  # type: ignore
             warnings.warn(
                 "Warning: %s is not a recognized property. The most similar property is: %s"
                 % (error_property, close_property)
@@ -366,8 +366,7 @@ class BiobbObject:
                 docker_cmd.append(self.container_working_dir)
             if self.container_volume_path:
                 docker_cmd.append("-v")
-                docker_cmd.append(host_volume + ":" +
-                                  self.container_volume_path)
+                docker_cmd.append(host_volume + ":" + self.container_volume_path)
             if self.container_user_id:
                 docker_cmd.append("--user")
                 docker_cmd.append(self.container_user_id)
@@ -404,8 +403,7 @@ class BiobbObject:
                 pcocc_cmd.append(self.container_working_dir)
             if self.container_volume_path:
                 pcocc_cmd.append("--mount")
-                pcocc_cmd.append(host_volume + ":" +
-                                 self.container_volume_path)
+                pcocc_cmd.append(host_volume + ":" + self.container_volume_path)
             if self.container_user_id:
                 pcocc_cmd.append("--user")
                 pcocc_cmd.append(self.container_user_id)
