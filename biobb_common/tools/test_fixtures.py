@@ -267,8 +267,8 @@ def compare_xvg(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> boo
     print("Comparing size of both files:")
     print(f"     FILE_A: {file_a}")
     print(f"     FILE_B: {file_b}")
-    arrays_tuple_a = np.loadtxt(file_a, comments="@", unpack=True)
-    arrays_tuple_b = np.loadtxt(file_b, comments="@", unpack=True)
+    arrays_tuple_a = np.loadtxt(file_a, comments=["@", '#'], unpack=True)
+    arrays_tuple_b = np.loadtxt(file_b, comments=["@", '#'], unpack=True)
     for array_a, array_b in zip(arrays_tuple_a, arrays_tuple_b):
         if not np.allclose(array_a, array_b, rtol=percent_tolerance / 100):
             return False
