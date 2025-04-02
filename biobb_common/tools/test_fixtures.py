@@ -80,6 +80,15 @@ def not_empty(file_path: str) -> bool:
     Returns:
         bool: True if **file_path** exists and is not empty.
     """
+    if file_path.endswith('.zip'):
+        print("Checking if empty zip: "+file_path)
+        # Create a temporary directory to extract zip
+        temp_dir = fu.create_unique_dir()
+        # Extract zip and get list of files
+        unzipped_files = fu.unzip_list(file_path, dest_dir=temp_dir)
+        # Check if there are any files in the zip
+        return len(unzipped_files) > 0
+        
     print("Checking if empty file: "+file_path)
     return Path(file_path).is_file() and Path(file_path).stat().st_size > 0
 
