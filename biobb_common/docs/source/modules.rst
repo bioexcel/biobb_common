@@ -5,5 +5,5 @@ biobb
    :maxdepth: 4
 
    configuration
-   
+   generic
    tools
