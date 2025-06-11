@@ -88,7 +88,7 @@ def not_empty(file_path: str) -> bool:
         unzipped_files = fu.unzip_list(file_path, dest_dir=temp_dir)
         # Check if there are any files in the zip
         return len(unzipped_files) > 0
-        
+
     print("Checking if empty file: "+file_path)
     return Path(file_path).is_file() and Path(file_path).stat().st_size > 0
 
