@@ -1,5 +1,10 @@
 # Biobb_common ChangeLog
 
+## What's new in version [5.1.0](https://github.com/bioexcel/biobb_common/releases/tag/v5.1.0)?
+
+* [FEATURE] Add '#' to the list of lines considered as comments for xvg comparasion.
+* [FEATURE] Improve not_empty fixture to consider zips without files as empty.
+
 ## What's new in version [5.0.1](https://github.com/bioexcel/biobb_common/releases/tag/v5.0.1)?
 
 * [FEATURE] Add '#' to the list of lines considered as comments for xvg comparasion.
