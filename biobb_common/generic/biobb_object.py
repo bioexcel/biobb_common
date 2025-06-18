@@ -437,13 +437,19 @@ class BiobbObject:
             err_log=self.err_log,
             global_log=self.global_log,
             env=self.env_vars_dict,
-            timeout=self.timeout
+            timeout=self.timeout,
+            disable_logs=self.disable_logs
         ).launch()
 
         if self.chdir_sandbox:
             os.chdir(cwd)
 
+    def run_biobb(self):
+        self.create_cmd_line()
+        self.execute_command()
+
     def copy_to_host(self):
+        """Copy output files from the sandbox to the host system."""
         for file_ref, file_path in self.stage_io_dict["out"].items():
             if file_path:
                 sandbox_file_path = str(
@@ -465,10 +471,6 @@ class BiobbObject:
                     else:
                         shutil.copy2(sandbox_file_path,
                                      self.io_dict["out"][file_ref])
-
-    def run_biobb(self):
-        self.create_cmd_line()
-        self.execute_command()
 
     def remove_tmp_files(self):
         if self.remove_tmp:

@@ -13,8 +13,15 @@ class CmdWrapper:
     """Command line wrapper using subprocess library
     """
 
-    def __init__(self, cmd: list[str], shell_path: Union[str, Path] = os.getenv('SHELL', '/bin/sh'), out_log: Optional[logging.Logger] = None, err_log: Optional[logging.Logger] = None,
-                 global_log: Optional[logging.Logger] = None, env: Optional[dict] = None, timeout: Optional[int] = None) -> None:
+    def __init__(self,
+                 cmd: list[str],
+                 shell_path: Union[str, Path] = os.getenv('SHELL', '/bin/sh'),
+                 out_log: Optional[logging.Logger] = None,
+                 err_log: Optional[logging.Logger] = None,
+                 global_log: Optional[logging.Logger] = None,
+                 env: Optional[dict] = None,
+                 timeout: Optional[int] = None,
+                 disable_logs: Optional[bool] = None) -> None:
 
         self.cmd = cmd
         self.shell_path = shell_path
@@ -23,6 +30,7 @@ class CmdWrapper:
         self.global_log = global_log
         self.env = env
         self.timeout = timeout
+        self.disable_logs = disable_logs
 
     def log_output(self, exit_code: str, command: str, out: Optional[bytes] = None, err: Optional[bytes] = None, timeout: Optional[str] = None,
                    out_log: Optional[logging.Logger] = None, err_log: Optional[logging.Logger] = None, global_log: Optional[logging.Logger] = None) -> None:
@@ -39,7 +47,7 @@ class CmdWrapper:
                 out_log.info(timeout_str)
             if out:
                 out_log.info(out.decode("utf-8"))
-        else:
+        elif not self.disable_logs:
             print(command_str)
             print(exit_code_str)
             if timeout_str:
@@ -56,11 +64,11 @@ class CmdWrapper:
 
     def launch(self) -> int:
         cmd = " ".join(self.cmd)
-        if self.out_log is None:
-            print('')
-            print("cmd_wrapper commnand print: " + cmd)
-        else:
+        if self.out_log:
             self.out_log.info(cmd + '\n')
+        elif not self.disable_logs:
+            print('')
+            print("cmd_wrapper command print: " + cmd)
 
         new_env = {**os.environ.copy(), **self.env} if self.env else os.environ.copy()
         process = subprocess.Popen(cmd,
