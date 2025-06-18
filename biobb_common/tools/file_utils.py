@@ -79,7 +79,7 @@ def create_unique_dir(
             oldumask = os.umask(0)
             Path(new_dir).mkdir(mode=0o777, parents=True, exist_ok=False)
             if out_log:
-                out_log.info("%s directory successfully created" % new_dir)
+                out_log.info("Directory successfully created: %s" % new_dir)
             os.umask(oldumask)
             return new_dir
         except OSError:
