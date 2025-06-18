@@ -37,13 +37,14 @@ class BiobbObject:
             * **global_properties_list** (*list*) - ([]) list of global properties.
             * **chdir_sandbox** (*bool*) - (False) Change directory to the sandbox using just file names in the command line. Only for local execution.
             * **binary_path** (*str*) - ('') Path to the binary executable.
-            * **can_write_console_log** (*bool*) - (True) Can write console log.
+            * **disable_logs** (*bool*) - (False) Disable the logs.
             * **global_log** (*Logger object*) - (None) Log from the main workflow.
             * **out_log** (*Logger object*) - (None) Log from the step.
             * **err_log** (*Logger object*) - (None) Error log from the step.
             * **out_log_path** (*str*) - (None) Path to the log file.
             * **err_log_path** (*str*) - (None) Path to the error log file.
-            * **disable_logs** (*bool*) - (False) Disable the logs.
+            * **can_write_console_log** (*bool*) - (True) Can write console log.
+            * **can_write_file_log** (*bool*) - (True) Can write file log.
             * **prefix** (*str*) - (None) Prefix if provided.
             * **step** (*str*) - (None) Name of the step.
             * **path** (*str*) - ('') Absolute path to the step working dir.
@@ -89,13 +90,14 @@ class BiobbObject:
         self.global_properties_list: list[str] = properties.get("global_properties_list", [])
         self.chdir_sandbox: bool = properties.get("chdir_sandbox", False)
         self.binary_path: str = properties.get("binary_path", '')
-        self.can_write_console_log: bool = properties.get("can_write_console_log", True)
+        self.disable_logs: bool = properties.get("disable_logs", False)
         self.global_log: Optional[Logger] = properties.get("global_log", None)
         self.out_log: Optional[Logger] = None
         self.err_log: Optional[Logger] = None
         self.out_log_path: Optional[Union[Path, str]] = properties.get("out_log_path", None)
         self.err_log_path: Optional[Union[Path, str]] = properties.get("err_log_path", None)
-        self.disable_logs: bool = properties.get("disable_logs", False)
+        self.can_write_console_log: bool = properties.get("can_write_console_log", True)
+        self.can_write_file_log: bool = properties.get("can_write_file_log", True)
         self.prefix: Optional[str] = properties.get("prefix", None)
         self.step: Optional[str] = properties.get("step", None)
         self.path: str = properties.get("path", "")

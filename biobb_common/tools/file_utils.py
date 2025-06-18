@@ -284,6 +284,7 @@ def get_logs(
     prefix: Optional[str] = None,
     step: Optional[str] = None,
     can_write_console: bool = True,
+    can_write_file: bool = True,
     out_log_path: Optional[Union[str, Path]] = None,
     err_log_path: Optional[Union[str, Path]] = None,
     level: str = "INFO",
@@ -295,7 +296,8 @@ def get_logs(
         path (str): (current working directory) Path to the log file directory.
         prefix (str): Prefix added to the name of the log file.
         step (str):  String added between the **prefix** arg and the name of the log file.
-        can_write_console (bool): (False) If True, show log in the execution terminal.
+        can_write_console (bool): (True) If True, show log in the execution terminal.
+        can_write_file (bool): (True) If True, write log to the log files.
         out_log_path (str): (None) Path to the out log file.
         err_log_path (str): (None) Path to the err log file.
         level (str): ('INFO') Set Logging level. ['CRITICAL','ERROR','WARNING','INFO','DEBUG','NOTSET']
@@ -304,21 +306,9 @@ def get_logs(
     Returns:
         :obj:`tuple` of :obj:`logging.Logger` and :obj:`logging.Logger`: Out and err Logger objects.
     """
-    prefix = prefix if prefix else ""
-    step = step if step else ""
-    path = path if path else str(Path.cwd())
-
-    out_log_path = out_log_path or "log.out"
-    err_log_path = err_log_path or "log.err"
-
-    # If paths are absolute create and return them
-    if not Path(out_log_path).is_absolute():
-        out_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(out_log_path)))
-    if not Path(err_log_path).is_absolute():
-        err_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(err_log_path)))
-
-    # Create dir if it not exists
-    create_dir(str(Path(out_log_path).resolve().parent))
+    # Create logging objects
+    out_Logger = logging.getLogger(str(out_log_path))
+    err_Logger = logging.getLogger(str(err_log_path))
 
     # Create logging format
     logFormatter = logging.Formatter(
@@ -326,71 +316,83 @@ def get_logs(
     )
     if light_format:
         logFormatter = logging.Formatter("%(asctime)s %(message)s", "%H:%M:%S")
-    # Create logging objects
-    out_Logger = logging.getLogger(str(out_log_path))
-    err_Logger = logging.getLogger(str(err_log_path))
 
-    # Create FileHandler
-    out_fileHandler = logging.FileHandler(
-        out_log_path, mode="a", encoding=None, delay=False
-    )
-    err_fileHandler = logging.FileHandler(
-        err_log_path, mode="a", encoding=None, delay=False
-    )
+    if can_write_file:
+        prefix = prefix if prefix else ""
+        step = step if step else ""
+        path = path if path else str(Path.cwd())
 
-    # Asign format to FileHandler
-    out_fileHandler.setFormatter(logFormatter)
-    err_fileHandler.setFormatter(logFormatter)
+        out_log_path = out_log_path or "log.out"
+        err_log_path = err_log_path or "log.err"
 
-    # Assign FileHandler to logging object
-    if not len(out_Logger.handlers):
-        out_Logger.addHandler(out_fileHandler)
-        err_Logger.addHandler(err_fileHandler)
+        # If paths are absolute create and return them
+        if not Path(out_log_path).is_absolute():
+            out_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(out_log_path)))
+        if not Path(err_log_path).is_absolute():
+            err_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(err_log_path)))
 
-    # Create consoleHandler
-    consoleHandler = logging.StreamHandler(stream=sys.stdout)
-    # Assign format to consoleHandler
-    consoleHandler.setFormatter(logFormatter)
+        # Create dir if it not exists
+        create_dir(str(Path(out_log_path).resolve().parent))
 
-    # Assign consoleHandler to logging objects as aditional output
-    if can_write_console and len(out_Logger.handlers) < 2:
-        out_Logger.addHandler(consoleHandler)
-        err_Logger.addHandler(consoleHandler)
+        # Create FileHandler
+        out_fileHandler = logging.FileHandler(out_log_path, mode="a", encoding=None, delay=False)
+        err_fileHandler = logging.FileHandler(err_log_path, mode="a", encoding=None, delay=False)
+        # Asign format to FileHandler
+        out_fileHandler.setFormatter(logFormatter)
+        err_fileHandler.setFormatter(logFormatter)
+
+        # Assign FileHandler to logging object
+        if not len(out_Logger.handlers):
+            out_Logger.addHandler(out_fileHandler)
+            err_Logger.addHandler(err_fileHandler)
+
+    if can_write_console:
+        # Create consoleHandler
+        consoleHandler = logging.StreamHandler(stream=sys.stdout)
+        # Assign format to consoleHandler
+        consoleHandler.setFormatter(logFormatter)
+        # Assign consoleHandler to logging objects as aditional output
+        if can_write_console and len(out_Logger.handlers) < 2:
+            out_Logger.addHandler(consoleHandler)
+            err_Logger.addHandler(consoleHandler)
 
     # Set logging level level
     out_Logger.setLevel(level)
     err_Logger.setLevel(level)
+
     return out_Logger, err_Logger
 
 
 def launchlogger(func):
+    """Decorator to create the out_log and err_log"""
     @functools.wraps(func)
     def wrapper_log(*args, **kwargs):
         create_dir(create_name(path=args[0].path))
         if args[0].disable_logs:
             return func(*args, **kwargs)
 
+        # Create out_log and err_log
         args[0].out_log, args[0].err_log = get_logs(
             path=args[0].path,
             prefix=args[0].prefix,
             step=args[0].step,
             can_write_console=args[0].can_write_console_log,
+            can_write_file=args[0].can_write_file_log,
             out_log_path=args[0].out_log_path,
             err_log_path=args[0].err_log_path
         )
+
+        # Run the function and capture its return value
         value = func(*args, **kwargs)
-        handlers = args[0].out_log.handlers[
-            :
-        ]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
-        for handler in handlers:
-            handler.close()
-            args[0].out_log.removeHandler(handler)
-        handlers = args[0].err_log.handlers[
-            :
-        ]  # Create a copy [:] of the handler list to be able to modify it while we are iterating
-        for handler in handlers:
-            handler.close()
-            args[0].err_log.removeHandler(handler)
+
+        # Close and remove handlers from out_log and err_log
+        for log in [args[0].out_log, args[0].err_log]:
+            # Create a copy [:] of the handler list to be able to modify it while we are iterating
+            handlers = log.handlers[:]
+            for handler in handlers:
+                handler.close()
+                log.removeHandler(handler)
+
         return value
 
     return wrapper_log
