@@ -122,12 +122,10 @@ class BiobbObject:
         except Exception:
             self.version = None
 
-        if self.disable_sandbox and self.remove_tmp:
-            self.remove_tmp = False
-            fu.log("WARNING: Disabling remove_tmp because disable_sandbox is enabled", self.out_log, self.global_log)
-
     def check_arguments(
-        self, output_files_created: bool = False, raise_exception: bool = True
+            self,
+            output_files_created: bool = False,
+            raise_exception: bool = True
     ):
         for argument, argument_dict in self.doc_arguments_dict.items():
             fu.check_argument(
@@ -476,4 +474,7 @@ class BiobbObject:
 
     def remove_tmp_files(self):
         if self.remove_tmp:
+            if self.disable_sandbox:
+                fu.log("WARNING: Disabling remove_tmp because disable_sandbox is enabled", self.out_log, self.global_log)
+                return 
             fu.rm_file_list(self.tmp_files, self.out_log)
