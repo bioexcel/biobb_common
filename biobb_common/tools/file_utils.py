@@ -306,6 +306,9 @@ def get_logs(
     Returns:
         :obj:`tuple` of :obj:`logging.Logger` and :obj:`logging.Logger`: Out and err Logger objects.
     """
+    out_log_path = out_log_path or "log.out"
+    err_log_path = err_log_path or "log.err"
+
     # Create logging objects
     out_Logger = logging.getLogger(str(out_log_path))
     err_Logger = logging.getLogger(str(err_log_path))
@@ -321,9 +324,6 @@ def get_logs(
         prefix = prefix if prefix else ""
         step = step if step else ""
         path = path if path else str(Path.cwd())
-
-        out_log_path = out_log_path or "log.out"
-        err_log_path = err_log_path or "log.err"
 
         # If paths are absolute create and return them
         if not Path(out_log_path).is_absolute():
@@ -352,7 +352,7 @@ def get_logs(
         # Assign format to consoleHandler
         consoleHandler.setFormatter(logFormatter)
         # Assign consoleHandler to logging objects as aditional output
-        if can_write_console and len(out_Logger.handlers) < 2:
+        if len(out_Logger.handlers) < 2:
             out_Logger.addHandler(consoleHandler)
             err_Logger.addHandler(consoleHandler)
 
