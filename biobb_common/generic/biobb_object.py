@@ -206,13 +206,14 @@ class BiobbObject:
     def stage_files(self):
         if self.disable_sandbox:
             self.stage_io_dict = self.io_dict.copy()
+            # If we are not using a sandbox, we use the current working directory as the unique directory
             self.stage_io_dict["unique_dir"] = os.getcwd()
             return
-
+        # Create a unique directory for the sandbox
         unique_dir = str(Path(fu.create_unique_dir(path=str(self.sandbox_path), prefix="sandbox_", out_log=self.out_log)).resolve())
         self.stage_io_dict = {"in": {}, "out": {}, "unique_dir": unique_dir}
 
-        # Add unique_dir to tmp_files
+        # Only remove unique_dir if using sandbox
         self.tmp_files.append(unique_dir)
 
         # IN files COPY and assign INTERNAL PATH
@@ -262,9 +263,8 @@ class BiobbObject:
     def create_cmd_line(self) -> None:
         # Not documented and not listed option, only for devs
         if self.dev:
-            fu.log(
-                f"Adding development options: {self.dev}", self.out_log, self.global_log
-            )
+            fu.log(f"Adding development options: {self.dev}",
+                   self.out_log, self.global_log)
             self.cmd += self.dev.split()
 
         # Containers
@@ -472,9 +472,17 @@ class BiobbObject:
                         shutil.copy2(sandbox_file_path,
                                      self.io_dict["out"][file_ref])
 
+    def create_tmp_file(self, file_name: str) -> None:
+        """Create a temporary file in the unique directory. These files are
+        removed when self.remove_tmp_files is called."""
+        tmp_file = str(PurePath(self.stage_io_dict["unique_dir"]).joinpath(file_name))
+        self.tmp_files.append(tmp_file)
+        return tmp_file
+
     def remove_tmp_files(self):
+        # Make sure current directory is not in the tmp_files list
+        if str(os.getcwd()) in self.tmp_files:
+            self.tmp_files.remove(str(os.getcwd()))
+
         if self.remove_tmp:
-            if self.disable_sandbox:
-                fu.log("WARNING: Disabling remove_tmp because disable_sandbox is enabled", self.out_log, self.global_log)
-                return 
             fu.rm_file_list(self.tmp_files, self.out_log)
