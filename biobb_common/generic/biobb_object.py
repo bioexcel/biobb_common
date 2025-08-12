@@ -4,12 +4,14 @@ import importlib
 import os
 import shutil
 import warnings
+import argparse
 from logging import Logger
-from pathlib import Path
+from pathlib import Path, PurePath
 from pydoc import locate
 from sys import platform
 from typing import Any, Optional, Union
 
+from biobb_common.configuration import settings
 from biobb_common.command_wrapper import cmd_wrapper
 from biobb_common.tools import file_utils as fu
 
@@ -486,3 +488,40 @@ class BiobbObject:
 
         if self.remove_tmp:
             fu.rm_file_list(self.tmp_files, self.out_log)
+
+    @classmethod
+    def get_launcher(cls):
+        """Get the launcher function for the BiobbObject with the main class docstring."""
+        def launcher(**kwargs):
+            return cls(**kwargs).launch()
+        launcher.__doc__ = cls.__doc__
+        return launcher
+
+    @classmethod
+    def get_main(cls, description):
+        """Get command line execution of this building block. Please check the command line documentation."""
+        def main():
+            # Get the arguments and properties from the class docstring
+            doc_arguments_dict, _ = fu.get_doc_dicts(cls.__doc__)
+            # Create the argument parser
+            parser = argparse.ArgumentParser(description=description,
+                                             formatter_class=lambda prog: argparse.RawTextHelpFormatter(prog, width=99999))
+            parser.add_argument('--config', required=False, help='Configuration file')
+            # Use the doc_arguments_dict to add arguments to the parser
+            for argument, argument_dict in doc_arguments_dict.items():
+                if argument_dict["optional"]:
+                    parser.add_argument(f'--{argument}', required=False, help=argument_dict.get("description", ""))
+                else:
+                    parser.add_argument(f'--{argument}', required=True, help=argument_dict.get("description", ""))
+            # Parse the arguments from the command line
+            args = parser.parse_args()
+            args.config = args.config or "{}"
+            # Get the properties from the configuration yaml
+            properties = settings.ConfReader(config=args.config).get_prop_dic()
+            args_dict = vars(args)
+            args_dict.pop('config', None)
+            # Parse the launcher and run the function
+            launcher = cls.get_launcher()
+            # Return the function without executing it
+            launcher(properties=properties, **args_dict)
+        return main
