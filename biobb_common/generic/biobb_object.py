@@ -69,7 +69,8 @@ class BiobbObject:
     """
 
     def __init__(self, properties=None, **kwargs) -> None:  # type: ignore
-        properties = properties or {}
+        # Merge global properties, priorizating local ones
+        properties = biobb_global_properties.dict() | properties or {}
 
         # Input/Output files
         self.io_dict: dict[str, dict] = {"in": {}, "out": {}}
