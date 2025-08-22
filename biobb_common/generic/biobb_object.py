@@ -187,6 +187,11 @@ class BiobbObject:
                 % (error_property, close_property)
             )
 
+    def check_init(self, properties):
+        """Check that the arguments and properties passed have the correct types and formats."""
+        self.check_properties(properties)
+        self.check_arguments()
+
     def check_restart(self) -> bool:
         if self.version:
             fu.log(
