@@ -21,6 +21,11 @@ setuptools.setup(
     package_data={'biobb_common': ['py.typed']},
     install_requires=["pyyaml", "requests", "biopython", "jsonschema"],
     python_requires='>=3.9',
+    entry_points={
+        "console_scripts": [
+            "folder_test = biobb_common.generic.folder_test:main",
+        ]
+    },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Programming Language :: Python :: 3.9",

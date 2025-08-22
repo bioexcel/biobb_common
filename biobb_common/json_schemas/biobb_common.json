@@ -12,6 +12,13 @@
             "block": "",
             "tool": "in house",
             "desc": "Biobb Base structure & common elements."
+        },
+        {
+            "block": "FolderTest",
+            "tool": "Common FolderTest",
+            "desc": "The FolderTest module.",
+            "exec": "folder_test",
+            "docs": "https://biobb-haddock.readthedocs.io/en/latest/generic.html#module-generic.folder_test"
         }
     ],
     "dep_pypi": [

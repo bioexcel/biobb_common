@@ -1,0 +1,69 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://bioexcel.eu/biobb_common/json_schemas/1.0/folder_test",
+    "name": "biobb_haddock FolderTest",
+    "title": "Wrapper class for the FolderTest module.",
+    "description": "The FolderTest module.",
+    "type": "object",
+    "info": {
+        "wrapped_software": {
+            "name": "None",
+            "version": "None",
+            "license": "Apache-2.0"
+        },
+        "ontology": {
+            "name": "EDAM",
+            "schema": "http://edamontology.org/EDAM.owl"
+        }
+    },
+    "required": [
+        "input_folder",
+        "output_folder"
+    ],
+    "properties": {
+        "input_folder": {
+            "type": "dir",
+            "description": "Path of the input folder",
+            "filetype": "input",
+            "sample": "https://raw.githubusercontent.com/bioexcel/biobb_haddock/master/biobb_haddock/test/reference/haddock/input_folder",
+            "enum": [
+                ".*\\.directory$"
+            ],
+            "file_formats": [
+                {
+                    "extension": ".*\\.directory$",
+                    "description": "Path of the input folder",
+                    "edam": "format_1915"
+                }
+            ]
+        },
+        "output_folder": {
+            "type": "dir",
+            "description": "Path of the output folder",
+            "filetype": "output",
+            "sample": "https://raw.githubusercontent.com/bioexcel/biobb_haddock/master/biobb_haddock/test/reference/haddock/output_folder",
+            "enum": [
+                ".*\\.directory$"
+            ],
+            "file_formats": [
+                {
+                    "extension": ".*\\.directory$",
+                    "description": "Path of the output folder",
+                    "edam": "format_1915"
+                }
+            ]
+        },
+        "properties": {
+            "type": "object",
+            "properties": {
+                "n": {
+                    "type": "integer",
+                    "default": 4,
+                    "wf_prop": false,
+                    "description": "Number of files create."
+                }
+            }
+        }
+    },
+    "additionalProperties": false
+}
