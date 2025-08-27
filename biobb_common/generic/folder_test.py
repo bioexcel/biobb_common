@@ -18,10 +18,11 @@ class FolderTest(BiobbObject):
     | The FolderTest module.
 
     Args:
-        input_folder (dir): Path of the input folder. File type: input. `Sample file <https://raw.githubusercontent.com/bioexcel/biobb_haddock/master/biobb_haddock/test/reference/haddock/input_folder>`_. Accepted formats: directory (edam:format_1915).
+        input_folder (dir) (Optional): Path of the input folder. File type: input. `Sample file <https://raw.githubusercontent.com/bioexcel/biobb_haddock/master/biobb_haddock/test/reference/haddock/input_folder>`_. Accepted formats: directory (edam:format_1915).
         output_folder (dir): Path of the output folder. File type: output. `Sample file <https://raw.githubusercontent.com/bioexcel/biobb_haddock/master/biobb_haddock/test/reference/haddock/output_folder>`_. Accepted formats: directory (edam:format_1915).
         properties (dict - Python dictionary object containing the tool parameters, not input/output files):
             * **n** (*int*) - (4) Number of files create.
+            * **file_prefix** (*str*) - ("file") Prefix for the created files.
 
     Examples:
         This is a use example of how to use the building block from Python::
@@ -43,8 +44,8 @@ class FolderTest(BiobbObject):
 
     def __init__(
         self,
-        input_folder: str,
         output_folder: str,
+        input_folder: Optional[str] = None,
         properties: Optional[dict] = None,
         **kwargs,
     ) -> None:
@@ -61,6 +62,7 @@ class FolderTest(BiobbObject):
         }
 
         self.n = properties.get('n', 4)
+        self.file_prefix = properties.get('file_prefix', 'file')
         # Check the properties
         self.check_init(properties)
 
@@ -73,16 +75,22 @@ class FolderTest(BiobbObject):
         if self.check_restart():
             return 0
         self.stage_files()
-        shutil.copytree(self.stage_io_dict["in"]["input_folder"], self.stage_io_dict["out"]["output_folder"], dirs_exist_ok=True)
-        # Create n files in the output folder
+
         sandbox_output_folder = self.stage_io_dict["out"]["output_folder"]
         os.makedirs(sandbox_output_folder, exist_ok=True)
+        # Just move the input files to the output
+        if self.stage_io_dict["in"].get("input_folder"):
+            shutil.copytree(self.stage_io_dict["in"]["input_folder"],
+                            sandbox_output_folder,
+                            dirs_exist_ok=True)
+        fu.log('Directory contents: ' + str(os.listdir(sandbox_output_folder)), self.out_log, self.global_log)
+        # Create n files in the output folder
         fu.log(f"Creating {self.n} files in the output folder: {sandbox_output_folder}",
                self.out_log, self.global_log)
         for i in range(1, self.n + 1):
-            with open(f'{sandbox_output_folder}/file_{i}.txt', 'w') as f:
+            with open(f'{sandbox_output_folder}/{self.file_prefix}_{i}.txt', 'w') as f:
                 f.write(f"This is file number {i}")
-
+        fu.log('Directory contents: ' + str(os.listdir(sandbox_output_folder)), self.out_log, self.global_log)
         # Copy files to host
         self.copy_to_host()
 
@@ -92,7 +100,7 @@ class FolderTest(BiobbObject):
         return self.return_code
 
 
-def folder_test(input_folder: str, output_folder: str, properties: Optional[dict] = None, **kwargs) -> int:
+def folder_test(output_folder: str, input_folder: Optional[str] = None, properties: Optional[dict] = None, **kwargs) -> int:
     """Create :class:`FolderTest <biobb_haddock.haddock.folder_test>` class and
     execute the :meth:`launch() <biobb_haddock.haddock.folder_test.launch>` method."""
     return FolderTest(**dict(locals())).launch()

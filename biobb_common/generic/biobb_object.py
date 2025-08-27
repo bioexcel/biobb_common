@@ -14,6 +14,7 @@ from typing import Any, Optional, Union
 from biobb_common.configuration import settings
 from biobb_common.command_wrapper import cmd_wrapper
 from biobb_common.tools import file_utils as fu
+from biobb_common import biobb_global_properties
 
 
 class BiobbObject:
@@ -141,6 +142,7 @@ class BiobbObject:
                 input_output=argument_dict.get(
                     "input_output", "").lower().strip(),
                 output_files_created=output_files_created,
+                type=argument_dict.get("type", None),
                 extension_list=list(argument_dict.get("formats")),
                 check_extensions=self.check_extensions,
                 raise_exception=raise_exception,
@@ -496,15 +498,7 @@ class BiobbObject:
             fu.rm_file_list(self.tmp_files, self.out_log)
 
     @classmethod
-    def get_launcher(cls):
-        """Get the launcher function for the BiobbObject with the main class docstring."""
-        def launcher(**kwargs):
-            return cls(**kwargs).launch()
-        launcher.__doc__ = cls.__doc__
-        return launcher
-
-    @classmethod
-    def get_main(cls, description):
+    def get_main(cls, launcher, description):
         """Get command line execution of this building block. Please check the command line documentation."""
         def main():
             # Get the arguments and properties from the class docstring
@@ -512,7 +506,10 @@ class BiobbObject:
             # Create the argument parser
             parser = argparse.ArgumentParser(description=description,
                                              formatter_class=lambda prog: argparse.RawTextHelpFormatter(prog, width=99999))
-            parser.add_argument('--config', required=False, help='Configuration file')
+            parser.add_argument(
+                "-c", "--config", required=False,
+                help="This file can be a YAML file, JSON file or JSON string",
+            )
             # Use the doc_arguments_dict to add arguments to the parser
             for argument, argument_dict in doc_arguments_dict.items():
                 if argument_dict["optional"]:
@@ -526,8 +523,8 @@ class BiobbObject:
             properties = settings.ConfReader(config=args.config).get_prop_dic()
             args_dict = vars(args)
             args_dict.pop('config', None)
-            # Parse the launcher and run the function
-            launcher = cls.get_launcher()
+            # Remove keys with None values from args_dict
+            args_dict = {k: v for k, v in args_dict.items() if v is not None}
             # Return the function without executing it
-            launcher(properties=properties, **args_dict)
+            launcher(**args_dict, properties=properties)
         return main
