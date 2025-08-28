@@ -16,6 +16,7 @@ from pathlib import Path
 import typing
 from typing import Optional, Union
 import sys
+from contextlib import contextmanager
 
 
 def create_unique_file_path(parent_dir: Optional[Union[str, Path]] = None, extension: Optional[Union[str, Path]] = None) -> str:
@@ -737,6 +738,7 @@ def check_argument(
     module_name: str,
     input_output: Optional[str] = None,
     output_files_created: bool = False,
+    type: Optional[str] = None,
     extension_list: Optional[list[str]] = None,
     raise_exception: bool = True,
     check_extensions: bool = True,
@@ -779,7 +781,7 @@ def check_argument(
     #             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), not_found_dir_error_string)
     #         warnings.warn(not_found_dir_error_string)
 
-    if check_extensions and extension_list:
+    if check_extensions and extension_list and type != "dir":
         no_extension_error_string = f"{module_name} {argument}: {path} has no extension. If you want to suppress this message, please set the check_extensions property to False"
         if not Path(str(path)).suffix:
             log(no_extension_error_string)
@@ -789,3 +791,16 @@ def check_argument(
             if not Path(str(path)).suffix[1:].lower() in extension_list:
                 log(not_valid_extension_error_string)
                 warnings.warn(not_valid_extension_error_string)
+
+
+@contextmanager
+def change_dir(destination):
+    """Context manager for changing directory."""
+    cwd = os.getcwd()
+    if not Path(destination).exists():
+        os.makedirs(destination)
+    try:
+        os.chdir(destination)
+        yield
+    finally:
+        os.chdir(cwd)
