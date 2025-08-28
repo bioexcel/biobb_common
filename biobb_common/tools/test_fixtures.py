@@ -54,9 +54,10 @@ def test_teardown(test_object):
     Args:
         test_object (:obj:`test`): The test object.
     """
-    unitests_path = Path(test_object.properties['path']).resolve().parent
-    print(f"\nRemoving: {unitests_path}")
-    shutil.rmtree(unitests_path)
+    if test_object.properties.get('remove_tmp', True):
+        unitests_path = Path(test_object.properties['path']).resolve().parent
+        print(f"\nRemoving: {unitests_path}")
+        shutil.rmtree(unitests_path)
 
 
 def exe_success(return_code: int) -> bool:
@@ -82,12 +83,15 @@ def not_empty(file_path: str) -> bool:
     """
     if file_path.endswith('.zip'):
         print("Checking if empty zip: "+file_path)
-        # Create a temporary directory to extract zip
-        temp_dir = fu.create_unique_dir()
+        dst = file_path[:-4] + '_unzipped'
+        os.makedirs(dst, exist_ok=True)
         # Extract zip and get list of files
-        unzipped_files = fu.unzip_list(file_path, dest_dir=temp_dir)
+        unzipped_files = fu.unzip_list(file_path, dest_dir=dst)
         # Check if there are any files in the zip
         return len(unzipped_files) > 0
+    elif Path(file_path).is_dir():
+        print("Checking if empty dir: "+file_path)
+        return len(os.listdir(file_path)) > 0
 
     print("Checking if empty file: "+file_path)
     return Path(file_path).is_file() and Path(file_path).stat().st_size > 0
