@@ -491,11 +491,22 @@ class BiobbObject:
                 help="This file can be a YAML file, JSON file or JSON string",
             )
             # Use the doc_arguments_dict to add arguments to the parser
+            # If we have only one input or output argument, we can use shorthand flags -i/-o
+            input_args = [arg for arg, arg_dict in doc_arguments_dict.items() if arg_dict.get("input_output", "").lower().startswith("input")]
+            output_args = [arg for arg, arg_dict in doc_arguments_dict.items() if arg_dict.get("input_output", "").lower().startswith("output")]
+
             for argument, argument_dict in doc_arguments_dict.items():
+                # Determine if we should add shorthand flags
+                shorthand_flags = [f'--{argument}']
+                if len(input_args) == 1 and argument in input_args:
+                    shorthand_flags.insert(0, '-i')
+                elif len(output_args) == 1 and argument in output_args:
+                    shorthand_flags.insert(0, '-o')
+
                 if argument_dict["optional"]:
-                    parser.add_argument(f'--{argument}', required=False, help=argument_dict.get("description", ""))
+                    parser.add_argument(*shorthand_flags, required=False, help=argument_dict.get("description", ""))
                 else:
-                    parser.add_argument(f'--{argument}', required=True, help=argument_dict.get("description", ""))
+                    parser.add_argument(*shorthand_flags, required=True, help=argument_dict.get("description", ""))
             # Parse the arguments from the command line
             args = parser.parse_args()
             args.config = args.config or "{}"
