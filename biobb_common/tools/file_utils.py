@@ -529,6 +529,30 @@ def check_complete_files(output_file_list: list[Union[str, Path]]) -> bool:
     return True
 
 
+def copytree_new_files_only(source, destination):
+    """
+    Recursively copies files from source to destination only if they don't
+    already exist in the destination.
+    """
+    if not os.path.exists(destination):
+        os.makedirs(destination)
+
+    for dirpath, dirnames, filenames in os.walk(source):
+        # Create a corresponding directory in the destination
+        relative_path = os.path.relpath(dirpath, source)
+        dest_dir = os.path.join(destination, relative_path)
+        if not os.path.exists(dest_dir):
+            os.makedirs(dest_dir)
+
+        # Copy only the files that do not exist
+        for filename in filenames:
+            src_file_path = os.path.join(dirpath, filename)
+            dest_file_path = os.path.join(dest_dir, filename)
+
+            if not os.path.exists(dest_file_path):
+                shutil.copy2(src_file_path, dest_file_path)
+
+
 def copy_to_container(container_path: Optional[Union[str, Path]], container_volume_path: str,
                       io_dict: dict, out_log: Optional[logging.Logger] = None) -> dict:
     if not container_path:

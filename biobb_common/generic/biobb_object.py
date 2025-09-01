@@ -6,11 +6,10 @@ import shutil
 import warnings
 import argparse
 from logging import Logger
-from pathlib import Path, PurePath
+from pathlib import Path
 from pydoc import locate
 from sys import platform
-from typing import Any, Optional, Union
-
+from typing import Optional, Union
 from biobb_common.configuration import settings
 from biobb_common.command_wrapper import cmd_wrapper
 from biobb_common.tools import file_utils as fu
@@ -74,7 +73,7 @@ class BiobbObject:
         properties = biobb_global_properties.dict() | properties or {}
 
         # Input/Output files
-        self.io_dict: dict[str, dict] = {"in": {}, "out": {}}
+        self.io_dict: dict[str, dict[str, str]] = {"in": {}, "out": {}}
 
         # container Specific
         self.container_path: Optional[str] = properties.get("container_path")
@@ -86,7 +85,7 @@ class BiobbObject:
         self.container_generic_command: str = properties.get("container_generic_command", "run")
 
         # stage
-        self.stage_io_dict: dict[str, Any] = {"in": {}, "out": {}}
+        self.stage_io_dict: dict[str, dict[str, str]] = {"in": {}, "out": {}}
         self.sandbox_path: Union[str, Path] = properties.get("sandbox_path", Path().cwd())
         self.disable_sandbox: bool = properties.get("disable_sandbox", False)
 
@@ -214,6 +213,7 @@ class BiobbObject:
         return False
 
     def stage_files(self):
+        """Stage the input/output files in a temporal unique directory aka sandbox."""
         if self.disable_sandbox:
             self.stage_io_dict = self.io_dict.copy()
             # If we are not using a sandbox, we use the current working directory as the unique directory
@@ -226,49 +226,31 @@ class BiobbObject:
         # Only remove unique_dir if using sandbox
         self.tmp_files.append(unique_dir)
 
-        # IN files COPY and assign INTERNAL PATH
-        for file_ref, file_path in self.io_dict.get("in", {}).items():
-            if file_path:
-                if Path(file_path).exists():
+        for io in ["in", "out"]:
+            for file_ref, file_path in self.io_dict.get(io, {}).items():
+                if not file_path:
+                    # Skip optional files not set
+                    continue
+                file_path = Path(file_path)
+                # Assign INTERNAL PATH to IN/OUT files
+                if file_path.exists() or io == "out":
+                    if io == "in":
+                        fu.log(f"Copy to stage: {file_path} --> {unique_dir}", self.out_log)
+                        if self.doc_arguments_dict[file_ref]['type'] == 'dir' and file_path.suffix != '.zip':
+                            shutil.copytree(file_path, os.path.join(unique_dir, file_path.name))
+                        else:
                     shutil.copy2(file_path, unique_dir)
-                    fu.log(f"Copy: {file_path} to {unique_dir}", self.out_log)
                     # Container
                     if self.container_path:
-                        self.stage_io_dict["in"][file_ref] = str(
-                            Path(self.container_volume_path).joinpath(
-                                Path(file_path).name
-                            )
-                        )
+                        self.stage_io_dict[io][file_ref] = os.path.join(self.container_volume_path, file_path.name)
                     # Local
                     else:
-                        self.stage_io_dict["in"][file_ref] = str(
-                            Path(unique_dir).joinpath(Path(file_path).name)
-                        )
+                        self.stage_io_dict[io][file_ref] = os.path.join(unique_dir, file_path.name)
                         if self.chdir_sandbox:
-                            self.stage_io_dict["in"][file_ref] = str(
-                                Path(file_path).name
-                            )
-                else:
-                    # Default files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
-                    self.stage_io_dict["in"][file_ref] = file_path
-
-        # OUT files assign INTERNAL PATH
-        for file_ref, file_path in self.io_dict.get("out", {}).items():
-            if file_path:
-                # Container
-                if self.container_path:
-                    self.stage_io_dict["out"][file_ref] = str(
-                        Path(self.container_volume_path).joinpath(
-                            Path(file_path).name)
-                    )
-                # Local
-                else:
-                    self.stage_io_dict["out"][file_ref] = str(
-                        Path(unique_dir).joinpath(Path(file_path).name)
-                    )
-                    if self.chdir_sandbox:
-                        self.stage_io_dict["out"][file_ref] = str(
-                            Path(file_path).name)
+                            self.stage_io_dict[io][file_ref] = file_path.name
+                elif io == "in":
+                    # Default IN files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
+                    self.stage_io_dict[io][file_ref] = file_path
 
     def create_cmd_line(self) -> None:
         # Not documented and not listed option, only for devs
@@ -461,31 +443,29 @@ class BiobbObject:
     def copy_to_host(self):
         """Copy output files from the sandbox to the host system."""
         for file_ref, file_path in self.stage_io_dict["out"].items():
-            if file_path:
-                sandbox_file_path = str(
-                    Path(self.stage_io_dict["unique_dir"]).joinpath(
-                        Path(file_path).name
-                    )
-                )
-                if Path(sandbox_file_path).exists():
-                    # Dest file exists
-                    if Path(self.io_dict["out"][file_ref]).exists():
-                        # Dest file exists and is NOT the same as the source file
-                        if not Path(sandbox_file_path).samefile(
-                            Path(self.io_dict["out"][file_ref])
-                        ):
-                            shutil.copy2(
-                                sandbox_file_path, self.io_dict["out"][file_ref]
-                            )
-                    # Dest file does not exist
-                    else:
-                        shutil.copy2(sandbox_file_path,
-                                     self.io_dict["out"][file_ref])
+            dest_path = Path(self.io_dict["out"][file_ref])
 
-    def create_tmp_file(self, file_name: str) -> None:
+            # For directories, we need to ensure the directory exists in the sandbox
+            if self.doc_arguments_dict[file_ref]['type'] == 'dir':
+                # If the output is a directory, ensure it exists in the sandbox
+                sandbox_dir_path = Path(self.stage_io_dict["unique_dir"]).joinpath(file_path)
+                fu.log(f"Copy directory to host: {sandbox_dir_path} --> {dest_path}", self.out_log, self.global_log)
+                fu.copytree_new_files_only(sandbox_dir_path, dest_path)
+                    else:
+                if not file_path:
+                    continue
+                sandbox_file_path = Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name)
+                # Ensure file exists in the sandbox
+                if not sandbox_file_path.exists():
+                    continue
+                # Only copy if destination doesn't exist or is different from source
+                if not dest_path.exists() or not sandbox_file_path.samefile(dest_path):
+                    shutil.copy2(sandbox_file_path, dest_path)
+
+    def create_tmp_file(self, extension: str) -> None:
         """Create a temporary file in the unique directory. These files are
         removed when self.remove_tmp_files is called."""
-        tmp_file = str(PurePath(self.stage_io_dict["unique_dir"]).joinpath(file_name))
+        tmp_file = fu.create_unique_file_path(self.stage_io_dict["unique_dir"], extension)
         self.tmp_files.append(tmp_file)
         return tmp_file
 
