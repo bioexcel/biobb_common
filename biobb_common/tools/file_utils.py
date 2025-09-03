@@ -147,7 +147,7 @@ def zip_list(
             zip_f.write(f, arcname=base_name)
     if out_log:
         out_log.info("Adding:")
-        out_log.info(str(file_list))
+        out_log.info(list(map(lambda x: str(Path(x).resolve().relative_to(Path.cwd())), file_list)))
         out_log.info("to: " + str(Path(zip_file).resolve()))
 
 
@@ -516,7 +516,7 @@ def rm_file_list(
     file_list: typing.Sequence[Union[str, Path]], out_log: Optional[logging.Logger] = None
 ) -> list[str]:
     removed_files = [str(f) for f in file_list if rm(f)]
-    if out_log:
+    if len(removed_files) > 0 and out_log:
         log("Removed: %s" % str(removed_files), out_log)
     return removed_files
 
@@ -544,12 +544,12 @@ def copytree_new_files_only(source, destination):
         if not os.path.exists(dest_dir):
             os.makedirs(dest_dir)
 
-        # Copy only the files that do not exist
+        # Copy files that do not exist or have newer modification times
         for filename in filenames:
             src_file_path = os.path.join(dirpath, filename)
             dest_file_path = os.path.join(dest_dir, filename)
 
-            if not os.path.exists(dest_file_path):
+            if not os.path.exists(dest_file_path) or os.path.getmtime(src_file_path) > os.path.getmtime(dest_file_path):
                 shutil.copy2(src_file_path, dest_file_path)
 
 

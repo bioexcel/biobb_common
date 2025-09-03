@@ -79,9 +79,9 @@ class FolderTest(BiobbObject):
         sandbox_output_folder = self.stage_io_dict["out"]["output_folder"]
         os.makedirs(sandbox_output_folder, exist_ok=True)
         # Just move the input files to the output
-        if self.stage_io_dict["in"].get("input_folder"):
+        if self.stage_io_dict["in"].get("input_folder") and self.stage_io_dict["in"]["input_folder"] != sandbox_output_folder:
             shutil.copytree(self.stage_io_dict["in"]["input_folder"],
-                            sandbox_output_folder,
+                            sandbox_output_folder+'/prev',
                             dirs_exist_ok=True)
         fu.log('Directory contents: ' + str(os.listdir(sandbox_output_folder)), self.out_log, self.global_log)
         # Create n files in the output folder

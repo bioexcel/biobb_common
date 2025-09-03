@@ -235,11 +235,12 @@ class BiobbObject:
                 # Assign INTERNAL PATH to IN/OUT files
                 if file_path.exists() or io == "out":
                     if io == "in":
-                        fu.log(f"Copy to stage: {file_path} --> {unique_dir}", self.out_log)
-                        if self.doc_arguments_dict[file_ref]['type'] == 'dir' and file_path.suffix != '.zip':
+                        fu.log(f"Copy to stage: {file_path} --> {unique_dir.split('/')[-1]}", self.out_log)
+                        doc = self.doc_arguments_dict.get(file_ref)
+                        if doc and doc['type'] == 'dir' and file_path.suffix != '.zip':
                             shutil.copytree(file_path, os.path.join(unique_dir, file_path.name))
                         else:
-                    shutil.copy2(file_path, unique_dir)
+                            shutil.copy2(file_path, unique_dir)
                     # Container
                     if self.container_path:
                         self.stage_io_dict[io][file_ref] = os.path.join(self.container_volume_path, file_path.name)
@@ -451,7 +452,7 @@ class BiobbObject:
                 sandbox_dir_path = Path(self.stage_io_dict["unique_dir"]).joinpath(file_path)
                 fu.log(f"Copy directory to host: {sandbox_dir_path} --> {dest_path}", self.out_log, self.global_log)
                 fu.copytree_new_files_only(sandbox_dir_path, dest_path)
-                    else:
+            else:
                 if not file_path:
                     continue
                 sandbox_file_path = Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name)

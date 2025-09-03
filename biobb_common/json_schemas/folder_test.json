@@ -17,7 +17,6 @@
         }
     },
     "required": [
-        "input_folder",
         "output_folder"
     ],
     "properties": {
@@ -61,6 +60,12 @@
                     "default": 4,
                     "wf_prop": false,
                     "description": "Number of files create."
+                },
+                "file_prefix": {
+                    "type": "string",
+                    "default": "file",
+                    "wf_prop": false,
+                    "description": "Prefix for the created files."
                 }
             }
         }

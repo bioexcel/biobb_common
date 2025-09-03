@@ -61,7 +61,7 @@ class CmdWrapper:
     def launch(self) -> int:
         cmd = " ".join(self.cmd)
         if self.out_log:
-            self.out_log.info(f'Launching: {cmd}')
+            self.out_log.info(f'Launching command (it may take a while): {cmd}')
         elif not self.disable_logs:
             print(f"\ncmd_wrapper command print: {cmd}")
 

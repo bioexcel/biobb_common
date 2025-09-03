@@ -23,3 +23,13 @@ confreader:
   properties:
     remove_tmp: False
 
+folder_test:
+  paths:
+    input_folder: file:test_data_dir/generic/input_folder
+    output_folder: output_folder
+
+  properties:
+    n: 5
+    file_prefix: new
+    remove_tmp: False
+

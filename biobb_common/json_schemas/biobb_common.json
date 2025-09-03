@@ -9,11 +9,6 @@
     "version": "5.1.0",
     "tools": [
         {
-            "block": "",
-            "tool": "in house",
-            "desc": "Biobb Base structure & common elements."
-        },
-        {
             "block": "FolderTest",
             "tool": "Common FolderTest",
             "desc": "The FolderTest module.",
