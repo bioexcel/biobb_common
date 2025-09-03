@@ -16,6 +16,7 @@ Contents
    :maxdepth: 1
 
    Introduction & installation <readme>
+   Global Properties <global_properties>
    API Documentation <modules>
    Changelog <change_log>
 
