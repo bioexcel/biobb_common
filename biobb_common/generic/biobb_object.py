@@ -479,7 +479,7 @@ class BiobbObject:
             fu.rm_file_list(self.tmp_files, self.out_log)
 
     @classmethod
-    def get_main(cls, launcher, description):
+    def get_main(cls, launcher, description, custom_flags=None):
         """Get command line execution of this building block. Please check the command line documentation."""
         def main():
             # Get the arguments and properties from the class docstring
@@ -491,6 +491,7 @@ class BiobbObject:
                 "-c", "--config", required=False,
                 help="This file can be a YAML file, JSON file or JSON string",
             )
+            required_args = parser.add_argument_group("required arguments")
             # Use the doc_arguments_dict to add arguments to the parser
             # If we have only one input or output argument, we can use shorthand flags -i/-o
             input_args = [arg for arg, arg_dict in doc_arguments_dict.items() if arg_dict.get("input_output", "").lower().startswith("input")]
@@ -499,15 +500,20 @@ class BiobbObject:
             for argument, argument_dict in doc_arguments_dict.items():
                 # Determine if we should add shorthand flags
                 shorthand_flags = [f'--{argument}']
-                if len(input_args) == 1 and argument in input_args:
+
+                # Check if custom flags are provided for this argument
+                if custom_flags and argument in custom_flags:
+                    shorthand_flags.insert(0, custom_flags[argument])
+                elif len(input_args) == 1 and argument in input_args:
                     shorthand_flags.insert(0, '-i')
                 elif len(output_args) == 1 and argument in output_args:
                     shorthand_flags.insert(0, '-o')
 
+                help_str = argument_dict.get("description", "") + f". Accepted formats: {', '.join(argument_dict.get('formats', {}).keys())}."
                 if argument_dict["optional"]:
-                    parser.add_argument(*shorthand_flags, required=False, help=argument_dict.get("description", ""))
+                    parser.add_argument(*shorthand_flags, required=False, help=help_str)
                 else:
-                    parser.add_argument(*shorthand_flags, required=True, help=argument_dict.get("description", ""))
+                    required_args.add_argument(*shorthand_flags, required=True, help=help_str)
             # Parse the arguments from the command line
             args = parser.parse_args()
             args.config = args.config or "{}"
