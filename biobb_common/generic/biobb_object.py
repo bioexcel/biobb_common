@@ -251,7 +251,7 @@ class BiobbObject:
                             self.stage_io_dict[io][file_ref] = file_path.name
                 elif io == "in":
                     # Default IN files in GMXLIB path like gmx_solvate -> input_solvent_gro_path (spc216.gro)
-                    self.stage_io_dict[io][file_ref] = file_path
+                    self.stage_io_dict[io][file_ref] = file_path.name
 
     def create_cmd_line(self) -> None:
         # Not documented and not listed option, only for devs
