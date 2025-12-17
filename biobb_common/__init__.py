@@ -1,5 +1,5 @@
 name = "biobb_common"
-__all__ = ["generic"]
+__all__ = ["generic", "tools"]
 __version__ = "5.1.1"
 
 

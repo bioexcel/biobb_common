@@ -198,17 +198,12 @@ class BiobbObject:
         if self.version:
             fu.log(
                 f"Module: {self.__module__} Version: {self.version}",
-                self.out_log,
-                self.global_log,
+                self.out_log, self.global_log
             )
 
         if self.restart:
             if fu.check_complete_files(self.io_dict["out"].values()):  # type: ignore
-                fu.log(
-                    "Restart is enabled, this step: %s will the skipped" % self.step,
-                    self.out_log,
-                    self.global_log,
-                )
+                fu.log("Restart is enabled, this step: %s will the skipped" % self.step, self.out_log, self.global_log)
                 return True
         return False
 
@@ -254,6 +249,8 @@ class BiobbObject:
                     self.stage_io_dict[io][file_ref] = file_path.name
 
     def create_cmd_line(self) -> None:
+        """ The method modifies the `self.cmd` attribute in-place to contain the final
+        command line that will be executed based on the container type. """
         # Not documented and not listed option, only for devs
         if self.dev:
             fu.log(f"Adding development options: {self.dev}",
@@ -344,11 +341,8 @@ class BiobbObject:
             self.cmd = singularity_cmd
         # Docker
         elif self.container_path.endswith("docker"):
-            fu.log(
-                "Using Docker image %s" % self.container_image,
-                self.out_log,
-                self.global_log,
-            )
+            fu.log("Using Docker image %s" % self.container_image,
+                   self.out_log, self.global_log)
             docker_cmd = [self.container_path, self.container_generic_command]
             if self.env_vars_dict:
                 for env_var_name, env_var_value in self.env_vars_dict.items():
@@ -369,8 +363,7 @@ class BiobbObject:
             if not self.cmd and not self.container_shell_path:
                 fu.log(
                     "WARNING: The command-line is empty your container should know what to do automatically.",
-                    self.out_log,
-                    self.global_log,
+                    self.out_log, self.global_log
                 )
             else:
                 cmd = ['"' + " ".join(self.cmd) + '"']
@@ -470,6 +463,13 @@ class BiobbObject:
         self.tmp_files.append(tmp_file)
         return tmp_file
 
+    def create_tmp_dir(self) -> None:
+        """Create a temporary directory in the unique directory. These directories are
+        removed when self.remove_tmp_files is called."""
+        tmp_dir = fu.create_unique_dir(self.stage_io_dict["unique_dir"], "tmpdir_", self.out_log)
+        self.tmp_files.append(tmp_dir)
+        return tmp_dir
+
     def remove_tmp_files(self):
         # Make sure current directory is not in the tmp_files list
         if str(os.getcwd()) in self.tmp_files:
@@ -492,6 +492,7 @@ class BiobbObject:
                 help="This file can be a YAML file, JSON file or JSON string",
             )
             required_args = parser.add_argument_group("required arguments")
+            optional_args = parser.add_argument_group("optional arguments")
             # Use the doc_arguments_dict to add arguments to the parser
             # If we have only one input or output argument, we can use shorthand flags -i/-o
             input_args = [arg for arg, arg_dict in doc_arguments_dict.items() if arg_dict.get("input_output", "").lower().startswith("input")]
@@ -508,10 +509,9 @@ class BiobbObject:
                     shorthand_flags.insert(0, '-i')
                 elif len(output_args) == 1 and argument in output_args:
                     shorthand_flags.insert(0, '-o')
-
                 help_str = argument_dict.get("description", "") + f". Accepted formats: {', '.join(argument_dict.get('formats', {}).keys())}."
                 if argument_dict["optional"]:
-                    parser.add_argument(*shorthand_flags, required=False, help=help_str)
+                    optional_args.add_argument(*shorthand_flags, required=False, help=help_str)
                 else:
                     required_args.add_argument(*shorthand_flags, required=True, help=help_str)
             # Parse the arguments from the command line

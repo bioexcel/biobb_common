@@ -309,7 +309,11 @@ def get_logs(
     """
     out_log_path = out_log_path or "log.out"
     err_log_path = err_log_path or "log.err"
-
+    # If paths are not absolute create and return them
+    if not Path(out_log_path).is_absolute():
+        out_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(out_log_path)))
+    if not Path(err_log_path).is_absolute():
+        err_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(err_log_path)))
     # Create logging objects
     out_Logger = logging.getLogger(str(out_log_path))
     err_Logger = logging.getLogger(str(err_log_path))
@@ -326,18 +330,12 @@ def get_logs(
         step = step if step else ""
         path = path if path else str(Path.cwd())
 
-        # If paths are absolute create and return them
-        if not Path(out_log_path).is_absolute():
-            out_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(out_log_path)))
-        if not Path(err_log_path).is_absolute():
-            err_log_path = create_incremental_name(create_name(path=path, prefix=prefix, step=step, name=str(err_log_path)))
-
         # Create dir if it not exists
         create_dir(str(Path(out_log_path).resolve().parent))
 
         # Create FileHandler
-        out_fileHandler = logging.FileHandler(out_log_path, mode="a", encoding=None, delay=False)
-        err_fileHandler = logging.FileHandler(err_log_path, mode="a", encoding=None, delay=False)
+        out_fileHandler = logging.FileHandler(out_log_path, mode="a", encoding=None, delay=True)
+        err_fileHandler = logging.FileHandler(err_log_path, mode="a", encoding=None, delay=True)
         # Asign format to FileHandler
         out_fileHandler.setFormatter(logFormatter)
         err_fileHandler.setFormatter(logFormatter)
@@ -348,14 +346,14 @@ def get_logs(
             err_Logger.addHandler(err_fileHandler)
 
     if can_write_console:
-        # Create consoleHandler
-        consoleHandler = logging.StreamHandler(stream=sys.stdout)
-        # Assign format to consoleHandler
-        consoleHandler.setFormatter(logFormatter)
+        console_out = logging.StreamHandler(stream=sys.stdout)
+        console_err = logging.StreamHandler(stream=sys.stderr)
+        console_out.setFormatter(logFormatter)
+        console_err.setFormatter(logFormatter)
         # Assign consoleHandler to logging objects as aditional output
         if len(out_Logger.handlers) < 2:
-            out_Logger.addHandler(consoleHandler)
-            err_Logger.addHandler(consoleHandler)
+            out_Logger.addHandler(console_out)
+            err_Logger.addHandler(console_err)
 
     # Set logging level level
     out_Logger.setLevel(level)
@@ -372,7 +370,7 @@ def launchlogger(func):
         if args[0].disable_logs:
             return func(*args, **kwargs)
 
-        # Create out_log and err_log
+        # Create local out_log and err_log
         args[0].out_log, args[0].err_log = get_logs(
             path=args[0].path,
             prefix=args[0].prefix,
@@ -524,7 +522,9 @@ def rm_file_list(
 def check_complete_files(output_file_list: list[Union[str, Path]]) -> bool:
     for output_file in filter(None, output_file_list):
         output_file = Path(str(output_file))
-        if not (output_file.is_file() and output_file.stat().st_size > 0):
+        file_exists = output_file.is_file() and output_file.stat().st_size > 0
+        dir_exists = output_file.is_dir() and any(output_file.iterdir())
+        if not file_exists and not dir_exists:
             return False
     return True
 
