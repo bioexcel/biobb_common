@@ -1,5 +1,14 @@
 # Biobb_common ChangeLog
 
+
+## What's new in version [5.2.0](https://github.com/bioexcel/biobb_common/releases/tag/v5.2.0)?
+
+* [UPDATE] Update to Python 3.10
+* [FEATURE] Add methods `create_tmp_dir`
+* [UPDATE] Logs only create a file if there is something to write.
+* [FEATURE] Add custom flags argument to `get_main`.
+
+
 ## What's new in version [5.1.1](https://github.com/bioexcel/biobb_common/releases/tag/v5.1.1)?
 * [FEATURE] Add [global properties](https://biobb-common.readthedocs.io/en/latest/global_properties.html) shared by all the blocks.
 * [FEATURE] Automatic block argument parser from docstring.
