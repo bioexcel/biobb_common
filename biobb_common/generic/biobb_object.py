@@ -440,7 +440,7 @@ class BiobbObject:
             dest_path = Path(self.io_dict["out"][file_ref])
 
             # For directories, we need to ensure the directory exists in the sandbox
-            if self.doc_arguments_dict[file_ref]['type'] == 'dir':
+            if self.doc_arguments_dict.get(file_ref, {}).get('type') == 'dir':
                 # If the output is a directory, ensure it exists in the sandbox
                 sandbox_dir_path = Path(self.stage_io_dict["unique_dir"]).joinpath(file_path)
                 fu.log(f"Copy directory to host: {sandbox_dir_path} --> {dest_path}", self.out_log, self.global_log)
