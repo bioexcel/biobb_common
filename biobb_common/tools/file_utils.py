@@ -147,7 +147,8 @@ def zip_list(
             zip_f.write(f, arcname=base_name)
     if out_log:
         out_log.info("Adding:")
-        out_log.info(list(map(lambda x: str(Path(x).resolve().relative_to(Path.cwd())), file_list)))
+        # out_log.info(list(map(lambda x: str(Path(x).resolve().relative_to(Path.cwd())), file_list)))
+        out_log.info(str(file_list))
         out_log.info("to: " + str(Path(zip_file).resolve()))
 
 
