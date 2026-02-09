@@ -74,7 +74,7 @@ author = u'Bioexcel Project'
 # built documents.
 
 # The short X.Y version.
-version = u'5.2.0'
+version = u'5.2.1'
 # The full version, including alpha/beta/rc tags.
 release = u'2025.2'
 

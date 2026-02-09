@@ -1,6 +1,10 @@
 # Biobb_common ChangeLog
 
 
+## What's new in version [5.2.1](https://github.com/bioexcel/biobb_common/releases/tag/v5.2.1)?
+
+* [FEATURE] Minor bug fixes.
+
 ## What's new in version [5.2.0](https://github.com/bioexcel/biobb_common/releases/tag/v5.2.0)?
 
 * [UPDATE] Update to Python 3.10
