@@ -223,11 +223,12 @@ def zip_top(
     Returns:
         :obj:`list` of :obj:`str`: list of compressed paths.
     """
-
     file_list = search_topology_files(top_file, out_log)
     zip_list(zip_file, file_list, out_log)
+    # Only remove files on the same directory of the top file
+    rm_list = [f for f in file_list if Path(f).parent == Path(top_file).parent]
     if remove_original_files:
-        rm_file_list(file_list, out_log)
+        rm_file_list(rm_list, out_log)
     return file_list
 
 
