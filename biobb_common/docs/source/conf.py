@@ -66,7 +66,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'biobb_common'
-copyright = u'2025, Bioexcel Project'
+copyright = u'2026, Bioexcel Project'
 author = u'Bioexcel Project'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -74,7 +74,7 @@ author = u'Bioexcel Project'
 # built documents.
 
 # The short X.Y version.
-version = u'5.2.1'
+version = u'5.2.2'
 # The full version, including alpha/beta/rc tags.
 release = u'2025.2'
 
