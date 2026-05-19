@@ -261,9 +261,11 @@ class BiobbObject:
         host_volume: str = str(self.stage_io_dict.get("unique_dir", ''))
         self.container_path = self.container_path or ""
         # Singularity
-        if self.container_path.endswith("singularity"):
+        if self.container_path.endswith("singularity") or self.container_path.endswith("apptainer"):
+
+            runtime = "apptainer" if self.container_path.endswith("apptainer") else "singularity"
             fu.log(
-                "Using Singularity image %s" % self.container_image,
+                "Using %s image %s" % (self.container_path, self.container_image),
                 self.out_log,
                 self.global_log,
             )
@@ -305,6 +307,10 @@ class BiobbObject:
                 self.container_generic_command,
                 "-e",
             ]
+
+            if self.container_working_dir:
+                singularity_cmd.append("--pwd")
+                singularity_cmd.append(self.container_working_dir)
 
             if self.env_vars_dict:
                 singularity_cmd.append("--env")
