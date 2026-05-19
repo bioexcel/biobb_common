@@ -1,6 +1,6 @@
 name = "biobb_common"
 __all__ = ["generic", "tools"]
-__version__ = "5.3.0"
+__version__ = "5.3.1"
 
 
 class BioBBGlobalProperties(dict):
