@@ -1,6 +1,10 @@
 # Biobb_common ChangeLog
 
 
+## What's new in version [5.3.0](https://github.com/bioexcel/biobb_common/releases/tag/v5.3.0)?
+
+* [FEATURE] Update to apptainer execution.
+
 ## What's new in version [5.2.2](https://github.com/bioexcel/biobb_common/releases/tag/v5.2.2)?
 
 * [FEATURE] Minor bug fixes.
