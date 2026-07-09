@@ -1,6 +1,7 @@
 """Module containing the BiobbObject generic parent class."""
 import difflib
 import importlib
+import logging
 import os
 import shutil
 import warnings
@@ -441,7 +442,7 @@ class BiobbObject:
         self.execute_command()
 
     def copy_to_host(self):
-        """Copy output files from the sandbox to the host system."""
+        """Copy output files from the sandbox to the host system (from stage to out)."""
         for file_ref, file_path in self.stage_io_dict["out"].items():
             dest_path = Path(self.io_dict["out"][file_ref])
 
@@ -449,7 +450,7 @@ class BiobbObject:
             if self.doc_arguments_dict.get(file_ref, {}).get('type') == 'dir':
                 # If the output is a directory, ensure it exists in the sandbox
                 sandbox_dir_path = Path(self.stage_io_dict["unique_dir"]).joinpath(file_path)
-                fu.log(f"Copy directory to host: {sandbox_dir_path} --> {dest_path}", self.out_log, self.global_log)
+                fu.log(f"Copying directory to host: {sandbox_dir_path} --> {dest_path}", self.out_log, self.global_log)
                 fu.copytree_new_files_only(sandbox_dir_path, dest_path)
             else:
                 if not file_path:
@@ -457,9 +458,12 @@ class BiobbObject:
                 sandbox_file_path = Path(self.stage_io_dict["unique_dir"]).joinpath(Path(file_path).name)
                 # Ensure file exists in the sandbox
                 if not sandbox_file_path.exists():
+                    fu.log(f"Expected output file {sandbox_file_path} is missing in the sandbox, cannot copy to host",
+                           self.out_log, self.global_log, level=logging.ERROR)
                     continue
                 # Only copy if destination doesn't exist or is different from source
                 if not dest_path.exists() or not sandbox_file_path.samefile(dest_path):
+                    fu.log(f"Coping file to host: {sandbox_file_path} --> {dest_path}", self.out_log, self.global_log)
                     shutil.copy2(sandbox_file_path, dest_path)
 
     def create_tmp_file(self, extension: str) -> None:

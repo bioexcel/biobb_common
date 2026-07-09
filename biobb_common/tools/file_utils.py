@@ -399,7 +399,7 @@ def launchlogger(func):
     return wrapper_log
 
 
-def log(string: str, local_log: Optional[logging.Logger] = None, global_log: Optional[logging.Logger] = None):
+def log(string: str, local_log: Optional[logging.Logger] = None, global_log: Optional[logging.Logger] = None, level: str = logging.INFO):
     """Checks if log exists
 
     Args:
@@ -409,9 +409,9 @@ def log(string: str, local_log: Optional[logging.Logger] = None, global_log: Opt
 
     """
     if local_log:
-        local_log.info(string)
+        local_log.log(level, string)
     if global_log:
-        global_log.info(get_logs_prefix() + string)
+        global_log.log(level, get_logs_prefix() + string)
 
 
 def human_readable_time(time_ps: int) -> str:
