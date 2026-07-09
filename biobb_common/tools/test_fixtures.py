@@ -14,6 +14,7 @@ from biobb_common.tools import file_utils as fu
 import numpy as np
 import json
 import jsonschema
+from contextlib import contextmanager
 
 
 def test_setup(test_object, dict_key: Optional[str] = None, config: Optional[str] = None):
@@ -411,3 +412,13 @@ def validate_json(json_file_path: Union[str, Path], json_schema_path: Union[str,
     except json.JSONDecodeError as je:
         print(f"Invalid JSON format: {je.msg}")
         return False
+
+
+@contextmanager
+def raises(exc=Exception):
+    """Context manager to assert that an exception is raised."""
+    try:
+        yield
+    except exc:
+        return
+    raise AssertionError(f"Expected {exc.__name__} to be raised")

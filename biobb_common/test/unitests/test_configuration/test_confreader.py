@@ -13,9 +13,12 @@ class TestConfReader():
 
     def test_confreader_properties(self):
         print()  # Add a new line for better readability in the console
-        for file_name in ['config_complete', 'config_empty', 'config_nostep', 'config_nostep_globals']:
+        for file_name in ['config_complete', 'config_empty', 'config_nostep', 'config_nostep_globals', 'config_nostep_json']:
             conf = ConfReader(self.paths[file_name])
             assert fx.compare_object_pickle(conf.get_prop_dic(), self.paths[f'ref_{file_name}_pkl'], ignore_keys=['path', 'working_dir_path', 'sandbox_path', 'global_properties_list'])
+
+        with fx.raises(Exception):
+            conf = ConfReader(self.paths['config_incomplete'])
 
     def test_confreader_paths(self):
         print()  # Add a new line for better readability in the console

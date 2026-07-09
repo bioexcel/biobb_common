@@ -52,6 +52,8 @@ class ConfReader:
         system (str): System name from the systems section in the configuration file.
     """
 
+    first_level_keys = ["global_properties", "paths", "properties", "tool"]
+
     def __init__(self, config: Optional[str] = None, *args, **kwargs):
         self.properties = self._read_config(config)
         self.global_properties = self._get_global_properties()
@@ -92,8 +94,21 @@ class ConfReader:
         # "/home/user/workflow_configuration.yaml#Editconf"
         if len(config_tokens) > 1:
             return config_dict[config_tokens[1]]
-
+        self._check_config(config_dict)
         return config_dict
+
+    def _check_config(self, config: dict[str, Any]) -> None:
+        """_check_config() checks the configuration file and raises an exception if the configuration is not valid.
+        """
+        if not isinstance(config, dict):
+            raise Exception(f"Configuration file {config} is not a valid dictionary.")
+        for key in config:
+            if key in self.first_level_keys:
+                continue
+            if not isinstance(config[key], dict):
+                raise Exception(f"Configuration {config} is not a valid. The only first-level keys allowed are:\n"
+                                f"{', '.join(self.first_level_keys)}, or a step name, in which case the content should be a\n"
+                                f"dictionary with the {'/'.join(self.first_level_keys[1:])} keys.")
 
     def _get_global_properties(self) -> dict[str, Any]:
         """_get_global_properties() returns the global properties of the configuration file.
