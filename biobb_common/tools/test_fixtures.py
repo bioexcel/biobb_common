@@ -146,6 +146,9 @@ def equal(file_a: str, file_b: str, ignore_list: Optional[list[Union[str, int]]]
     if file_a.endswith(".xvg") and file_b.endswith(".xvg"):
         return compare_xvg(file_a, file_b, kwargs.get('percent_tolerance', 1.0))
 
+    if file_a.endswith((".csv", ".tsv")) and file_b.endswith((".csv", ".tsv")):
+        return compare_csv(file_a, file_b, delimiter=kwargs.get('delimiter'), percent_tolerance=kwargs.get('percent_tolerance', 1.0))
+
     image_extensions = ('.png', '.jfif', '.ppm', '.tiff', '.jpg', '.dib', '.pgm', '.bmp', '.jpeg', '.pbm', '.jpe', '.apng', '.pnm', '.gif', '.tif')
     if file_a.endswith(image_extensions) and file_b.endswith(image_extensions):
         return compare_images(file_a, file_b, kwargs.get('percent_tolerance', 1.0))
@@ -286,6 +289,80 @@ def compare_xvg(file_a: str, file_b: str, percent_tolerance: float = 1.0) -> boo
     for array_a, array_b in zip(arrays_tuple_a, arrays_tuple_b):
         if not np.allclose(array_a, array_b, rtol=percent_tolerance / 100):
             return False
+    return True
+
+
+def compare_csv(file_a: str, file_b: str,
+                delimiter: Optional[str] = None,
+                percent_tolerance: float = 1.0,
+                ignore_headers: bool = False) -> bool:
+    """ Compare two CSV-like files cell by cell.
+
+    Numeric cells are compared using a relative tolerance while non-numeric
+    cells (headers, string columns) are compared exactly. The delimiter is
+    auto-detected from the file extension when not provided (``\\t`` for
+    ``.tsv``, ``,`` otherwise).
+
+    To handle whitespace-aligned files where columns are separated by a
+    variable number of spaces/tabs, pass ``delimiter="whitespace"`` (or
+    ``"\\s"``). Consecutive whitespace is then collapsed into a single
+    separator instead of producing empty columns.
+
+    Args:
+        file_a (str): Path to the first file.
+        file_b (str): Path to the second file.
+        delimiter (str): Field delimiter. If ``None`` it is inferred from the extension.
+            Use ``"whitespace"`` / ``"\\s"`` to split on runs of whitespace.
+        percent_tolerance (float): Relative tolerance (in percent) for numeric cells.
+        ignore_headers (bool): Whether to ignore the first row (headers).
+    Returns:
+        bool: True if both files are equal within tolerance.
+    """
+    import csv
+
+    print("Comparing CSV-like files:")
+    print(f"     FILE_A: {file_a}")
+    print(f"     FILE_B: {file_b}")
+
+    if delimiter is None:
+        delimiter = '\t' if file_a.endswith(".tsv") else ','
+
+    # Whitespace mode: split on any run of whitespace (spaces and/or tabs).
+    whitespace_mode = delimiter in ("whitespace", r"\s") or (delimiter.strip() == "" and delimiter != "")
+
+    def read_rows(file_path: str) -> list[list[str]]:
+        with open(file_path, newline='') as f:
+            if whitespace_mode:
+                return [line.split() for line in f if line.strip()]
+            return [row for row in csv.reader(f, delimiter=delimiter)]
+
+    rows_a = read_rows(file_a)
+    rows_b = read_rows(file_b)
+
+    if len(rows_a) != len(rows_b):
+        print(f"     Different number of rows: {len(rows_a)} vs {len(rows_b)}")
+        return False
+
+    for row_index, (row_a, row_b) in enumerate(zip(rows_a, rows_b)):
+        if ignore_headers and row_index == 0:
+            continue
+        if len(row_a) != len(row_b):
+            print(f"     Different number of columns at row {row_index + 1}: {len(row_a)} vs {len(row_b)}")
+            return False
+        for col_index, (cell_a, cell_b) in enumerate(zip(row_a, row_b)):
+            cell_a = cell_a.strip()
+            cell_b = cell_b.strip()
+            if cell_a == cell_b:
+                continue
+            try:
+                value_a = float(cell_a)
+                value_b = float(cell_b)
+            except ValueError:
+                print(f"     Difference at row {row_index + 1}, column {col_index + 1}: '{cell_a}' != '{cell_b}'")
+                return False
+            if not np.isclose(value_a, value_b, rtol=percent_tolerance / 100):
+                print(f"     Difference at row {row_index + 1}, column {col_index + 1}: {value_a} != {value_b} (tolerance {percent_tolerance}%)")
+                return False
     return True
 
 
