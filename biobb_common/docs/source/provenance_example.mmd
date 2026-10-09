@@ -1,0 +1,15 @@
+flowchart TD
+    step0["1: Pdb2gmx"]:::step
+    step1["2: Editconf"]:::step
+    file0[/"egfr.pdb"/]:::file
+    file1[/"pdb2gmx.gro"/]:::file
+    file2[/"pdb2gmx_top.zip"/]:::file
+    file3[/"editconf.gro"/]:::file
+    file0 --> step0
+    step0 --> file1
+    step0 --> file2
+    file1 --> step1
+    step1 --> file3
+    classDef step fill:#dbeafe,stroke:#1d4ed8
+    classDef failed fill:#fee2e2,stroke:#b91c1c
+    classDef file fill:#f3f4f6,stroke:#6b7280
