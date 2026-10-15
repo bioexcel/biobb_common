@@ -111,3 +111,6 @@ traj_comp.xtc
 
 # Pytest
 .pytest_cache/
+
+# Claude
+.claude/

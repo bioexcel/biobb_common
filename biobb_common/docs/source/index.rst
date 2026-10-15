@@ -17,6 +17,7 @@ Contents
 
    Introduction & installation <readme>
    Global Properties <global_properties>
+   Provenance <provenance>
    API Documentation <modules>
    Changelog <change_log>
 

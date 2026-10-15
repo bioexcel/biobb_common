@@ -19,11 +19,13 @@ setuptools.setup(
     },
     packages=setuptools.find_packages(exclude=["docs"]),
     package_data={'biobb_common': ['py.typed']},
-    install_requires=["pyyaml", "requests", "biopython", "jsonschema"],
+    install_requires=["pyyaml", "requests", "biopython", "jsonschema", "rocrate"],
+    extras_require={"graph": ["graphviz"]},
     python_requires='>=3.10',
     entry_points={
         "console_scripts": [
             "folder_test = biobb_common.generic.folder_test:main",
+            "biobb_provenance = biobb_common.provenance.cli:main",
         ]
     },
     classifiers=[

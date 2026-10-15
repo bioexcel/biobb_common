@@ -36,3 +36,20 @@ folder_test:
     file_prefix: new
     remove_tmp: False
 
+
+provenance:
+  paths:
+    input_folder: file:test_data_dir/generic/input_folder
+    output_folder: output_folder
+
+  properties:
+    n: 2
+    remove_tmp: False
+
+workflow_provenance:
+  paths:
+    input_folder: file:test_data_dir/generic/input_folder
+
+  properties:
+    n: 1
+    remove_tmp: False

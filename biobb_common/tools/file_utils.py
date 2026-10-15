@@ -368,9 +368,12 @@ def launchlogger(func):
     """Decorator to create the out_log and err_log"""
     @functools.wraps(func)
     def wrapper_log(*args, **kwargs):
+        # Imported here to avoid a circular import
+        from biobb_common.provenance import track
+
         create_dir(create_name(path=args[0].path))
         if args[0].disable_logs:
-            return func(*args, **kwargs)
+            return track(args[0], func, *args, **kwargs)
 
         # Create local out_log and err_log
         args[0].out_log, args[0].err_log = get_logs(
@@ -383,8 +386,8 @@ def launchlogger(func):
             err_log_path=args[0].err_log_path
         )
 
-        # Run the function and capture its return value
-        value = func(*args, **kwargs)
+        # Run the function, record its provenance if enabled and capture its return value
+        value = track(args[0], func, *args, **kwargs)
 
         # Close and remove handlers from out_log and err_log
         for log in [args[0].out_log, args[0].err_log]:

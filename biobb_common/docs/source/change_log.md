@@ -1,5 +1,9 @@
 # Biobb_common ChangeLog
 
+## What's new in the next version?
+
+* [FEATURE] Block and workflow [provenance](https://biobb-common.readthedocs.io/en/latest/provenance.html) as RO-Crates: `provenance` and `provenance_path` properties, `workflow_provenance` context manager and `biobb_provenance` command line tool to merge, draw and validate the crates.
+* [UPDATE] New dependency: `rocrate`. Optional: `graphviz` (`pip install biobb_common[graph]` or `conda install python-graphviz`) to draw the provenance graphs as images.
 
 ## What's new in version [5.3.1](https://github.com/bioexcel/biobb_common/releases/tag/v5.3.1)?
 
