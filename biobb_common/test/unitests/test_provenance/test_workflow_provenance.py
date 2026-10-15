@@ -71,6 +71,19 @@ class TestWorkflowProvenance():
         assert len(of_type(graph, "HowToStep")) == 1
         assert (tmp_path / "copied_context").as_uri() + "/" in graph
 
+    def test_block_crates_in_workflow_dir(self, tmp_path):
+        steps = {"step1": {"path": str(tmp_path / "step1"), "step": "step1"},
+                 "step2": {"path": str(tmp_path / "step2"), "step": "step2", "provenance_path": str(tmp_path / "custom")}}
+        with workflow_provenance(path=tmp_path / "wf", workflow_file=__file__):
+            folder_test(input_folder=self.paths['input_folder'], output_folder=str(tmp_path / "out1"), properties=steps["step1"])
+            folder_test(input_folder=str(tmp_path / "out1"), output_folder=str(tmp_path / "out2"), properties=steps["step2"])
+        # Next to the workflow crate, not in the step directories, unless provenance_path is set
+        assert [p.parents[1] for p in find_block_crates(tmp_path / "wf")] == [tmp_path / "wf" / "provenance"]
+        assert not (tmp_path / "step1" / "provenance").exists()
+        assert len(list((tmp_path / "custom").glob("step2_FolderTest_*"))) == 1
+        graph = entities(tmp_path / "wf" / "ro-crate-metadata.json")
+        assert sorted(s["name"] for s in of_type(graph, "HowToStep")) == ["step1", "step2"]
+
     def test_nested(self, tmp_path):
         with workflow_provenance(path=tmp_path / "outer", workflow_file=__file__):
             folder_test(input_folder=self.paths['input_folder'], output_folder=str(tmp_path / "out1"), properties={"path": str(tmp_path)})
@@ -174,7 +187,8 @@ class TestWorkflowProvenance():
 
     def test_graph(self):
         graph = read_graph(self.properties['path'])
-        assert [s.label for s in graph.steps] == ["1: FolderTest", "2: FolderTest"]
+        # Labelled by the step name of the configuration
+        assert [s.label for s in graph.steps] == ["1: workflow_provenance", "2: workflow_provenance"]
         assert sorted(graph.files.values()) == ["input_folder", "step1_out", "step2_out"]
         step0, step1 = (s.id for s in graph.steps)
         assert graph.edges == [(self.input_uri, step0), (step0, "step1_out/"), ("step1_out/", step1), (step1, "step2_out/")]

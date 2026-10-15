@@ -52,6 +52,8 @@ class BlockRecord:
     author: Optional[dict[str, str]] = None
     # Execution skipped by the restart property, the outputs come from a previous execution
     skipped: bool = False
+    # Step name in the workflow configuration file, ie: step3_sander_mdrun_minH
+    step: Optional[str] = None
 
     @property
     def completed(self) -> bool:
@@ -86,6 +88,7 @@ class BlockRecord:
             wrapped_software=None if skipped else wrapped_software(obj),
             environment={} if skipped else execution_environment(),
             author=_author(getattr(obj, "provenance_author", None)),
+            step=getattr(obj, "step", None) or None,
             skipped=skipped,
         )
 

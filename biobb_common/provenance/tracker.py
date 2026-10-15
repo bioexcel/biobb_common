@@ -1,5 +1,6 @@
 """Module containing the function that records the provenance of a building block execution."""
 import json
+import re
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime
@@ -11,22 +12,31 @@ from biobb_common.tools import file_utils as fu
 # Lists where the paths of the written block crates are appended, one per active collect() context.
 # A ContextVar, so blocks running in other threads are not collected (see collect).
 _collectors: ContextVar[tuple[list[Path], ...]] = ContextVar("biobb_provenance_collectors", default=())
+# Directory of the block crates without provenance_path property, set by the innermost collect() context
+_default_dir: ContextVar[Optional[Path]] = ContextVar("biobb_provenance_dir", default=None)
 
 
 @contextmanager
-def collect() -> Iterator[list[Path]]:
+def collect(directory: Optional[Path] = None) -> Iterator[list[Path]]:
     """Enable the provenance of all the building blocks executed inside the
     context and collect the paths of their ro-crate-metadata.json files.
 
     Nested contexts collect the blocks of the inner contexts too. Blocks running
     in other threads are only collected if the thread runs in a copy of the
     context, ie: ``executor.submit(contextvars.copy_context().run, block, ...)``.
+
+    Args:
+        directory (Path): (None) Directory of the block crates of the blocks
+            without provenance_path property, by default <path or cwd>/provenance.
     """
     collected: list[Path] = []
     token = _collectors.set(_collectors.get() + (collected,))
+    dir_token = _default_dir.set(Path(directory).resolve()) if directory else None
     try:
         yield collected
     finally:
+        if dir_token:
+            _default_dir.reset(dir_token)
         _collectors.reset(token)
 
 
@@ -59,13 +69,22 @@ def track(obj, func: Callable, *args, **kwargs) -> Any:
 
 
 def provenance_dir(obj) -> Path:
-    """Return the directory of the block RO-Crates: <path or cwd>/provenance"""
-    return (Path(obj.path) if getattr(obj, "path", "") else Path.cwd()) / "provenance"
+    """Return the directory of the block RO-Crates: the provenance_path property, the
+    directory of the active workflow_provenance context or <path or cwd>/provenance."""
+    if getattr(obj, "provenance_path", None):
+        return Path(obj.provenance_path).resolve()
+    return _default_dir.get() or (Path(obj.path) if getattr(obj, "path", "") else Path.cwd()) / "provenance"
+
+
+def crate_name(obj) -> str:
+    """Return the prefix of the block crate directories: <step>_<ClassName> or <ClassName>."""
+    step = re.sub(r"[^A-Za-z0-9.-]+", "_", str(getattr(obj, "step", "") or "")).strip("_")
+    return f"{step}_{type(obj).__name__}" if step else type(obj).__name__
 
 
 def crate_dir(obj, start_time: datetime) -> Path:
-    """Return the directory of the block RO-Crate: <path or cwd>/provenance/<ClassName>_<timestamp>"""
-    return provenance_dir(obj) / f"{type(obj).__name__}_{start_time.strftime('%Y%m%d-%H%M%S-%f')}"
+    """Return the directory of the block RO-Crate: <provenance_dir>/<crate_name>_<timestamp>"""
+    return provenance_dir(obj) / f"{crate_name(obj)}_{start_time.strftime('%Y%m%d-%H%M%S-%f')}"
 
 
 def previous_crate(obj) -> Optional[Path]:
@@ -75,7 +94,7 @@ def previous_crate(obj) -> Optional[Path]:
     from biobb_common.provenance.record import output_uris
 
     outputs = output_uris(obj)
-    for metadata_path in sorted(provenance_dir(obj).glob(f"{type(obj).__name__}_*/ro-crate-metadata.json"), reverse=True):
+    for metadata_path in sorted(provenance_dir(obj).glob(f"{crate_name(obj)}_*/ro-crate-metadata.json"), reverse=True):
         try:
             graph = json.loads(metadata_path.read_text())["@graph"]
         except (OSError, ValueError, KeyError):

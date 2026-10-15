@@ -97,7 +97,8 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     for position, action in enumerate(step_actions):
         step = crate.add(ContextEntity(crate, f"#step-{position}", properties={
             "@type": "HowToStep",
-            "name": action["name"].removeprefix("Run of "),
+            # Step name of the workflow configuration file, or the building block name
+            "name": action.get("alternateName") or action["name"].removeprefix("Run of "),
             "position": str(position),
             "workExample": action["instrument"],
         }))
@@ -182,7 +183,8 @@ def workflow_provenance(path: Union[str, Path] = ".", name: Optional[str] = None
     """
     if workflow_file is None:
         workflow_file = getattr(sys.modules.get("__main__"), "__file__", None)
-    with tracker.collect() as block_crates:
+    # Block crates next to the workflow crate, unless the blocks set provenance_path
+    with tracker.collect(Path(path) / "provenance") as block_crates:
         try:
             yield
         finally:

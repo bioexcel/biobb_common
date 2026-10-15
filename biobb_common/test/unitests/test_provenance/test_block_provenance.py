@@ -1,6 +1,7 @@
 # type: ignore
 import hashlib
 import json
+import re
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
@@ -32,7 +33,13 @@ class WrappingFolderTest(FolderTest):
 
 def read_crates(path, class_name="*"):
     """Return the block crates written in path, oldest first."""
-    return [json.loads(p.read_text()) for p in sorted(Path(path).glob(f"provenance/{class_name}_*/ro-crate-metadata.json"))]
+    return [json.loads((p / "ro-crate-metadata.json").read_text()) for p in crate_dirs(path, class_name)]
+
+
+def crate_dirs(path, class_name="*"):
+    """Return the block crate directories (<step>_<ClassName>_<timestamp>) written in path, oldest first."""
+    pattern = re.compile(rf"^(.+_)?{'.+' if class_name == '*' else class_name}_\d{{8}}-")
+    return sorted(p for p in Path(path).glob("provenance/*") if pattern.match(p.name))
 
 
 def entities(crate):
@@ -66,6 +73,9 @@ class TestBlockProvenance():
         action, = actions(crate)
         assert action["actionStatus"] == "http://schema.org/CompletedActionStatus"
         assert action["startTime"] <= action["endTime"]
+        # Step name of the configuration, also in the crate directory name
+        assert action["alternateName"] == "provenance"
+        assert crate_dirs(self.properties['path'], "FolderTest")[-1].name.startswith("provenance_FolderTest_")
 
         instrument = graph[action["instrument"]["@id"]]
         assert instrument["@type"] == "SoftwareApplication"
@@ -116,8 +126,15 @@ class TestBlockProvenance():
         assert action["error"] == "RuntimeError: Something went wrong"
         # Outputs not created are not recorded
         assert "result" not in action
-        failed_crate_dir = sorted(Path(self.properties['path']).glob("provenance/FailingFolderTest_*"))[-1]
+        failed_crate_dir = crate_dirs(self.properties['path'], "FailingFolderTest")[-1]
         assert read_graph(failed_crate_dir).steps[0].failed
+
+    def test_provenance_path(self, tmp_path):
+        folder_test(properties={**self.properties, 'provenance': True, 'provenance_path': str(tmp_path / "shared")},
+                    input_folder=self.paths['input_folder'], output_folder="shared_out")
+        crate_dir, = (tmp_path / "shared").iterdir()
+        assert crate_dir.name.startswith("provenance_FolderTest_")
+        assert (crate_dir / "ro-crate-metadata.json").exists()
 
     def test_provenance_author(self):
         author = {"name": "Jane Doe", "orcid": "https://orcid.org/0000-0002-1825-0097",
@@ -139,11 +156,11 @@ class TestBlockProvenance():
         properties = {**self.properties, 'provenance': True}
         paths = {"input_folder": self.paths['input_folder'], "output_folder": "restart_out"}
         folder_test(properties=properties, **paths)
-        crates_before = sorted(Path(self.properties['path']).glob("provenance/FolderTest_*"))
+        crates_before = crate_dirs(self.properties['path'], "FolderTest")
         with tracker.collect() as collected:
             folder_test(properties={**properties, 'restart': True}, **paths)
         # No new crate, the one of the previous execution is reused
-        assert sorted(Path(self.properties['path']).glob("provenance/FolderTest_*")) == crates_before
+        assert crate_dirs(self.properties['path'], "FolderTest") == crates_before
         assert collected == [crates_before[-1] / "ro-crate-metadata.json"]
 
     def test_restart_without_previous_crate(self):

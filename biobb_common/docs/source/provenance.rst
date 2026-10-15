@@ -39,9 +39,11 @@ or for all the blocks using the :doc:`global properties <global_properties>`:
 
 From the command line, add ``provenance: true`` to the configuration file passed with ``--config``.
 
-Each execution writes its crate to ``<path>/provenance/<ClassName>_<timestamp>/ro-crate-metadata.json``,
-where ``<path>`` is the ``path`` property of the block or the current directory, together with an HTML
-preview (``ro-crate-preview.html``). Input and output files are referenced by their absolute
+Each execution writes its crate to ``<provenance_path>/<step>_<ClassName>_<timestamp>/ro-crate-metadata.json``,
+together with an HTML preview (``ro-crate-preview.html``). ``<provenance_path>`` is the
+``provenance_path`` property or, by default, ``<path>/provenance``, where ``<path>`` is the ``path``
+property of the block or the current directory. ``<step>`` is the step name of the configuration file
+(ie: ``step3_sander_mdrun_minH``), omitted when the block has none. Input and output files are referenced by their absolute
 ``file://`` URI and never copied.
 Block crates are therefore a record tied to the machine where the block ran. To move or share the
 provenance, use a workflow crate (see below), which references the files inside its directory with
@@ -70,6 +72,9 @@ Property                    Default     Description
                                         identifier (ie: ``"MIT"``) or URL. Only read as a global property
                                         (or the ``license`` argument of ``workflow_provenance``,
                                         ``--license`` of ``biobb_provenance merge``).
+``provenance_path``         ``None``    Directory of the block crates, by default ``<path>/provenance``
+                                        (``<workflow path>/provenance`` inside ``workflow_provenance``).
+                                        Set it as a global property to share it between the steps.
 =========================== =========== =======================================================================
 
 .. code-block:: python
@@ -112,6 +117,8 @@ Run the building blocks inside the ``workflow_provenance`` context manager:
 
 The context manager enables provenance for all the blocks executed inside it and, on exit, writes
 ``wf_output/ro-crate-metadata.json``, a ``README.md`` and an HTML preview (``ro-crate-preview.html``).
+The block crates are written to ``wf_output/provenance/``, unless the blocks set ``provenance_path``,
+so the workflow crate and its block crates are in the same directory.
 Existing ``README.md`` or ``ro-crate-preview.html`` files not written by biobb are never overwritten.
 The workflow script (by default the script being executed) is copied into the crate directory. Files
 inside the crate directory are referenced with relative paths, so the directory can be moved or shared
@@ -223,8 +230,9 @@ Entity                      Content
                             ``provenance_license``, ``license``.
 ``FormalParameter``         One per workflow input and output, linked from the files with
                             ``exampleOfWork``.
-``HowToStep``               One per block execution, with its ``position`` and the block as
-                            ``workExample``.
+``HowToStep``               One per block execution, with its ``position``, the block as
+                            ``workExample`` and, as ``name``, the step name of the configuration file
+                            (the ``alternateName`` of the block ``CreateAction``) or the block name.
 ``ControlAction``           Links each ``HowToStep`` with the ``CreateAction`` of the block execution.
 ``CreateAction``            ``#workflow-run``: the whole execution. Its inputs are the files no step
                             produced and its outputs the files no step consumed. The authors of the

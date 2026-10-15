@@ -93,11 +93,12 @@ def write_preview(crate_dir: Union[str, Path]) -> Path:
     html.append(f'<script type="module">import mermaid from "{MERMAID_JS}"; mermaid.initialize({{startOnLoad: true}});</script>')
 
     html.append("<h2>Executions</h2>")
-    html.append("<table><tr><th>Name</th><th>Status</th><th>Start</th><th>End</th><th>Software</th></tr>")
+    html.append("<table><tr><th>Name</th><th>Step</th><th>Status</th><th>Start</th><th>End</th><th>Software</th></tr>")
     for action in _actions(entities):
         failed = "Failed" in action.get("actionStatus", "")
         html.append(
             f'<tr><td><a href="#{_anchor(action["@id"])}">{escape(action.get("name", action["@id"]))}</a></td>'
+            f'<td>{escape(action.get("alternateName", ""))}</td>'
             f'<td class="{"failed" if failed else ""}">{"Failed" if failed else "Completed"}</td>'
             f"<td>{escape(action.get('startTime', ''))}</td><td>{escape(action.get('endTime', ''))}</td>"
             f"<td>{escape(_software(action, entities))}</td></tr>"
@@ -157,11 +158,11 @@ def write_readme(crate_dir: Union[str, Path]) -> Path:
         lines += [f"- Status: {status}", f"- Start: {run.get('startTime', '')}", f"- End: {run.get('endTime', '')}"]
     if "author" in root:
         lines.append("- Author: " + ", ".join(entities.get(a["@id"], a).get("name", a["@id"]) for a in as_list(root["author"])))
-    lines += ["", "## Steps", "", "| # | Building block | Status | Start | End |", "|---|---|---|---|---|"]
+    lines += ["", "## Steps", "", "| # | Step | Building block | Status | Start | End |", "|---|---|---|---|---|---|"]
     for position, action in enumerate((a for a in _actions(entities) if a["@id"] != "#workflow-run"), start=1):
         status = "failed" if "Failed" in action.get("actionStatus", "") else "completed"
         block = entities.get(action["instrument"]["@id"], {}).get("name", action["instrument"]["@id"])
-        lines.append(f"| {position} | {block} | {status} | {action.get('startTime', '')} | {action.get('endTime', '')} |")
+        lines.append(f"| {position} | {action.get('alternateName', '')} | {block} | {status} | {action.get('startTime', '')} | {action.get('endTime', '')} |")
     for title, key in (("Inputs", "object"), ("Outputs", "result")):
         lines += ["", f"## {title}", ""]
         lines += [f"- `{ref['@id']}`" for ref in as_list(run.get(key))] or ["None"]

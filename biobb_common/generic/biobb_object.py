@@ -69,6 +69,7 @@ class BiobbObject:
             * **provenance_author** (*dict*) - (None) [WF property] Author of the provenance RO-Crate: {"name": str, "orcid": str, "affiliation": str, "affiliation_url": str}, only name is required.
             * **provenance_checksum** (*bool*) - (False) [WF property] Add the sha256 checksum of the input and output files to the provenance RO-Crate.
             * **provenance_license** (*str*) - (None) [WF property] License of the workflow script in the workflow provenance RO-Crate: SPDX id (ie: "MIT") or URL.
+            * **provenance_path** (*str*) - (None) [WF property] Directory of the provenance RO-Crates, by default <path>/provenance (<workflow path>/provenance inside workflow_provenance).
 
 
     """
@@ -124,6 +125,7 @@ class BiobbObject:
         self.provenance_author: Optional[dict] = properties.get("provenance_author", None)
         self.provenance_checksum: bool = properties.get("provenance_checksum", False)
         self.provenance_license: Optional[str] = properties.get("provenance_license", None)
+        self.provenance_path: Optional[str] = properties.get("provenance_path", None)
         self.locals_var_dict: dict[str, str] = dict()
         self.doc_arguments_dict, self.doc_properties_dict = fu.get_doc_dicts(self.__doc__)
 

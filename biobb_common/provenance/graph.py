@@ -40,7 +40,7 @@ def read_graph(crate_dir: Union[str, Path]) -> ProvenanceGraph:
     for position, action in enumerate(actions, start=1):
         instrument = entities.get(action["instrument"]["@id"], {})
         # "biobb_gromacs Pdb2gmx" -> "Pdb2gmx"
-        label = instrument.get("name", action["name"]).split()[-1]
+        label = action.get("alternateName") or instrument.get("name", action["name"]).split()[-1]
         graph.steps.append(Step(id=action["@id"], label=f"{position}: {label}", failed=action.get("actionStatus") == FAILED))
         for key, is_input in (("object", True), ("result", False)):
             for ref in as_list(action.get(key)):

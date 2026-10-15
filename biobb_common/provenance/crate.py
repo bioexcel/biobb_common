@@ -113,6 +113,7 @@ def write_block_crate(record: BlockRecord, crate_dir: Union[str, Path]) -> Path:
         "@type": "CreateAction",
         "name": f"Run of {record.package} {record.class_name}",
         "description": _action_description(record),
+        **({"alternateName": record.step} if record.step else {}),
         "startTime": iso(record.start_time),
         "endTime": iso(record.end_time),
         "actionStatus": COMPLETED if record.completed else FAILED,
