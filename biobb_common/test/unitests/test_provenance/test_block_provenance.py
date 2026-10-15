@@ -14,6 +14,7 @@ from biobb_common.provenance import tracker
 from biobb_common.provenance.crate import PROCESS_RUN_CRATE, as_list, write_block_crate
 from biobb_common.provenance.graph import read_graph
 from biobb_common.provenance.record import BlockRecord, _edam_format, _file_records
+from biobb_common.provenance.software import WrappedSoftware
 from biobb_common.tools import test_fixtures as fx
 from biobb_common.tools.file_utils import launchlogger
 
@@ -189,6 +190,16 @@ def test_checksum(tmp_path):
                          start_time=datetime.now().astimezone(), end_time=datetime.now().astimezone(), inputs=[file_record])
     graph = entities(json.loads(write_block_crate(record, tmp_path / "crate").read_text()))
     assert graph[data.as_uri()]["sha256"] == file_record.sha256
+
+
+def test_wrapped_software_requirement(tmp_path):
+    record = BlockRecord(class_name="Test", module="biobb_test.test.test", package="biobb_test", package_version="1.0",
+                         start_time=datetime.now().astimezone(), end_time=datetime.now().astimezone(),
+                         wrapped_software=WrappedSoftware(name="AmberTools Reduce", version=None, requirement=">=20.0"))
+    graph = entities(json.loads(write_block_crate(record, tmp_path / "crate").read_text()))
+    software, = [e for e in graph.values() if e.get("name") == "AmberTools Reduce"]
+    assert "softwareVersion" not in software
+    assert software["description"] == "Version not detected, documented requirement: >=20.0"
 
 
 def test_edam_format():

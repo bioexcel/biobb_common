@@ -24,8 +24,6 @@ PACKAGE_NAMES = {
     "structure checking from mdweb": ("biobb_structure_checking",),
     "mddb workflow": ("mddb_workflow",),
 }
-# Container image tags that are not a version
-FLOATING_TAGS = {"latest", "stable", "main", "master", "dev", "nightly"}
 
 
 @dataclass
@@ -43,6 +41,8 @@ class WrappedSoftware:
     package: Optional[str] = None
     # Web page of the package (anaconda.org, project home page or PyPI)
     url: Optional[str] = None
+    # Documented version that is not an exact version, ie: ">=20.0"
+    requirement: Optional[str] = None
 
 
 def wrapped_software(obj) -> Optional[WrappedSoftware]:
@@ -51,17 +51,20 @@ def wrapped_software(obj) -> Optional[WrappedSoftware]:
     documented = documented_software(obj.__doc__)
     if not documented.get("name"):
         return None
+    documented_version = documented.get("version")
     software = WrappedSoftware(
         name=documented["name"],
-        version=documented.get("version"),
+        # Ranges (ie: ">=20.0") are not versions, recorded as requirement only
+        version=documented_version if is_version(documented_version) else None,
         license=documented.get("license"),
+        requirement=None if is_version(documented_version) else documented_version,
     )
 
     # Container execution: the image tag is the best version information available,
-    # floating tags (ie: latest) fall back to the documented version
+    # tags that are not versions (ie: latest, serial) fall back to the documented version
     if getattr(obj, "container_path", None) and getattr(obj, "container_image", None):
         tag = image_tag(obj.container_image)
-        if tag and tag.lower() not in FLOATING_TAGS:
+        if is_version(tag):
             software.version = tag
         return software
 
@@ -92,6 +95,12 @@ def wrapped_software(obj) -> Optional[WrappedSoftware]:
             return software
 
     return software
+
+
+def is_version(value: Optional[str]) -> bool:
+    """Return True if **value** is an exact version, ie: "2024.5", "v1.1.2", "2022.2--h1",
+    not a range (">=20.0"), a text or a container tag like "latest" or "serial"."""
+    return bool(value) and re.fullmatch(r"v?\d[\w.+-]*", str(value)) is not None
 
 
 def package_candidates(name: str) -> tuple[str, ...]:

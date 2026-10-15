@@ -223,9 +223,11 @@ def _add_wrapped_software(crate: ROCrate, record: BlockRecord):
         "license": software.license,
         "url": software.url,
     }
+    if not software.version and software.requirement:
+        properties["description"] = f"Version not detected, documented requirement: {software.requirement}"
     # Absolute id when the package page is known. The fragment keeps apart the tools of
     # the same package (ie: AmberTools Sander and tLeap) and their versions.
-    identifier = (software.url or "") + "#" + _slug(f"{software.name}-{software.version}")
+    identifier = (software.url or "") + "#" + _slug(f"{software.name}-{software.version or 'unknown'}")
     return crate.add(ContextEntity(crate, identifier, properties={k: v for k, v in properties.items() if v}))
 
 

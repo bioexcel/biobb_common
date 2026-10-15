@@ -8,7 +8,7 @@ from biobb_common.provenance import environment
 from biobb_common.provenance.crate import _image_reference
 from biobb_common.provenance.environment import execution_environment
 from biobb_common.provenance.record import image_digest
-from biobb_common.provenance.software import conda_package_of_file, documented_software, image_tag, package_candidates, wrapped_software
+from biobb_common.provenance.software import conda_package_of_file, documented_software, image_tag, is_version, package_candidates, wrapped_software
 
 DOC = """
     Info:
@@ -75,6 +75,15 @@ def test_wrapped_software_from_container(tmp_path):
     # Image without tag or with a floating tag: documented version
     assert wrapped_software(FakeBlock(container_path="/usr/bin/docker", container_image="gromacs/gromacs")).version == "2025.2"
     assert wrapped_software(FakeBlock(container_path="/usr/bin/docker", container_image="gromacs/gromacs:latest")).version == "2025.2"
+    # ie: afandiadib/ambertools:serial, default image of the AmberTools blocks
+    assert wrapped_software(FakeBlock(container_path="/usr/bin/docker", container_image="afandiadib/ambertools:serial")).version == "2025.2"
+
+
+def test_is_version():
+    for version in ("2025.2", "24.8", "v1.1.2-5b1-deb_cv1", "2022.2--h1", "3.16.3"):
+        assert is_version(version), version
+    for value in (">=20.0", "serial", "latest", "5.3 or later", "", None):
+        assert not is_version(value), value
 
 
 def test_image_tag(tmp_path):
@@ -127,6 +136,11 @@ def test_wrapped_software_from_documentation():
     software = wrapped_software(FakeBlock(name="Nonexistent Tool"))
     assert software.version == "2025.2"
     assert wrapped_software(FakeBlock(name="In house")) is None
+    # A documented range is not a version
+    block = FakeBlock(name="Nonexistent Tool")
+    block.__doc__ = block.__doc__.replace("version: 2025.2", "version: >=20.0")
+    software = wrapped_software(block)
+    assert (software.version, software.requirement) == (None, ">=20.0")
 
 
 def test_execution_environment():
