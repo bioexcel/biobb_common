@@ -141,6 +141,10 @@ class TestWorkflowProvenance():
         assert "# test workflow" in readme and "```mermaid" in readme
         preview = (path / "ro-crate-preview.html").read_text()
         assert preview.startswith(GENERATED_MARK) and "test workflow" in preview
+        for section in ("<h2>Files</h2>", "<h2>Software</h2>", "<h2>Execution environment</h2>", "<strong>Executions</strong>"):
+            assert section in preview
+        # Parameters are shown inline in the executions
+        assert "<code>n = 1</code>" in preview
         # Block crates have a preview too
         assert all((p.parent / "ro-crate-preview.html").exists() for p in find_block_crates(path))
         # README.md files not written by biobb are kept and not described in the crate

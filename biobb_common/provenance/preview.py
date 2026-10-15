@@ -2,6 +2,7 @@
 the HTML preview (ro-crate-preview.html) and the README.md of the workflow crates."""
 import hashlib
 import json
+import re
 from html import escape
 from pathlib import Path
 from typing import Any, Union
@@ -22,7 +23,30 @@ th { background: #f3f4f6; }
 code, .id { font-family: ui-monospace, monospace; font-size: .9em; overflow-wrap: anywhere; }
 .failed { color: #b91c1c; font-weight: bold; }
 details { margin-bottom: .5rem; }
+details details { margin-left: 1.2rem; }
 summary { cursor: pointer; }
+h3 summary { font-size: 1.1rem; }
+.muted { color: #6b7280; font-size: .85em; }
+"""
+# Groups of the entities list, by @type (the first matching group is used, entities sorted by type order)
+GROUPS = [
+    ("Executions", ("CreateAction", "ControlAction", "OrganizeAction")),
+    ("Workflow", ("ComputationalWorkflow", "HowToStep", "FormalParameter")),
+    ("Software", ("SoftwareApplication", "SoftwareSourceCode", "ComputerLanguage", "ContainerImage")),
+    ("Files and directories", ("File", "Dataset")),
+    ("People and organizations", ("Person", "Organization")),
+    ("Properties and environment", ("PropertyValue",)),
+]
+# Open the collapsed entity (and its group) targeted by a link
+OPEN_TARGET_JS = """
+function openTarget() {
+  const target = location.hash && document.getElementById(location.hash.slice(1));
+  for (let node = target; node; node = node.parentElement) if (node.tagName === "DETAILS") node.open = true;
+  // After the Mermaid graph is drawn, it changes the page height
+  if (target) setTimeout(() => target.scrollIntoView(), 500);
+}
+window.addEventListener("hashchange", openTarget);
+window.addEventListener("load", openTarget);
 """
 
 
@@ -80,14 +104,23 @@ def write_preview(crate_dir: Union[str, Path]) -> Path:
         )
     html.append("</table>")
 
+    html += _files_table(entities)
+    html += _software_table(entities)
+    html += _environment_table(entities)
+
     html.append("<h2>Entities</h2>")
-    for entity in entities.values():
-        types = ", ".join(as_list(entity.get("@type")))
-        html.append(f'<details id="{_anchor(entity["@id"])}"><summary><span class="id">{escape(entity["@id"])}</span> ({escape(types)})</summary><table>')
-        for key, value in entity.items():
-            if key not in ("@id", "@type"):
-                html.append(f"<tr><th>{escape(key)}</th><td>{_value(value, entities)}</td></tr>")
-        html.append("</table></details>")
+    for group, group_entities in _groups(entities).items():
+        html.append(f"<details><summary><strong>{escape(group)}</strong> ({len(group_entities)})</summary>")
+        for entity in group_entities:
+            types = ", ".join(as_list(entity.get("@type")))
+            html.append(f'<details id="{_anchor(entity["@id"])}"><summary>{escape(_label(entity))} <span class="muted">{escape(types)} · '
+                        f'<span class="id">{escape(entity["@id"])}</span></span></summary><table>')
+            for key, value in entity.items():
+                if key not in ("@id", "@type"):
+                    html.append(f"<tr><th>{escape(key)}</th><td>{_value(value, entities)}</td></tr>")
+            html.append("</table></details>")
+        html.append("</details>")
+    html.append(f"<script>{OPEN_TARGET_JS}</script>")
     html.append("</body></html>")
 
     preview_path = crate_dir / PREVIEW
@@ -159,12 +192,104 @@ def _software(action: dict, entities: dict[str, dict]) -> str:
     return ", ".join(names)
 
 
+def _files_table(entities: dict[str, dict]) -> list[str]:
+    files = sorted((e for e in entities.values() if {"File", "Dataset"} & set(as_list(e.get("@type"))) and e["@id"] not in ("./", "ro-crate-metadata.json")),
+                   key=lambda e: e["@id"])
+    if not files:
+        return []
+    html = ["<h2>Files</h2>", "<table><tr><th>Name</th><th>Location</th><th>Format</th><th>Size</th></tr>"]
+    for file in files:
+        size = file.get("contentSize")
+        html.append(f'<tr><td><a href="#{_anchor(file["@id"])}">{escape(_label(file))}</a></td><td class="id">{escape(file["@id"])}</td>'
+                    f'<td>{_value(file.get("encodingFormat", ""), entities)}</td><td>{_size(size) if size else ""}</td></tr>')
+    return html + ["</table>"]
+
+
+def _software_table(entities: dict[str, dict]) -> list[str]:
+    """Building blocks (and biobb_common as workflow engine) with the software they wrap."""
+    apps = [e for e in entities.values() if "SoftwareApplication" in as_list(e.get("@type"))]
+    wrapped = {r["@id"] for app in apps for r in as_list(app.get("softwareRequirements"))}
+    blocks = sorted((app for app in apps if app["@id"] not in wrapped), key=_label)
+    if not blocks:
+        return []
+    html = ["<h2>Software</h2>", "<table><tr><th>Building block</th><th>Version</th><th>Wrapped software</th><th>Version</th><th>License</th></tr>"]
+    for block in blocks:
+        cells = [f'<a href="#{_anchor(block["@id"])}">{escape(_label(block))}</a>', escape(_version(block)), "", "", ""]
+        for ref in as_list(block.get("softwareRequirements"))[:1]:
+            software = entities.get(ref["@id"], {"@id": ref["@id"]})
+            cells[2:] = [f'<a href="#{_anchor(software["@id"])}">{escape(_label(software))}</a>', escape(_version(software)),
+                         _value(software.get("license", ""), entities)]
+        html.append("<tr>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
+    return html + ["</table>"]
+
+
+def _version(software: dict) -> str:
+    return str(software.get("softwareVersion") or software.get("version") or "")
+
+
+def _environment_table(entities: dict[str, dict]) -> list[str]:
+    """Execution environment values, with the number of executions that used each one."""
+    counts: dict[str, int] = {}
+    for action in entities.values():
+        for ref in as_list(action.get("executionEnvironment")):
+            counts[ref["@id"]] = counts.get(ref["@id"], 0) + 1
+    if not counts:
+        return []
+    executions = max(counts.values())
+    html = ["<h2>Execution environment</h2>", "<table><tr><th>Name</th><th>Value</th></tr>"]
+    for env_id in sorted(counts, key=lambda i: entities.get(i, {}).get("name", i)):
+        env = entities.get(env_id, {})
+        note = f' <span class="muted">({counts[env_id]} of {executions} executions)</span>' if counts[env_id] != executions else ""
+        name, value = str(env.get("name", env_id)), env.get("value", "")
+        if name.endswith("_bytes") and str(value).isdigit():
+            value = _size(value)
+        html.append(f"<tr><th>{escape(name)}</th><td>{escape(str(value))}{note}</td></tr>")
+    return html + ["</table>"]
+
+
+def _groups(entities: dict[str, dict]) -> dict[str, list[dict]]:
+    """Return the entities grouped by kind and sorted by label, crate metadata last."""
+    groups: dict[str, list[dict]] = {name: [] for name, _ in GROUPS}
+    groups["Crate metadata"] = []
+    for entity in entities.values():
+        types = set(as_list(entity.get("@type")))
+        group = "Crate metadata" if entity["@id"] in ("./", "ro-crate-metadata.json") else \
+            next((name for name, group_types in GROUPS if types & set(group_types)), "Crate metadata")
+        groups[group].append(entity)
+    order = {t: i for _, group_types in GROUPS for i, t in enumerate(group_types)}
+
+    def key(entity: dict) -> tuple:
+        rank = min((order.get(t, len(order)) for t in as_list(entity.get("@type"))), default=len(order))
+        # Steps and control actions in workflow order (#step-2 before #step-10), the rest by start time and name
+        if {"HowToStep", "ControlAction"} & set(as_list(entity.get("@type"))):
+            return rank, "", int(re.sub(r"\D", "", entity["@id"]) or 0), ""
+        return rank, entity.get("startTime", ""), 0, _label(entity)
+    return {name: sorted(members, key=key) for name, members in groups.items() if members}
+
+
+def _label(entity: dict) -> str:
+    return str(entity.get("name") or entity["@id"])
+
+
+def _size(size: Any) -> str:
+    size = float(size)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return ""
+
+
 def _value(value: Any, entities: dict[str, dict]) -> str:
-    """Return a property value as HTML, references to entities of the crate as links."""
+    """Return a property value as HTML, references to entities of the crate as links
+    and property values (parameters, environment) inline as name = value."""
     if isinstance(value, list):
         return "<br>".join(_value(v, entities) for v in value)
     if isinstance(value, dict) and "@id" in value:
         entity_id = value["@id"]
+        entity = entities.get(entity_id, {})
+        if "PropertyValue" in as_list(entity.get("@type")):
+            return f'<code>{escape(str(entity.get("name")))} = {escape(str(entity.get("value")))}</code>'
         label = escape(str(entities.get(entity_id, {}).get("name", entity_id)))
         if entity_id in entities:
             return f'<a href="#{_anchor(entity_id)}">{label}</a>'
