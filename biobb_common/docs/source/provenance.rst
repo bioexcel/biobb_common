@@ -14,7 +14,9 @@ following the `Workflow Run RO-Crate <https://www.researchobject.org/workflow-ru
   `Provenance Run Crate <https://w3id.org/ro/wfrun/provenance/0.5>`_ with the workflow script, its
   steps and the files linking them.
 
-Provenance is disabled by default. Hostname and username are never recorded.
+Provenance is disabled by default. The hostname and the username are not recorded as metadata, but
+file paths are recorded as they are: absolute paths in file ids, command lines and properties (ie:
+``/home/<user>/project/structure.pdb``) can contain them. Review the crates before publishing them.
 
 Block provenance
 ----------------
@@ -150,6 +152,19 @@ Block crates can also be merged afterwards, ie: when the steps run in different 
 
     merge_block_crates(find_block_crates('wf_output'), 'wf_output', workflow_file='workflow.py')
 
+Example
+~~~~~~~
+
+Workflow crate of the `AMBER MD setup <https://github.com/bioexcel/biobb_wf_amber>`_ workflow
+(25 steps of biobb_chemistry, biobb_structure_utils, biobb_amber and biobb_analysis, with short
+simulations), run with ``workflow_provenance``:
+
+- `HTML preview <_static/provenance_example/ro-crate-preview.html>`_ (``ro-crate-preview.html``)
+- `RO-Crate metadata <_static/provenance_example/ro-crate-metadata.json>`_ (``ro-crate-metadata.json``)
+
+The local paths of the execution were replaced by ``/home/user/amber_md_setup`` and
+``/opt/conda/envs/biobb_wf_amber``.
+
 Command line
 ------------
 
@@ -248,9 +263,9 @@ Wrapped software version
 
 The version of the wrapped software is detected from the first available source:
 
-1. **container**: the tag of the container image, when the block runs in a container. Floating tags
-   (``latest``, ``stable``...) are not versions and fall back to the documented version; the image
-   digest is recorded in the ``ContainerImage``.
+1. **container**: the tag of the container image, when the block runs in a container. Tags that are
+   not versions (``latest``, ``serial``...) fall back to the documented version; the image digest is
+   recorded in the ``ContainerImage``.
 2. **conda**: the conda package that installed the binary (``binary_path``), read from the
    ``conda-meta`` directory of its environment without executing it.
 3. **python** or **conda**: the Python distribution or conda package matching the first word of the
@@ -258,6 +273,10 @@ The version of the wrapped software is detected from the first available source:
    package name are mapped in ``PACKAGE_NAMES`` (``provenance/software.py``), ie: "PyTorch" matches
    ``torch`` and "Open Babel" ``openbabel``.
 4. **documentation**: the version documented in the docstring.
+
+Only exact versions are recorded (ie: ``24.8``, ``v1.1.2``). A documented range such as ``>=20.0`` is
+not a version: when no version is detected, the wrapped software has no ``softwareVersion`` and its
+``description`` gives the documented requirement.
 
 Execution environment
 ~~~~~~~~~~~~~~~~~~~~~
