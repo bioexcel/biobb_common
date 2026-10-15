@@ -220,15 +220,22 @@ def _add_wrapped_software(crate: ROCrate, record: BlockRecord):
         "name": software.name,
         **software_version(software.version),
         "license": software.license,
+        "url": software.url,
     }
-    identifier = "#" + _slug(f"{software.name}-{software.version}")
+    # Absolute id when the package page is known. The fragment keeps apart the tools of
+    # the same package (ie: AmberTools Sander and tLeap) and their versions.
+    identifier = (software.url or "") + "#" + _slug(f"{software.name}-{software.version}")
     return crate.add(ContextEntity(crate, identifier, properties={k: v for k, v in properties.items() if v}))
 
 
 def _add_file(crate: ROCrate, file_record: FileRecord):
-    properties = {"name": file_record.path.name}
+    properties: dict[str, Any] = {"name": file_record.path.name}
     if file_record.edam_format:
-        properties["encodingFormat"] = EDAM_URI + file_record.edam_format
+        # RO-Crate 1.1: encodingFormat is a MIME type or a reference to a WebSite describing the format
+        properties["encodingFormat"] = crate.add(ContextEntity(crate, EDAM_URI + file_record.edam_format, properties={
+            "@type": "WebSite",
+            "name": f"EDAM {file_record.edam_format}",
+        }))
     if file_record.size is not None:
         properties["contentSize"] = str(file_record.size)
     if file_record.sha256:

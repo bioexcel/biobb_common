@@ -34,7 +34,8 @@ def fake_conda_env(prefix):
     """Create a conda environment with a gromacs package installing bin/gmx."""
     (prefix / "conda-meta").mkdir()
     (prefix / "conda-meta" / "gromacs-2024.5-0.json").write_text(json.dumps(
-        {"name": "gromacs", "version": "2024.5", "files": ["bin/gmx", "share/gromacs/top/oplsaa.ff"]}))
+        {"name": "gromacs", "version": "2024.5", "channel": "https://conda.anaconda.org/conda-forge",
+         "files": ["bin/gmx", "share/gromacs/top/oplsaa.ff"]}))
     (prefix / "bin").mkdir()
     gmx = prefix / "bin" / "gmx"
     gmx.write_text("#!/bin/sh\n")
@@ -62,6 +63,7 @@ def test_wrapped_software_from_conda_binary(tmp_path):
     assert (software.name, software.version) == ("GROMACS Pdb2gmx", "2024.5")
     assert software.package == "gromacs"
     assert software.executable == str(gmx.resolve())
+    assert software.url == "https://anaconda.org/conda-forge/gromacs"
     # Flags appended to the binary path, ie: GROMACS blocks
     assert wrapped_software(FakeBlock(binary_path=f"{gmx} -nobackup -nocopyright")).version == "2024.5"
 
@@ -113,6 +115,7 @@ def test_package_candidates():
 def test_wrapped_software_from_python_distribution():
     software = wrapped_software(FakeBlock(name="rocrate"))
     assert software.version == metadata.version("rocrate")
+    assert software.url.startswith("https://")
 
 
 def test_wrapped_software_from_name_mapping():

@@ -41,6 +41,8 @@ class WrappedSoftware:
     license: Optional[str] = None
     executable: Optional[str] = None
     package: Optional[str] = None
+    # Web page of the package (anaconda.org, project home page or PyPI)
+    url: Optional[str] = None
 
 
 def wrapped_software(obj) -> Optional[WrappedSoftware]:
@@ -72,18 +74,21 @@ def wrapped_software(obj) -> Optional[WrappedSoftware]:
         package = conda_package_of_file(executable)
         if package and package[0] not in IGNORED_CONDA_PACKAGES:
             software.package, software.version = package
+            software.url = conda_package_url(str(Path(executable).resolve()), package[0])
             return software
 
     # Python library or conda package matching the documented name, ie: "Ambertools Cpptraj" -> "ambertools"
     for candidate in package_candidates(software.name):
         try:
             software.package, software.version = candidate, metadata.version(candidate)
+            software.url = python_package_url(candidate)
             return software
         except metadata.PackageNotFoundError:
             pass
         version = conda_packages(sys.prefix).get(candidate)
         if version:
             software.package, software.version = candidate, version
+            software.url = _conda_meta(sys.prefix)[2].get(candidate)
             return software
 
     return software
@@ -114,6 +119,22 @@ def documented_software(doc: Optional[str]) -> dict[str, str]:
     return {key: value for key, value in software.items() if value.lower() != "none"}
 
 
+def conda_package_url(file_path: str, name: str) -> Optional[str]:
+    """Return the anaconda.org page of the conda package **name** of the environment containing **file_path**."""
+    prefix = next((parent for parent in Path(file_path).parents if (parent / "conda-meta").is_dir()), None)
+    return _conda_meta(str(prefix))[2].get(name) if prefix else None
+
+
+def python_package_url(name: str) -> str:
+    """Return the home page of a Python distribution, or its PyPI page."""
+    meta = metadata.metadata(name)
+    for project_url in meta.get_all("Project-URL") or []:
+        label, _, url = project_url.partition(",")
+        if label.strip().lower() in ("homepage", "home", "source", "repository") and url.strip():
+            return url.strip()
+    return meta.get("Home-page") or f"https://pypi.org/project/{meta.get('Name', name)}/"
+
+
 def conda_package_of_file(file_path: str) -> Optional[tuple[str, str]]:
     """Return the (name, version) of the conda package that installed **file_path**."""
     path = Path(file_path).resolve()
@@ -129,20 +150,26 @@ def conda_packages(prefix: str) -> dict[str, str]:
 
 
 @lru_cache(maxsize=None)
-def _conda_meta(prefix: str) -> tuple[dict[str, str], dict[str, tuple[str, str]]]:
+def _conda_meta(prefix: str) -> tuple[dict[str, str], dict[str, tuple[str, str]], dict[str, str]]:
     """Read the conda-meta directory of the conda environment **prefix** once and return
-    {package name: version} and {relative file path: (package name, version)}."""
+    {package name: version}, {relative file path: (package name, version)} and
+    {package name: anaconda.org page}."""
     packages: dict[str, str] = {}
     files: dict[str, tuple[str, str]] = {}
+    urls: dict[str, str] = {}
     for meta_file in (Path(prefix) / "conda-meta").glob("*.json"):
         try:
             meta = json.loads(meta_file.read_text())
         except (OSError, ValueError):
             continue
         packages[meta["name"]] = meta["version"]
+        # channel is a name (conda-forge) or a URL (https://conda.anaconda.org/conda-forge)
+        channel = str(meta.get("channel") or "").rstrip("/").rsplit("/", 1)[-1]
+        if channel:
+            urls[meta["name"]] = f"https://anaconda.org/{channel}/{meta['name']}"
         for file_path in meta.get("files", []):
             files[file_path] = (meta["name"], meta["version"])
-    return packages, files
+    return packages, files, urls
 
 
 def image_tag(image: str) -> Optional[str]:

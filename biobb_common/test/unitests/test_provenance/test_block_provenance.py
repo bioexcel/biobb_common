@@ -78,7 +78,8 @@ class TestBlockProvenance():
         assert action["result"] == {"@id": output_uri}
         assert graph["./"]["mentions"] == {"@id": action["@id"]}
         assert graph[output_uri]["@type"] == "Dataset"
-        assert graph[output_uri]["encodingFormat"] == "http://edamontology.org/format_1915"
+        assert graph[output_uri]["encodingFormat"] == {"@id": "http://edamontology.org/format_1915"}
+        assert graph["http://edamontology.org/format_1915"]["@type"] == "WebSite"
 
         parameters = {graph[i]["name"]: graph[i]["value"] for i in object_ids if graph[i]["@type"] == "PropertyValue"}
         assert parameters["n"] == 2
@@ -98,6 +99,7 @@ class TestBlockProvenance():
         assert software["@type"] == "SoftwareApplication"
         assert software["name"] == "rocrate"
         assert software["softwareVersion"] == metadata.version("rocrate")
+        assert software["@id"].startswith(software["url"] + "#") and software["url"].startswith("https://")
         # Only the detected version, not the documented 0.0.1
         assert "0.0.1" not in json.dumps(software)
         assert set(crate["@context"][-1]) == {"executionEnvironment"}

@@ -336,7 +336,7 @@ def _add_formal_parameters(crate: ROCrate, workflow, inputs: list[dict], outputs
                 "conformsTo": {"@id": profile.id},
                 "name": file.get("name", ref["@id"]),
                 "additionalType": "Dataset" if "Dataset" in as_list(file.type) else "File",
-                **({"encodingFormat": file["encodingFormat"]} if file.get("encodingFormat") else {}),
+                **({"encodingFormat": file.properties()["encodingFormat"]} if "encodingFormat" in file.properties() else {}),
             }))
             file["exampleOfWork"] = {"@id": parameter.id}
             parameters.append({"@id": parameter.id})

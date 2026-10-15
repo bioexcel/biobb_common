@@ -193,10 +193,12 @@ Entity                      Content
 ``SoftwareApplication``     The building block (``instrument``): name, biobb package version and
                             repository. Its ``@id`` is the block documentation page.
                             ``softwareRequirements`` points to the wrapped software.
-Wrapped software            ``SoftwareApplication`` with name, version and license.
+Wrapped software            ``SoftwareApplication`` with name, version, license and ``url`` (the
+                            anaconda.org, project or PyPI page of the package, also used in its ``@id``).
 ``File`` / ``Dataset``      Inputs (``object``) and outputs (``result``) with their EDAM format as
-                            ``encodingFormat``, their size and, with ``provenance_checksum``,
-                            their ``sha256``.
+                            ``encodingFormat`` (a reference to the EDAM term, described as a
+                            ``WebSite``), their size and, with ``provenance_checksum``, their
+                            ``sha256``.
 ``Person``                  With ``provenance_author``: crate ``author`` and action ``agent``,
                             identified by the ORCID, with its ``affiliation`` (``Organization``).
 ``Organization``            The BioExcel Centre of Excellence, crate ``publisher``.
