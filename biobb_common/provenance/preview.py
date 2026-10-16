@@ -27,7 +27,67 @@ details details { margin-left: 1.2rem; }
 summary { cursor: pointer; }
 h3 summary { font-size: 1.1rem; }
 .muted { color: #6b7280; font-size: .85em; }
+.graph { position: relative; }
+.graph-btn { border: 1px solid #9ca3af; background: #fff; border-radius: 4px; cursor: pointer; font-size: 1rem;
+             width: 2rem; height: 2rem; box-shadow: 0 1px 4px rgba(0, 0, 0, .2); }
+.graph-btn:hover { background: #f3f4f6; }
+.graph > .graph-btn { position: absolute; top: .5rem; right: .5rem; }
+.graph-modal { display: none; position: fixed; inset: 0; z-index: 10; background: #fff; }
+body.graph-open { overflow: hidden; }
+.graph-modal.active { display: block; }
+.graph-modal .viewport { width: 100%; height: 100%; overflow: hidden; cursor: grab; }
+.graph-modal .viewport:active { cursor: grabbing; }
+.graph-modal .content { transform-origin: 0 0; display: inline-block; }
+.graph-modal .controls { position: fixed; top: 1rem; right: 1rem; display: flex; gap: .4rem; }
 """
+# Fullscreen viewer of the Mermaid graph: mouse wheel or buttons to zoom, drag to pan, Esc to close
+GRAPH_JS = """
+(() => {
+  const modal = document.querySelector(".graph-modal"), content = modal.querySelector(".content");
+  let scale = 1, x = 0, y = 0, drag = null;
+  const apply = () => content.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+  const zoom = (factor, cx = innerWidth / 2, cy = innerHeight / 2) => {
+    const next = Math.min(Math.max(scale * factor, 0.1), 20);
+    x = cx - (cx - x) * next / scale; y = cy - (cy - y) * next / scale; scale = next; apply();
+  };
+  const fit = () => {
+    const svg = content.querySelector("svg"), box = svg.getBoundingClientRect();
+    const width = box.width / scale, height = box.height / scale;
+    scale = Math.min(innerWidth / width, innerHeight / height) * 0.9;
+    x = (innerWidth - width * scale) / 2; y = (innerHeight - height * scale) / 2; apply();
+  };
+  const close = () => { modal.classList.remove("active"); document.body.classList.remove("graph-open"); };
+  document.querySelector(".graph > .graph-btn").addEventListener("click", () => {
+    const svg = document.querySelector(".graph pre.mermaid svg");
+    if (!svg) return;
+    const copy = svg.cloneNode(true);
+    // Real size, so zooming keeps the drawing sharp
+    const { width, height } = svg.viewBox.baseVal;
+    copy.style.maxWidth = "none"; copy.setAttribute("width", width); copy.setAttribute("height", height);
+    content.replaceChildren(copy);
+    modal.classList.add("active"); document.body.classList.add("graph-open"); scale = 1; x = 0; y = 0; fit();
+  });
+  modal.querySelector("[data-action=in]").addEventListener("click", () => zoom(1.25));
+  modal.querySelector("[data-action=out]").addEventListener("click", () => zoom(0.8));
+  modal.querySelector("[data-action=fit]").addEventListener("click", fit);
+  modal.querySelector("[data-action=close]").addEventListener("click", close);
+  document.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
+  const viewport = modal.querySelector(".viewport");
+  viewport.addEventListener("wheel", event => { event.preventDefault(); zoom(event.deltaY < 0 ? 1.2 : 1 / 1.2, event.clientX, event.clientY); },
+                            { passive: false });
+  viewport.addEventListener("pointerdown", event => { drag = [event.clientX - x, event.clientY - y]; viewport.setPointerCapture(event.pointerId); });
+  viewport.addEventListener("pointermove", event => { if (drag) { x = event.clientX - drag[0]; y = event.clientY - drag[1]; apply(); } });
+  viewport.addEventListener("pointerup", () => drag = null);
+})();
+"""
+GRAPH_MODAL = """<div class="graph-modal" role="dialog" aria-modal="true" aria-label="Graph viewer">
+<div class="viewport"><div class="content"></div></div>
+<div class="controls">
+<button class="graph-btn" data-action="in" title="Zoom in" aria-label="Zoom in">+</button>
+<button class="graph-btn" data-action="out" title="Zoom out" aria-label="Zoom out">&minus;</button>
+<button class="graph-btn" data-action="fit" title="Fit to screen" aria-label="Fit to screen">&#8634;</button>
+<button class="graph-btn" data-action="close" title="Close (Esc)" aria-label="Close">&#10005;</button>
+</div></div>"""
 # Groups of the entities list, by @type (the first matching group is used, entities sorted by type order)
 GROUPS = [
     ("Executions", ("CreateAction", "ControlAction", "OrganizeAction")),
@@ -89,7 +149,10 @@ def write_preview(crate_dir: Union[str, Path]) -> Path:
     html.append("</table>")
 
     html.append("<h2>Graph</h2>")
-    html.append(f'<pre class="mermaid">{escape(to_mermaid(read_graph(crate_dir)))}</pre>')
+    html.append('<div class="graph"><button class="graph-btn" title="Fullscreen: zoom with the mouse wheel, drag to pan" '
+                'aria-label="Open the graph in fullscreen">&#x26F6;</button>')
+    html.append(f'<pre class="mermaid">{escape(to_mermaid(read_graph(crate_dir)))}</pre></div>')
+    html.append(GRAPH_MODAL)
     html.append(f'<script type="module">import mermaid from "{MERMAID_JS}"; mermaid.initialize({{startOnLoad: true}});</script>')
 
     html.append("<h2>Executions</h2>")
@@ -121,7 +184,7 @@ def write_preview(crate_dir: Union[str, Path]) -> Path:
                     html.append(f"<tr><th>{escape(key)}</th><td>{_value(value, entities)}</td></tr>")
             html.append("</table></details>")
         html.append("</details>")
-    html.append(f"<script>{OPEN_TARGET_JS}</script>")
+    html.append(f"<script>{OPEN_TARGET_JS}{GRAPH_JS}</script>")
     html.append("</body></html>")
 
     preview_path = crate_dir / PREVIEW

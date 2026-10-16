@@ -156,6 +156,8 @@ class TestWorkflowProvenance():
         assert preview.startswith(GENERATED_MARK) and "test workflow" in preview
         for section in ("<h2>Files</h2>", "<h2>Software</h2>", "<h2>Execution environment</h2>", "<strong>Executions</strong>"):
             assert section in preview
+        # Fullscreen viewer of the graph
+        assert 'class="graph-modal"' in preview and "Open the graph in fullscreen" in preview
         # Parameters are shown inline in the executions
         assert "<code>n = 1</code>" in preview
         # Block crates have a preview too
