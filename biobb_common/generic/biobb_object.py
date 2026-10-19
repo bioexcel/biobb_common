@@ -4,6 +4,7 @@ import importlib
 import logging
 import os
 import shutil
+import subprocess
 import warnings
 import argparse
 from logging import Logger
@@ -55,6 +56,7 @@ class BiobbObject:
             * **restart** (*bool*) - (False) [WF property] Do not execute if output files exist.
             * **cmd** (*list*) - ([]) Command line list, NOT read from the dictionary.
             * **return_code** (*int*) - (0) Return code of the command execution, NOT read from the dictionary.
+            * **raise_error** (*bool*) - (False) Raise an exception if the command execution fails.
             * **timeout** (*int*) - (None) Timeout for the execution of the command.
             * **tmp_files** (*list*) - ([]) list of temporal files, NOT read from the dictionary.
             * **env_vars_dict** (*dict*) - ({}) Environment Variables dictionary.
@@ -112,6 +114,7 @@ class BiobbObject:
         self.path: str = properties.get("path", "")
         self.remove_tmp: bool = properties.get("remove_tmp", True)
         self.restart: bool = properties.get("restart", False)
+        self.raise_error: bool = properties.get("raise_error", False)
         self.cmd: list[str] = []
         self.return_code: int = 0
         self.timeout: Optional[int] = properties.get("timeout", None)
@@ -446,6 +449,11 @@ class BiobbObject:
 
         if self.chdir_sandbox:
             os.chdir(cwd)
+
+        if self.raise_error and self.return_code != 0:
+            fu.log(f"Command failed with exit code {self.return_code}, raising an exception (raise_error is enabled)",
+                   self.out_log, self.global_log, level=logging.ERROR)
+            raise subprocess.CalledProcessError(self.return_code, " ".join(self.cmd))
 
     def run_biobb(self):
         self.create_cmd_line()

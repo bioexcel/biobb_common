@@ -386,18 +386,17 @@ def launchlogger(func):
             err_log_path=args[0].err_log_path
         )
 
-        # Run the function, record its provenance if enabled and capture its return value
-        value = track(args[0], func, *args, **kwargs)
-
-        # Close and remove handlers from out_log and err_log
-        for log in [args[0].out_log, args[0].err_log]:
-            # Create a copy [:] of the handler list to be able to modify it while we are iterating
-            handlers = log.handlers[:]
-            for handler in handlers:
-                handler.close()
-                log.removeHandler(handler)
-
-        return value
+        try:
+            # Run the function, record its provenance if enabled and return its value
+            return track(args[0], func, *args, **kwargs)
+        finally:
+            # Close and remove handlers from out_log and err_log, also if the function raised
+            for log in [args[0].out_log, args[0].err_log]:
+                # Create a copy [:] of the handler list to be able to modify it while we are iterating
+                handlers = log.handlers[:]
+                for handler in handlers:
+                    handler.close()
+                    log.removeHandler(handler)
 
     return wrapper_log
 
