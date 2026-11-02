@@ -1,11 +1,15 @@
 # Biobb_common ChangeLog
 
-## What's new in the next version?
+## What's new in version [5.3.2](https://github.com/bioexcel/biobb_common/releases/tag/v5.3.2)?
 
 * [FEATURE] Block and workflow [provenance](https://biobb-common.readthedocs.io/en/latest/provenance.html) as RO-Crates: `provenance` and `provenance_path` properties, `workflow_provenance` context manager and `biobb_provenance` command line tool to merge, draw and validate the crates.
 * [UPDATE] New dependency: `rocrate`. Optional: `graphviz` (`pip install biobb_common[graph]` or `conda install python-graphviz`) to draw the provenance graphs as images.
 * [FEATURE] New `raise_error` property: raise a `subprocess.CalledProcessError` if the command exits with a non-zero code instead of only setting `return_code`.
 * [FIX] `launchlogger` closes the step log files also when the block raises an exception.
+* [FEATURE] The `equal` test fixture compares CSV and TSV files.
+* [FEATURE] New `raises` test fixture to assert that a block raises an exception.
+* [FEATURE] `ConfReader` checks the configuration file structure and reports invalid first-level keys.
+* [UPDATE] Improved log messages.
 
 ## What's new in version [5.3.1](https://github.com/bioexcel/biobb_common/releases/tag/v5.3.1)?
 
