@@ -120,10 +120,23 @@ def image_digest(container_path: str, image: str) -> Optional[str]:
     return digest.removeprefix("sha256:") or None
 
 
+def _file_paths(obj, io: str) -> dict[str, Any]:
+    """Return the {argument: path} of the input ("in") or output ("out") files of a block:
+    the io_dict and the documented file arguments that the block keeps outside it, ie: the
+    topology zip of grompp, unzipped by the block instead of being staged."""
+    paths = dict(obj.io_dict.get(io, {}))
+    kind = "input" if io == "in" else "output"
+    for argument, doc in getattr(obj, "doc_arguments_dict", {}).items():
+        value = getattr(obj, argument, None)
+        if argument not in paths and doc.get("input_output") == kind and isinstance(value, (str, Path)):
+            paths[argument] = value
+    return paths
+
+
 def _file_records(obj, io: str) -> list[FileRecord]:
     checksum = getattr(obj, "provenance_checksum", False)
     records = []
-    for argument, file_path in obj.io_dict.get(io, {}).items():
+    for argument, file_path in _file_paths(obj, io).items():
         if not file_path:
             # Optional file not set
             continue

@@ -192,6 +192,27 @@ def test_checksum(tmp_path):
     assert graph[data.as_uri()]["sha256"] == file_record.sha256
 
 
+def test_file_arguments_outside_io_dict(tmp_path):
+    """Documented file arguments that the block keeps outside io_dict are recorded, ie: grompp topology zip."""
+    structure, topology = tmp_path / "structure.gro", tmp_path / "topology.zip"
+    structure.write_text("gro")
+    topology.write_text("zip")
+    block = SimpleNamespace(
+        io_dict={"in": {"input_gro_path": str(structure)}, "out": {}},
+        input_top_zip_path=str(topology),
+        doc_arguments_dict={
+            "input_gro_path": {"input_output": "input", "formats": {"gro": "format_2033"}},
+            "input_top_zip_path": {"input_output": "input", "formats": {"zip": "format_3987"}},
+            "output_tpr_path": {"input_output": "output", "formats": {"tpr": "format_2333"}},
+        },
+    )
+    records = {r.argument: r for r in _file_records(block, "in")}
+    assert set(records) == {"input_gro_path", "input_top_zip_path"}
+    assert (records["input_top_zip_path"].path, records["input_top_zip_path"].edam_format) == (topology, "format_3987")
+    # Not set or not a path: ignored
+    assert _file_records(block, "out") == []
+
+
 def test_wrapped_software_requirement(tmp_path):
     record = BlockRecord(class_name="Test", module="biobb_test.test.test", package="biobb_test", package_version="1.0",
                          start_time=datetime.now().astimezone(), end_time=datetime.now().astimezone(),
