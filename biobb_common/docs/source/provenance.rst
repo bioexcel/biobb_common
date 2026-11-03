@@ -156,15 +156,15 @@ Block crates can also be merged afterwards, ie: when the steps run in different 
 Example
 ~~~~~~~
 
-Workflow crate of the `AMBER MD setup <https://github.com/bioexcel/biobb_wf_amber>`_ workflow
-(25 steps of biobb_chemistry, biobb_structure_utils, biobb_amber and biobb_analysis, with short
-simulations), run with ``workflow_provenance``:
+Workflow crate of the `GROMACS MD setup <https://github.com/bioexcel/biobb_wf_md_setup>`_ workflow
+(26 steps of biobb_chemistry, biobb_structure_utils, biobb_model, biobb_gromacs and biobb_analysis,
+with short simulations), run with ``workflow_provenance``:
 
 - `HTML preview <_static/provenance_example/ro-crate-preview.html>`_ (``ro-crate-preview.html``)
 - `RO-Crate metadata <_static/provenance_example/ro-crate-metadata.json>`_ (``ro-crate-metadata.json``)
 
-The local paths of the execution were replaced by ``/home/user/amber_md_setup`` and
-``/opt/conda/envs/biobb_wf_amber``.
+The local paths of the execution were replaced by ``/home/user/md_setup`` and
+``/opt/conda/envs/biobb_wf_md_setup``.
 
 Command line
 ------------
