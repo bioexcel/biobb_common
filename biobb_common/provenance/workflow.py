@@ -17,7 +17,8 @@ from rocrate.rocrate import ROCrate
 
 from biobb_common import __version__, biobb_global_properties
 from biobb_common.provenance import tracker
-from biobb_common.provenance.crate import COMPLETED, FAILED, LICENSE, PROCESS_RUN_CRATE, PUBLISHER, as_list, iso, new_crate, single, software_version
+from biobb_common.provenance.crate import (COMPLETED, FAILED, LICENSE, PROCESS_RUN_CRATE, PUBLISHER, RESTART_SKIPPED, action_time, as_list, iso,
+                                           is_restart_skipped, new_crate, parse_time, single, software_version)
 from biobb_common.provenance.preview import PREVIEW, README, is_generated, write_preview, write_readme
 
 WORKFLOW_RO_CRATE = "https://w3id.org/workflowhub/workflow-ro-crate/1.0"
@@ -40,12 +41,16 @@ def find_block_crates(directory: Union[str, Path]) -> list[Path]:
 
 def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[str, Path],
                        workflow_file: Optional[Union[str, Path]] = None, name: Optional[str] = None,
-                       license: Optional[str] = None) -> Path:
+                       license: Optional[str] = None, path_map: Optional[dict[str, str]] = None) -> Path:
     """Merge building block RO-Crates into a workflow RO-Crate (Provenance Run Crate profile).
 
-    The steps are ordered by start time and linked through their files: the
-    output of a step with the same path as the input of another step is the same
-    entity. Without **workflow_file** (ie: Jupyter notebooks) the crate only
+    The steps are ordered by start time (end time for the steps skipped by the
+    restart property) and linked through their files: the output of a step with
+    the same path as the input of another step is the same entity. Steps run on
+    other machines (ie: an HPC cluster) are linked with **path_map**, which
+    replaces the beginning of their paths, or by checksum (provenance_checksum
+    property): an input that no step produced is the output of a previous step
+    with the same sha256. Without **workflow_file** (ie: Jupyter notebooks) the crate only
     conforms to the Process Run Crate profile, because a Workflow RO-Crate
     requires the workflow file. Files inside **output_dir** get relative ids, so the workflow crate
     can be moved together with its files. The workflow file is copied into
@@ -59,23 +64,24 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
         workflow_file (str, Path): (None) Python script of the workflow.
         name (str): (None) Name of the workflow, by default the workflow file name.
         license (str): (None) License of the workflow script: SPDX identifier (ie: "MIT") or URL.
+        path_map (dict): (None) {path in the block crates: path in this machine}, ie:
+            {"/gpfs/scratch/user/wf": "/home/user/wf"}, applied to the file ids before linking the steps.
 
     Returns:
         Path: Path to the written ro-crate-metadata.json file.
     """
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    uri_map = {_uri(old): _uri(new) for old, new in (path_map or {}).items()}
     entities: dict[str, dict] = {}
-    step_actions: list[dict] = []
     for block_crate in block_crates:
         for entity in _read_graph(block_crate):
-            entity = _relativize(entity, output_dir)
+            entity = _relativize(_replace_ids(entity, uri_map, prefix=True), output_dir)
             if entity["@id"] in SKIPPED_IDS:
                 continue
-            if entity["@type"] == "CreateAction":
-                step_actions.append(entity)
             entities.setdefault(entity["@id"], {}).update(entity)
-    step_actions.sort(key=lambda action: action["startTime"])
+    entities = _link_by_checksum(entities)
+    step_actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=action_time)
 
     name = name or (Path(workflow_file).stem if workflow_file else "biobb workflow")
     # Without a workflow script the crate can not be a Workflow RO-Crate (its mainEntity must be
@@ -119,12 +125,15 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     properties: dict[str, Any] = {
         "@type": "CreateAction",
         "name": f"Run of {name}",
-        "description": f"Execution of the {name} workflow with {len(step_actions)} building blocks.",
+        "description": _run_description(name, step_actions),
         "actionStatus": FAILED if any(a.get("actionStatus") == FAILED for a in step_actions) else COMPLETED,
     }
-    if step_actions:
-        properties["startTime"] = step_actions[0]["startTime"]
-        properties["endTime"] = max(a["endTime"] for a in step_actions)
+    start_times = [a["startTime"] for a in step_actions if a.get("startTime")]
+    end_times = [a["endTime"] for a in step_actions if a.get("endTime")]
+    if start_times:
+        properties["startTime"] = min(start_times, key=parse_time)
+    if end_times:
+        properties["endTime"] = max(end_times, key=parse_time)
     if authors:
         properties["agent"] = crate.root_dataset["author"] = single(authors)
     workflow_action = crate.add_action(workflow, identifier="#workflow-run", object=single(inputs), result=single(outputs), properties=properties)
@@ -198,6 +207,73 @@ def _read_graph(block_crate: Union[str, Path]) -> list[dict]:
     if block_crate.is_dir():
         block_crate = block_crate / "ro-crate-metadata.json"
     return json.loads(block_crate.read_text())["@graph"]
+
+
+def _run_description(name: str, step_actions: list[dict]) -> str:
+    """Description of the workflow run, explaining the times of the steps skipped by the restart property."""
+    description = f"Execution of the {name} workflow with {len(step_actions)} building blocks."
+    skipped = sum(map(is_restart_skipped, step_actions))
+    if skipped and skipped == len(step_actions):
+        return (f"{RESTART_SKIPPED} (restart-only run): all the {skipped} building blocks of the {name} workflow were skipped, "
+                "their outputs come from previous executions that were not recorded. The start time is unknown and the end time "
+                "is the last modification of the outputs, the duration of the original execution is not recorded.")
+    if skipped:
+        return (f"{description} {skipped} of them were skipped by the restart property: their outputs come from previous "
+                "executions that were not recorded, so their duration is not included in the start and end times.")
+    return description
+
+
+def _uri(path: str) -> str:
+    """Return the file URI of an absolute path of this or another machine, without trailing slash."""
+    return Path(path).as_uri().rstrip("/") if Path(path).is_absolute() else Path(path).resolve().as_uri().rstrip("/")
+
+
+def _replace_ids(value: Any, mapping: dict[str, str], prefix: bool = False) -> Any:
+    """Replace the @id of **value** (and nested references) found in **mapping**. With
+    **prefix**, the keys are URI prefixes: file:///a/b replaces file:///a/b and file:///a/b/c."""
+    if not mapping:
+        return value
+    if isinstance(value, list):
+        return [_replace_ids(v, mapping, prefix) for v in value]
+    if not isinstance(value, dict):
+        return value
+    value = {k: _replace_ids(v, mapping, prefix) for k, v in value.items()}
+    entity_id = value.get("@id")
+    if isinstance(entity_id, str):
+        if not prefix:
+            value["@id"] = mapping.get(entity_id, entity_id)
+        else:
+            # Longest prefix first, so nested paths can be mapped to other places
+            for old in sorted(mapping, key=len, reverse=True):
+                if entity_id == old or entity_id.startswith(old + "/"):
+                    value["@id"] = mapping[old] + entity_id[len(old):]
+                    break
+    return value
+
+
+def _link_by_checksum(entities: dict[str, dict]) -> dict[str, dict]:
+    """Link the inputs that no step produced with the output of a previous step with the
+    same sha256 (and size), ie: a file copied to an HPC cluster or back. The id of the output is kept."""
+    actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=action_time)
+    produced = {ref["@id"] for a in actions for ref in as_list(a.get("result"))}
+    # (sha256, size) -> output id, of the steps executed before
+    outputs: dict[tuple, str] = {}
+    mapping: dict[str, str] = {}
+    for action in actions:
+        for ref in as_list(action.get("object")):
+            entity = entities.get(ref["@id"], {})
+            key = (entity.get("sha256"), entity.get("contentSize"))
+            if ref["@id"] not in produced and key[0] and key[1] != "0" and key in outputs and outputs[key] != ref["@id"]:
+                mapping[ref["@id"]] = outputs[key]
+        for ref in as_list(action.get("result")):
+            entity = entities.get(ref["@id"], {})
+            if entity.get("sha256"):
+                outputs[(entity["sha256"], entity.get("contentSize"))] = ref["@id"]
+    linked: dict[str, dict] = {}
+    for entity_id, entity in entities.items():
+        if entity_id not in mapping:
+            linked[entity_id] = _replace_ids(entity, mapping)
+    return linked
 
 
 def _relativize(value: Any, output_dir: Path) -> Any:

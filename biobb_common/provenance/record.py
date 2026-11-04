@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from biobb_common.provenance.environment import execution_environment
+from biobb_common.provenance.parameters import ParameterSet, block_parameters
 from biobb_common.provenance.software import WrappedSoftware, wrapped_software
 
 
@@ -36,12 +37,16 @@ class BlockRecord:
     module: str
     package: str
     package_version: Optional[str]
-    start_time: datetime
-    end_time: datetime
+    # None for executions skipped by the restart property: the start of the previous execution is unknown
+    start_time: Optional[datetime]
+    # Executions skipped by the restart property: last modification of the outputs (end of the previous execution)
+    end_time: Optional[datetime]
     error: Optional[str] = None
     inputs: list[FileRecord] = field(default_factory=list)
     outputs: list[FileRecord] = field(default_factory=list)
     properties: dict[str, Any] = field(default_factory=dict)
+    # Parameters of the generated or input parameter files, ie: grompp.mdp
+    parameters: list[ParameterSet] = field(default_factory=list)
     command_line: Optional[str] = None
     container_image: Optional[str] = None
     container_runtime: Optional[str] = None
@@ -63,7 +68,9 @@ class BlockRecord:
     def from_biobb_object(cls, obj, start_time: datetime, end_time: datetime,
                           return_value: Any = None, error: Optional[BaseException] = None, skipped: bool = False) -> "BlockRecord":
         """Build the record from a BiobbObject after its launch() method has been executed.
-        Skipped executions have no command line, wrapped software or environment."""
+        Executions skipped by the restart property have no start time, command line,
+        parameters, wrapped software or environment, and their end time is the last
+        modification of the outputs."""
         error_str = None
         if error is not None:
             error_str = f"{type(error).__name__}: {error}"
@@ -75,18 +82,19 @@ class BlockRecord:
             module=type(obj).__module__,
             package=type(obj).__module__.split(".")[0],
             package_version=getattr(obj, "version", None),
-            start_time=start_time,
-            end_time=end_time,
+            start_time=None if skipped else start_time,
+            end_time=_last_modification(obj) if skipped else end_time,
             error=error_str,
             inputs=_file_records(obj, "in"),
             outputs=_file_records(obj, "out"),
             properties=_properties(obj),
+            parameters=[] if skipped else block_parameters(obj),
             command_line=" ".join(map(str, obj.cmd)) if getattr(obj, "cmd", None) and not skipped else None,
             container_image=obj.container_image if getattr(obj, "container_path", None) else None,
             container_runtime=Path(obj.container_path).name if getattr(obj, "container_path", None) else None,
             container_digest=image_digest(obj.container_path, obj.container_image) if getattr(obj, "container_path", None) and not skipped else None,
             wrapped_software=None if skipped else wrapped_software(obj),
-            environment={} if skipped else execution_environment(),
+            environment={} if skipped else execution_environment(bool(getattr(obj, "provenance_user_host", True))),
             author=_author(getattr(obj, "provenance_author", None)),
             step=getattr(obj, "step", None) or None,
             skipped=skipped,
@@ -120,7 +128,7 @@ def image_digest(container_path: str, image: str) -> Optional[str]:
     return digest.removeprefix("sha256:") or None
 
 
-def _file_paths(obj, io: str) -> dict[str, Any]:
+def file_paths(obj, io: str) -> dict[str, Any]:
     """Return the {argument: path} of the input ("in") or output ("out") files of a block:
     the io_dict and the documented file arguments that the block keeps outside it, ie: the
     topology zip of grompp, unzipped by the block instead of being staged."""
@@ -136,7 +144,7 @@ def _file_paths(obj, io: str) -> dict[str, Any]:
 def _file_records(obj, io: str) -> list[FileRecord]:
     checksum = getattr(obj, "provenance_checksum", False)
     records = []
-    for argument, file_path in _file_paths(obj, io).items():
+    for argument, file_path in file_paths(obj, io).items():
         if not file_path:
             # Optional file not set
             continue
@@ -155,6 +163,15 @@ def _file_records(obj, io: str) -> list[FileRecord]:
             sha256=_sha256(path, path.stat().st_size, path.stat().st_mtime_ns) if checksum and path.is_file() else None,
         ))
     return records
+
+
+def _last_modification(obj) -> Optional[datetime]:
+    """Return the latest modification time of the output files (and the files inside output directories)."""
+    mtimes = []
+    for file_record in _file_records(obj, "out"):
+        paths = [file_record.path, *file_record.path.rglob("*")] if file_record.is_dir else [file_record.path]
+        mtimes.extend(path.stat().st_mtime for path in paths if path.exists())
+    return datetime.fromtimestamp(max(mtimes)).astimezone() if mtimes else None
 
 
 @lru_cache(maxsize=None)

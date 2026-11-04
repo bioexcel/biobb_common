@@ -15,9 +15,10 @@ the `Workflow Run RO-Crate <https://www.researchobject.org/workflow-run-crate/>`
   `Provenance Run Crate <https://w3id.org/ro/wfrun/provenance/0.5>`_ with the workflow script, its
   steps and the files linking them.
 
-Provenance is disabled by default. The hostname and the username are not recorded as metadata, but
-file paths are recorded as they are: absolute paths in file ids, command lines and properties (ie:
-``/home/<user>/project/structure.pdb``) can contain them. Review the crates before publishing them.
+Provenance is disabled by default. When it is enabled, the hostname and the username are recorded in the
+execution environment, unless the ``provenance_user_host`` property is ``False``. File paths are recorded
+as they are: absolute paths in file ids, command lines and properties (ie:
+``/home/<user>/project/structure.pdb``) can contain them too. Review the crates before publishing them.
 
 Block provenance
 ----------------
@@ -78,6 +79,8 @@ Property                    Default     Description
 ``provenance_path``         ``None``    Directory of the block crates, by default ``<path>/provenance``
                                         (``<workflow path>/provenance`` inside ``workflow_provenance``).
                                         Set it as a global property to share it between the steps.
+``provenance_user_host``    ``True``    Record the hostname, the username and the SLURM node list in the
+                                        execution environment. Set it to ``False`` to leave them out.
 =========================== =========== =======================================================================
 
 .. code-block:: python
@@ -102,7 +105,15 @@ When a block is skipped by the ``restart`` property because its outputs already 
 crate of a previous execution of the same block with the same outputs is reused, so the workflow crate
 records how the outputs were really produced. If there is no such crate (ie: the previous execution
 did not record provenance), a crate of the skipped execution is written, with the description
-"Skipped by the restart property" and without command line, wrapped software or environment.
+"Skipped by the restart property" and without command line, parameters, wrapped software or environment.
+The duration of the previous execution is unknown, so it has no ``startTime`` and its ``endTime`` is the
+last modification of its outputs (files inside output directories included), not the time of the restart.
+
+This records the provenance of a workflow that already ran without it: run it again with ``restart``
+inside ``workflow_provenance``. When all the steps are skipped, the workflow run is described as a
+restart-only run, without ``startTime``. When only some are skipped, the start and end times of the
+workflow run only cover the steps that ran (or were recorded) and its description says how many were
+skipped. The README, the preview and the graph (dashed boxes) show these steps as "Skipped (restart)".
 
 Workflow provenance
 -------------------
@@ -153,6 +164,30 @@ Block crates can also be merged afterwards, ie: when the steps run in different 
 
     merge_block_crates(find_block_crates('wf_output'), 'wf_output', workflow_file='workflow.py')
 
+Steps on different machines
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A workflow can run on several machines, ie: the setup on a workstation and the MD on an HPC cluster,
+with the block crates copied to a single directory and merged with ``merge_block_crates`` or
+``biobb_provenance merge``. Each machine has its own execution environment entity (see
+`Execution environment`_). The files have different paths on each machine, so the steps are linked
+in two ways:
+
+- **Path mapping**: ``path_map`` (``--path-map OLD=NEW`` in the command line, repeatable) replaces the
+  beginning of the file paths of the block crates before linking them:
+
+  .. code-block:: python
+
+      merge_block_crates(find_block_crates('wf_output'), 'wf_output', workflow_file='workflow.py',
+                         path_map={'/gpfs/scratch/user/md_setup': '/home/user/md_setup'})
+
+- **Checksum**: with the ``provenance_checksum`` property, an input that no step produced is linked to
+  the output of a previous step with the same ``sha256`` and size, even with another name. Empty files
+  and directories are not linked by checksum.
+
+The steps are ordered by time, so the clocks of the machines should be synchronized. Times with
+different time zones are compared correctly.
+
 Example
 ~~~~~~~
 
@@ -175,6 +210,9 @@ The ``biobb_provenance`` command merges, draws and validates the crates:
 
     # Merge all the block crates found inside wf_output into a workflow crate
     biobb_provenance merge wf_output -o wf_output -w workflow.py
+
+    # Merge block crates of a cluster, whose files were in /gpfs/scratch/user/wf
+    biobb_provenance merge wf_output -o wf_output -w workflow.py -m /gpfs/scratch/user/wf=/home/user/wf
 
     # Print the workflow graph in Mermaid format, or write it to a file
     biobb_provenance graph wf_output
@@ -225,7 +263,11 @@ Wrapped software            ``SoftwareApplication`` with name, version, license 
 ``Person``                  With ``provenance_author``: crate ``author`` and action ``agent``,
                             identified by the ORCID, with its ``affiliation`` (``Organization``).
 ``Organization``            The BioExcel Centre of Excellence, crate ``publisher``.
-``PropertyValue``           Documented properties of the block (``object``) and environment values.
+``PropertyValue``           Documented properties of the block (``object``), simulation parameters (see
+                            `Simulation parameters`_) and the execution environment: one
+                            ``PropertyValue`` per machine (``#environment-<hash>``, named "execution
+                            environment", with a short description as ``value``) whose values are its
+                            ``valueReference``.
 =========================== =======================================================================
 
 Workflow crate
@@ -283,8 +325,31 @@ Execution environment
 ~~~~~~~~~~~~~~~~~~~~~
 
 Operating system and kernel version, CPU architecture, CPU model and core count, total memory, Python
-version, conda environment name, the SLURM job id and cluster name, the NVIDIA GPU model, count, memory
-and driver version (from ``nvidia-smi``) and ``CUDA_VISIBLE_DEVICES`` when available.
+version, conda environment name, the SLURM job id, cluster name and node list, the NVIDIA GPU model,
+count, memory and driver version (from ``nvidia-smi``), ``CUDA_VISIBLE_DEVICES`` when available and,
+unless ``provenance_user_host`` is ``False``, the hostname and the username.
+
+The values are grouped in one entity per machine. Its id is a hash of all the values, so the steps run on
+the same machine (and SLURM job) share it in the workflow crate, and the preview shows one column per
+machine with its steps.
+
+Simulation parameters
+~~~~~~~~~~~~~~~~~~~~~
+
+The parameters of the simulation parameter files are recorded as ``PropertyValue`` entities: GROMACS
+``mdp`` files and AMBER namelists (``mdin`` and ``in`` files, ie: ``&cntrl nstlim = 5000 /`` is recorded as
+``cntrl.nstlim = 5000``; repeated namelists are numbered: ``wt[1].type``). Each file is a ``PropertyValue``
+of the execution (``object``) named as the file, with its parameters as ``valueReference``.
+
+- **Generated files**: the files built by the blocks, ie: the ``grompp.mdp`` of grompp from
+  ``simulation_type``, the input mdp and the ``mdp`` property, or the ``sander.mdin`` of sander. They are
+  the parameters really used. They are read before the temporary files are removed, from the
+  ``output_*_path`` attributes of the block that are not arguments, so the blocks need no changes.
+- **Input files**: when the block generates no parameter file, the input files with these extensions
+  are read (ie: an mdp used as it is), and the ``PropertyValue`` is linked to the file with ``subjectOf``.
+
+Other ``in`` files (ie: tleap or cpptraj scripts) are not namelists and are not read. The values are
+numbers when possible, otherwise text (ie: ``ref_t = "300 300"``).
 
 Terms
 -----
@@ -297,7 +362,9 @@ Term used in the crates that is not defined by schema.org or the
     <span id="executionEnvironment"></span>
 
 ``executionEnvironment``
-    ``PropertyValue`` entities describing the machine where a ``CreateAction`` was executed.
+    ``PropertyValue`` describing the machine where a ``CreateAction`` was executed, with its values
+    (``PropertyValue`` entities) as ``valueReference``. Crates written by previous versions of
+    biobb_common link the values directly.
 
 Limitations
 -----------
@@ -310,12 +377,13 @@ Limitations
   ``--workflow-file``) produce a crate that only conforms to Process Run Crate: a Workflow RO-Crate
   requires the workflow file. The steps, their links and the workflow run are still recorded, the
   workflow is a ``ComputationalWorkflow`` entity without file and it is not the ``mainEntity``.
-- Configuration files generated by the blocks are not recorded, ie: the GROMACS ``mdp`` or AMBER
-  ``mdin`` files built from the ``simulation_type`` defaults and the ``mdp`` / ``mdin`` properties.
-  They are temporary files removed after the execution. The crate records what generates them: the
-  block version, ``simulation_type``, the ``mdp`` / ``mdin`` properties and, if given, the input file
-  (``input_mdp_path``, ``input_mdin_path``). The final parameters can therefore be rebuilt with the
-  same block version, but they are not stored in the crate.
+- Configuration files generated by the blocks are not stored in the crate, ie: the GROMACS ``mdp`` or
+  AMBER ``mdin`` files built from the ``simulation_type`` defaults and the ``mdp`` / ``mdin``
+  properties. They are temporary files removed after the execution, only their parameters are recorded
+  (see `Simulation parameters`_). Other generated files (ie: tleap scripts) are not recorded.
+- Steps skipped by the ``restart`` property without a previous crate have no start time: the duration
+  of the original execution is unknown. Their end time is the last modification of the outputs, which
+  changes if the files are copied without keeping their modification time (ie: ``cp`` without ``-p``).
 - Data is never copied into the crates. Files outside the crate directory (all the files of a block
   crate, and the workflow inputs or outputs written outside the workflow directory) are referenced by
   their absolute ``file://`` URI. RO-Crate 1.1 allows data entities with absolute URIs, but recommends

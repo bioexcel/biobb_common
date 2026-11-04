@@ -18,6 +18,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     merge.add_argument("-n", "--name", help="Name of the workflow.")
     merge.add_argument("-w", "--workflow-file", help="Python script of the workflow, copied into the output directory.")
     merge.add_argument("-l", "--license", help="License of the workflow script: SPDX identifier (ie: MIT) or URL.")
+    merge.add_argument("-m", "--path-map", action="append", default=[], metavar="OLD=NEW",
+                       help="Replace the beginning of the file paths of the block crates, to link steps run on other machines "
+                            "(ie: /gpfs/scratch/user/wf=/home/user/wf). Can be repeated.")
 
     graph = subparsers.add_parser("graph", help="Draw the graph of a block or workflow RO-Crate.")
     graph.add_argument("crate", help="Directory containing the ro-crate-metadata.json file.")
@@ -37,7 +40,12 @@ def main(argv: Optional[list[str]] = None) -> int:
             return 1
         if not args.workflow_file:
             print("WARNING: without --workflow-file the crate is not a Workflow RO-Crate, only a Process Run Crate.", file=sys.stderr)
-        metadata_path = merge_block_crates(block_crates, args.output, workflow_file=args.workflow_file, name=args.name, license=args.license)
+        if any("=" not in mapping for mapping in args.path_map):
+            print("--path-map must be OLD=NEW.", file=sys.stderr)
+            return 1
+        path_map = dict(mapping.split("=", 1) for mapping in args.path_map)
+        metadata_path = merge_block_crates(block_crates, args.output, workflow_file=args.workflow_file, name=args.name,
+                                           license=args.license, path_map=path_map)
         print(f"Workflow RO-Crate with {len(block_crates)} steps written to: {metadata_path}")
     elif args.command == "graph":
         if args.output:

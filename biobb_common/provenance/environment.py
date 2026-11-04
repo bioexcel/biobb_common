@@ -1,4 +1,5 @@
 """Module containing the function to describe the machine where a building block is executed."""
+import getpass
 import os
 import platform
 import shutil
@@ -9,11 +10,16 @@ from typing import Any, Optional
 
 
 @lru_cache(maxsize=None)
-def execution_environment() -> dict[str, Any]:
+def execution_environment(user_host: bool = False) -> dict[str, Any]:
     """Return a description of the machine running the building blocks.
-    Hostname and username are never included. Keys with unknown values are omitted."""
+    Keys with unknown values are omitted.
+
+    Args:
+        user_host (bool): (False) Include the hostname, the username and the SLURM node list.
+    """
     uname = platform.uname()
     environment = {
+        **(_user_host() if user_host else {}),
         "operating_system": f"{uname.system} {uname.release}",
         "architecture": uname.machine,
         "cpu_model": _cpu_model(),
@@ -27,6 +33,15 @@ def execution_environment() -> dict[str, Any]:
         "slurm_cluster_name": os.environ.get("SLURM_CLUSTER_NAME"),
     }
     return {key: value for key, value in environment.items() if value}
+
+
+def _user_host() -> dict[str, Optional[str]]:
+    try:
+        username: Optional[str] = getpass.getuser()
+    except (OSError, KeyError, ImportError):
+        # No user name in the environment variables nor in the password database, ie: some containers
+        username = None
+    return {"hostname": platform.node() or None, "username": username, "slurm_job_nodelist": os.environ.get("SLURM_JOB_NODELIST")}
 
 
 def _cpu_model() -> Optional[str]:

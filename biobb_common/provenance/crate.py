@@ -1,13 +1,16 @@
 """Module containing the functions to write the provenance records as RO-Crates."""
+import hashlib
 import json
 import re
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Union
 
 from rocrate.model.contextentity import ContextEntity
 from rocrate.rocrate import ROCrate
 
+from biobb_common.provenance.parameters import ParameterSet
 from biobb_common.provenance.record import BlockRecord, FileRecord
 
 RO_CRATE_VERSION = "1.1"
@@ -21,6 +24,8 @@ FAILED = "http://schema.org/FailedActionStatus"
 # Terms not covered by schema.org or the workflow-run vocabulary
 BIOBB_TERMS = "https://biobb-common.readthedocs.io/en/latest/provenance.html#"
 EXTRA_TERMS = {"executionEnvironment": BIOBB_TERMS + "executionEnvironment"}
+# Start of the description of the executions skipped by the restart property
+RESTART_SKIPPED = "Skipped by the restart property"
 
 
 def new_crate(name: str, description: str, profiles: dict[str, tuple[str, str]]) -> ROCrate:
@@ -88,7 +93,7 @@ def write_block_crate(record: BlockRecord, crate_dir: Union[str, Path]) -> Path:
         description=f"Provenance of the {record.package} {record.class_name} building block execution.",
         profiles={PROCESS_RUN_CRATE: ("Process Run Crate", "0.5")},
     )
-    crate.root_dataset["datePublished"] = iso(record.end_time)
+    crate.root_dataset["datePublished"] = iso(datetime.now().astimezone())
 
     instrument = crate.add(ContextEntity(crate, block_id(record.module, record.class_name), properties={
         "@type": "SoftwareApplication",
@@ -107,15 +112,15 @@ def write_block_crate(record: BlockRecord, crate_dir: Union[str, Path]) -> Path:
             "value": value if isinstance(value, (str, int, float, bool)) else json.dumps(value),
         }))
         for name, value in record.properties.items()
-    ]
+    ] + [_add_parameter_set(crate, action_id, parameter_set) for parameter_set in record.parameters]
 
     properties: dict[str, Any] = {
         "@type": "CreateAction",
         "name": f"Run of {record.package} {record.class_name}",
         "description": _action_description(record),
         **({"alternateName": record.step} if record.step else {}),
-        "startTime": iso(record.start_time),
-        "endTime": iso(record.end_time),
+        **({"startTime": iso(record.start_time)} if record.start_time else {}),
+        **({"endTime": iso(record.end_time)} if record.end_time else {}),
         "actionStatus": COMPLETED if record.completed else FAILED,
     }
     if record.error:
@@ -129,15 +134,7 @@ def write_block_crate(record: BlockRecord, crate_dir: Union[str, Path]) -> Path:
             **({"sha256": record.container_digest} if record.container_digest else {}),
         }))
     if record.environment:
-        properties["executionEnvironment"] = single([
-            # Id based on the content so identical values are shared between steps in the workflow crate
-            crate.add(ContextEntity(crate, "#env-" + _slug(f"{name}-{value}"), properties={
-                "@type": "PropertyValue",
-                "name": name,
-                "value": value,
-            }))
-            for name, value in record.environment.items()
-        ])
+        properties["executionEnvironment"] = _add_environment(crate, record.environment)
 
     if record.author:
         properties["agent"] = crate.root_dataset["author"] = add_author(crate, record.author)
@@ -167,9 +164,86 @@ def block_id(module: str, class_name: str) -> str:
     return f"https://{package.replace('_', '-')}.readthedocs.io/en/latest/{subpackage}.html#module-{'.'.join(parts[1:])}"
 
 
+def _add_environment(crate: ROCrate, environment: dict[str, Any]):
+    """Add the execution environment: one PropertyValue describing the machine, with its values as
+    valueReference. Ids are based on the content, so the steps that ran on the same machine share
+    the entity in the workflow crate, and steps on different machines have different entities."""
+    values = [
+        crate.add(ContextEntity(crate, "#env-" + _slug(f"{name}-{value}"), properties={
+            "@type": "PropertyValue",
+            "name": name,
+            "value": value,
+        }))
+        for name, value in environment.items()
+    ]
+    digest = hashlib.sha256(json.dumps(environment, sort_keys=True, default=str).encode()).hexdigest()[:12]
+    return crate.add(ContextEntity(crate, f"#environment-{digest}", properties={
+        "@type": "PropertyValue",
+        "name": "execution environment",
+        "value": environment_label(environment),
+        "valueReference": single(values),
+    }))
+
+
+def environment_label(environment: dict[str, Any]) -> str:
+    """Return a short description of an execution environment, ie: "user@node1 (SLURM cluster mn5, job 123): Linux 6.8, x86_64, 112 CPUs"."""
+    host = "@".join(str(environment[k]) for k in ("username", "hostname") if environment.get(k))
+    slurm = ", ".join(f"{label} {environment[k]}" for k, label in (("slurm_cluster_name", "SLURM cluster"), ("slurm_job_id", "job")) if environment.get(k))
+    machine = ", ".join(str(environment[k]) for k in ("operating_system", "architecture") if environment.get(k))
+    if environment.get("cpu_count"):
+        machine += f", {environment['cpu_count']} CPUs"
+    if environment.get("gpu_model"):
+        machine += f", {environment.get('gpu_count', 1)} x {environment['gpu_model']}"
+    prefix = " ".join(p for p in (host, f"({slurm})" if slurm else "") if p)
+    return f"{prefix}: {machine}" if prefix else machine
+
+
+def _add_parameter_set(crate: ROCrate, action_id: str, parameter_set: ParameterSet):
+    """Add the parameters read from a parameter file: one PropertyValue named as the file,
+    with the parameters as valueReference. Input files are linked with subjectOf."""
+    group_id = f"{action_id}-{_slug(parameter_set.name)}"
+    values = [
+        crate.add(ContextEntity(crate, f"{group_id}-{_slug(name)}", properties={"@type": "PropertyValue", "name": name, "value": value}))
+        for name, value in parameter_set.values.items()
+    ]
+    origin = "generated by the building block" if parameter_set.generated else "read from the input file"
+    properties: dict[str, Any] = {
+        "@type": "PropertyValue",
+        "name": parameter_set.name,
+        "value": f"{len(values)} parameters",
+        "description": f"Parameters of the {parameter_set.file_format} file {parameter_set.name}, {origin}.",
+        "valueReference": single(values),
+    }
+    if parameter_set.path:
+        properties["subjectOf"] = {"@id": parameter_set.path.as_uri()}
+    return crate.add(ContextEntity(crate, group_id, properties=properties))
+
+
+def is_restart_skipped(action: dict) -> bool:
+    """Return True if a CreateAction of a crate was skipped by the restart property."""
+    return str(action.get("description", "")).startswith(RESTART_SKIPPED)
+
+
+def action_time(action: dict) -> datetime:
+    """Return the time used to order the CreateActions of a crate: the start time or, for
+    executions skipped by the restart property, the end time (last modification of the outputs)."""
+    return parse_time(action.get("startTime") or action.get("endTime"))
+
+
+def parse_time(text: Optional[str]) -> datetime:
+    """Return an ISO 8601 time as an aware datetime, so times of machines in different time zones
+    can be compared. Unknown or invalid times are the oldest possible time."""
+    try:
+        time = datetime.fromisoformat(str(text))
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    return time if time.tzinfo else time.astimezone()
+
+
 def _action_description(record: BlockRecord) -> str:
     if record.skipped:
-        return "Skipped by the restart property: the outputs come from a previous execution."
+        return (f"{RESTART_SKIPPED}: the outputs come from a previous execution that was not recorded. "
+                "Its start time is unknown, the end time is the last modification of the outputs.")
     if record.command_line:
         return f"Command line: {record.command_line}"
     return f"Execution of the {record.class_name} building block."

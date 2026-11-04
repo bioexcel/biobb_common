@@ -7,7 +7,7 @@ from html import escape
 from pathlib import Path
 from typing import Any, Union
 
-from biobb_common.provenance.crate import as_list
+from biobb_common.provenance.crate import action_time, as_list, is_restart_skipped
 from biobb_common.provenance.graph import read_graph, to_mermaid
 
 PREVIEW = "ro-crate-preview.html"
@@ -22,6 +22,7 @@ th, td { border: 1px solid #d1d5db; padding: .35rem .6rem; text-align: left; ver
 th { background: #f3f4f6; }
 code, .id { font-family: ui-monospace, monospace; font-size: .9em; overflow-wrap: anywhere; }
 .failed { color: #b91c1c; font-weight: bold; }
+.skipped { color: #6b7280; font-style: italic; }
 details { margin-bottom: .5rem; }
 details details { margin-left: 1.2rem; }
 summary { cursor: pointer; }
@@ -158,15 +159,19 @@ def write_preview(crate_dir: Union[str, Path]) -> Path:
     html.append("<h2>Executions</h2>")
     html.append("<table><tr><th>Name</th><th>Step</th><th>Status</th><th>Start</th><th>End</th><th>Software</th></tr>")
     for action in _actions(entities):
-        failed = "Failed" in action.get("actionStatus", "")
+        status = _status(action)
         html.append(
             f'<tr><td><a href="#{_anchor(action["@id"])}">{escape(action.get("name", action["@id"]))}</a></td>'
             f'<td>{escape(action.get("alternateName", ""))}</td>'
-            f'<td class="{"failed" if failed else ""}">{"Failed" if failed else "Completed"}</td>'
+            f'<td class="{status.split()[0].lower()}">{status}</td>'
             f"<td>{escape(action.get('startTime', ''))}</td><td>{escape(action.get('endTime', ''))}</td>"
             f"<td>{escape(_software(action, entities))}</td></tr>"
         )
     html.append("</table>")
+    if any(map(is_restart_skipped, _actions(entities))):
+        html.append('<p class="muted">Skipped (restart): the execution was skipped by the restart property and its outputs come from '
+                    "a previous execution that was not recorded. Its start time is unknown and its end time is the last modification "
+                    "of the outputs.</p>")
 
     html += _files_table(entities)
     html += _software_table(entities)
@@ -217,18 +222,23 @@ def write_readme(crate_dir: Union[str, Path]) -> Path:
         "",
     ]
     if run:
-        status = "failed" if "Failed" in run.get("actionStatus", "") else "completed"
-        lines += [f"- Status: {status}", f"- Start: {run.get('startTime', '')}", f"- End: {run.get('endTime', '')}"]
+        status = _status(run).lower()
+        if is_restart_skipped(run):
+            status = "restart-only: all the steps were skipped by the restart property, their duration is unknown"
+        lines += [f"- Status: {status}", f"- Start: {run.get('startTime', 'unknown')}", f"- End: {run.get('endTime', '')}"]
     if "author" in root:
         lines.append("- Author: " + ", ".join(entities.get(a["@id"], a).get("name", a["@id"]) for a in as_list(root["author"])))
     lines += ["", "## Steps", "", "| # | Step | Building block | Status | Start | End |", "|---|---|---|---|---|---|"]
     for position, action in enumerate((a for a in _actions(entities) if a["@id"] != "#workflow-run"), start=1):
-        status = "failed" if "Failed" in action.get("actionStatus", "") else "completed"
+        status = _status(action).lower()
         block = entities.get(action["instrument"]["@id"], {}).get("name", action["instrument"]["@id"])
         lines.append(f"| {position} | {action.get('alternateName', '')} | {block} | {status} | {action.get('startTime', '')} | {action.get('endTime', '')} |")
     for title, key in (("Inputs", "object"), ("Outputs", "result")):
         lines += ["", f"## {title}", ""]
         lines += [f"- `{ref['@id']}`" for ref in as_list(run.get(key))] or ["None"]
+    if any(map(is_restart_skipped, _actions(entities))):
+        lines += ["", "Skipped (restart) steps were skipped by the restart property: their outputs come from a previous execution that "
+                  "was not recorded, the start time is unknown and the end time is the last modification of the outputs."]
     lines += ["", "## Graph", "", "```mermaid", to_mermaid(read_graph(crate_dir)).rstrip(), "```", ""]
 
     readme_path = crate_dir / README
@@ -243,7 +253,13 @@ def _entities(crate_dir: Path) -> dict[str, dict]:
 def _actions(entities: dict[str, dict]) -> list[dict]:
     actions = [e for e in entities.values() if "CreateAction" in as_list(e.get("@type"))]
     # The workflow run first, then the steps by start time
-    return sorted(actions, key=lambda a: (a["@id"] != "#workflow-run", a.get("startTime", "")))
+    return sorted(actions, key=lambda a: (a["@id"] != "#workflow-run", action_time(a)))
+
+
+def _status(action: dict) -> str:
+    if "Failed" in action.get("actionStatus", ""):
+        return "Failed"
+    return "Skipped (restart)" if is_restart_skipped(action) else "Completed"
 
 
 def _software(action: dict, entities: dict[str, dict]) -> str:
@@ -292,22 +308,35 @@ def _version(software: dict) -> str:
 
 
 def _environment_table(entities: dict[str, dict]) -> list[str]:
-    """Execution environment values, with the number of executions that used each one."""
-    counts: dict[str, int] = {}
-    for action in entities.values():
-        for ref in as_list(action.get("executionEnvironment")):
-            counts[ref["@id"]] = counts.get(ref["@id"], 0) + 1
-    if not counts:
+    """Execution environments, one column per machine, with the steps executed in each one."""
+    # {environment id: (values, steps)}
+    environments: dict[str, tuple[list[dict], list[dict]]] = {}
+    for action in _actions(entities):
+        refs = as_list(action.get("executionEnvironment"))
+        values = [entities.get(r["@id"], {}) for r in refs]
+        if len(values) == 1 and "valueReference" in values[0]:
+            # One entity per machine, with the values as valueReference
+            key, values = refs[0]["@id"], [entities.get(r["@id"], {}) for r in as_list(values[0]["valueReference"])]
+        else:
+            # Crates of previous biobb_common versions: the values directly
+            key = " ".join(sorted(r["@id"] for r in refs))
+        if values:
+            environments.setdefault(key, (values, []))[1].append(action)
+    if not environments:
         return []
-    executions = max(counts.values())
-    html = ["<h2>Execution environment</h2>", "<table><tr><th>Name</th><th>Value</th></tr>"]
-    for env_id in sorted(counts, key=lambda i: entities.get(i, {}).get("name", i)):
-        env = entities.get(env_id, {})
-        note = f' <span class="muted">({counts[env_id]} of {executions} executions)</span>' if counts[env_id] != executions else ""
-        name, value = str(env.get("name", env_id)), env.get("value", "")
-        if name.endswith("_bytes") and str(value).isdigit():
-            value = _size(value)
-        html.append(f"<tr><th>{escape(name)}</th><td>{escape(str(value))}{note}</td></tr>")
+    names = list(dict.fromkeys(str(v.get("name")) for values, _ in environments.values() for v in values))
+    html = ["<h2>Execution environment</h2>", "<table><tr><th>Name</th>" + "".join(f"<th>Machine {i}</th>" for i in range(1, len(environments) + 1)) + "</tr>"]
+    for name in names:
+        cells = []
+        for values, _ in environments.values():
+            value = next((v.get("value", "") for v in values if str(v.get("name")) == name), "")
+            if name.endswith("_bytes") and str(value).isdigit():
+                value = _size(value)
+            cells.append(f"<td>{escape(str(value))}</td>")
+        html.append(f"<tr><th>{escape(name)}</th>{''.join(cells)}</tr>")
+    cells = [", ".join(f'<a href="#{_anchor(a["@id"])}">{escape(a.get("alternateName") or a.get("name", a["@id"]))}</a>' for a in steps)
+             for _, steps in environments.values()]
+    html.append("<tr><th>steps</th>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
     return html + ["</table>"]
 
 
@@ -352,6 +381,10 @@ def _value(value: Any, entities: dict[str, dict]) -> str:
     if isinstance(value, dict) and "@id" in value:
         entity_id = value["@id"]
         entity = entities.get(entity_id, {})
+        if "PropertyValue" in as_list(entity.get("@type")) and "valueReference" in entity:
+            # Parameter file or execution environment: its values, collapsed
+            return (f'<details><summary><code>{escape(str(entity.get("name")))}</code> {escape(str(entity.get("value", "")))}</summary>'
+                    f'{_value(entity["valueReference"], entities)}</details>')
         if "PropertyValue" in as_list(entity.get("@type")):
             return f'<code>{escape(str(entity.get("name")))} = {escape(str(entity.get("value")))}</code>'
         label = escape(str(entities.get(entity_id, {}).get("name", entity_id)))

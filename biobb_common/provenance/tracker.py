@@ -53,7 +53,7 @@ def track(obj, func: Callable, *args, **kwargs) -> Any:
         obj (BiobbObject): Building block being executed.
         func (Callable): Function to execute, usually obj.launch.
     """
-    if not getattr(obj, "provenance", False) and not _collectors.get():
+    if not is_enabled(obj):
         return func(*args, **kwargs)
 
     # Same condition used by BiobbObject.check_restart to skip the execution
@@ -66,6 +66,11 @@ def track(obj, func: Callable, *args, **kwargs) -> Any:
         raise
     _write(obj, start_time, return_value=value, skipped=skipped)
     return value
+
+
+def is_enabled(obj) -> bool:
+    """Return True if the provenance of **obj** is recorded: provenance property or inside a collect() context."""
+    return bool(getattr(obj, "provenance", False) or _collectors.get())
 
 
 def provenance_dir(obj) -> Path:

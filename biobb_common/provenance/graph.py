@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Union
 
-from biobb_common.provenance.crate import FAILED, as_list
+from biobb_common.provenance.crate import FAILED, action_time, as_list, is_restart_skipped
 
 
 @dataclass
@@ -12,6 +12,8 @@ class Step:
     id: str
     label: str
     failed: bool = False
+    # Skipped by the restart property, drawn with a dashed border
+    skipped: bool = False
 
 
 @dataclass
@@ -34,14 +36,15 @@ def read_graph(crate_dir: Union[str, Path]) -> ProvenanceGraph:
     workflows = {i for i, e in entities.items() if "ComputationalWorkflow" in as_list(e.get("@type"))}
     actions = sorted(
         (e for e in entities.values() if e["@type"] == "CreateAction" and e["instrument"]["@id"] not in workflows),
-        key=lambda action: action.get("startTime", ""),
+        key=action_time,
     )
     graph = ProvenanceGraph()
     for position, action in enumerate(actions, start=1):
         instrument = entities.get(action["instrument"]["@id"], {})
         # "biobb_gromacs Pdb2gmx" -> "Pdb2gmx"
         label = action.get("alternateName") or instrument.get("name", action["name"]).split()[-1]
-        graph.steps.append(Step(id=action["@id"], label=f"{position}: {label}", failed=action.get("actionStatus") == FAILED))
+        graph.steps.append(Step(id=action["@id"], label=f"{position}: {label}", failed=action.get("actionStatus") == FAILED,
+                                skipped=is_restart_skipped(action)))
         for key, is_input in (("object", True), ("result", False)):
             for ref in as_list(action.get(key)):
                 entity = entities.get(ref["@id"], {})
@@ -57,13 +60,14 @@ def to_mermaid(graph: ProvenanceGraph) -> str:
     ids = _node_ids(graph)
     lines = ["flowchart TD"]
     for step in graph.steps:
-        lines.append(f'    {ids[step.id]}["{_escape(step.label)}"]:::{"failed" if step.failed else "step"}')
+        lines.append(f'    {ids[step.id]}["{_escape(step.label)}"]:::{_step_class(step)}')
     for file_id, name in graph.files.items():
         lines.append(f'    {ids[file_id]}[/"{_escape(name)}"/]:::file')
     lines.extend(f"    {ids[source]} --> {ids[target]}" for source, target in graph.edges)
     lines.extend([
         "    classDef step fill:#dbeafe,stroke:#1d4ed8",
         "    classDef failed fill:#fee2e2,stroke:#b91c1c",
+        "    classDef skipped fill:#f9fafb,stroke:#1d4ed8,stroke-dasharray:5 5",
         "    classDef file fill:#f3f4f6,stroke:#6b7280",
     ])
     return "\n".join(lines) + "\n"
@@ -74,8 +78,9 @@ def to_dot(graph: ProvenanceGraph) -> str:
     ids = _node_ids(graph)
     lines = ["digraph provenance {", "    rankdir=TB;"]
     for step in graph.steps:
-        color = "#fee2e2" if step.failed else "#dbeafe"
-        lines.append(f'    {ids[step.id]} [label="{_escape(step.label)}", shape=box, style="rounded,filled", fillcolor="{color}"];')
+        color = {"failed": "#fee2e2", "skipped": "#f9fafb"}.get(_step_class(step), "#dbeafe")
+        style = "rounded,filled,dashed" if step.skipped else "rounded,filled"
+        lines.append(f'    {ids[step.id]} [label="{_escape(step.label)}", shape=box, style="{style}", fillcolor="{color}"];')
     for file_id, name in graph.files.items():
         lines.append(f'    {ids[file_id]} [label="{_escape(name)}", shape=note, style=filled, fillcolor="#f3f4f6"];')
     lines.extend(f"    {ids[source]} -> {ids[target]};" for source, target in graph.edges)
@@ -110,6 +115,10 @@ def write_graph(crate_dir: Union[str, Path], output_path: Union[str, Path]) -> P
             raise RuntimeError(f"The Graphviz binaries are required to write {extension} files (conda install python-graphviz), "
                                "or use .mmd, .md or .dot instead.") from error
     return output_path
+
+
+def _step_class(step: Step) -> str:
+    return "failed" if step.failed else "skipped" if step.skipped else "step"
 
 
 def _node_ids(graph: ProvenanceGraph) -> dict[str, str]:

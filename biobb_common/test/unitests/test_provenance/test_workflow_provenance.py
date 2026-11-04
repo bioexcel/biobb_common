@@ -3,6 +3,7 @@ import contextvars
 import json
 import shutil
 import threading
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -11,9 +12,10 @@ from biobb_common import biobb_global_properties
 from biobb_common.generic.folder_test import folder_test
 from biobb_common.provenance import find_block_crates, merge_block_crates, workflow_provenance
 from biobb_common.provenance import cli
-from biobb_common.provenance.crate import as_list
+from biobb_common.provenance.crate import as_list, write_block_crate
 from biobb_common.provenance.graph import read_graph, to_mermaid, write_graph
 from biobb_common.provenance.preview import GENERATED_MARK
+from biobb_common.provenance.record import BlockRecord, FileRecord
 from biobb_common.provenance.workflow import _web_url
 from biobb_common.tools import test_fixtures as fx
 
@@ -222,3 +224,73 @@ class TestWorkflowProvenance():
         assert validate_crate(find_block_crates(self.properties['path'])[0].parent) == []
         merge_block_crates(find_block_crates(self.properties['path']), tmp_path)
         assert validate_crate(tmp_path) == []
+
+
+def block_record(start, inputs, outputs, environment):
+    """BlockRecord of a step: {path: sha256} of the inputs and outputs, start as ISO time."""
+    def files(paths):
+        return [FileRecord(argument="path", path=Path(p), is_dir=False, size=10, sha256=sha) for p, sha in paths.items()]
+    start = datetime.fromisoformat(start)
+    return BlockRecord(class_name="Step", module="biobb_test.test.step", package="biobb_test", package_version="1.0",
+                       start_time=start, end_time=start, inputs=files(inputs), outputs=files(outputs), environment=environment)
+
+
+def test_multiple_machines(tmp_path):
+    """Setup on a laptop, MD on an HPC cluster (other time zone), analysis on the laptop: steps linked by checksum and path map."""
+    laptop = {"hostname": "laptop", "operating_system": "Linux 6.8", "cpu_count": 8}
+    hpc = {"hostname": "node1", "operating_system": "Linux 5.14", "cpu_count": 112, "slurm_job_id": "123"}
+    records = [
+        block_record("2026-11-04T10:00:00+01:00", {"/home/u/wf/in.pdb": "a"}, {"/home/u/wf/setup.gro": "b"}, laptop),
+        # Copied to the cluster with another name: linked by checksum. Its output is linked by the path map.
+        block_record("2026-11-04T09:30:00+00:00", {"/gpfs/u/hpc/copied.gro": "b"}, {"/gpfs/u/hpc/md.xtc": "c"}, hpc),
+        block_record("2026-11-04T11:00:00+01:00", {"/home/u/wf/md.xtc": None}, {"/home/u/wf/rmsd.xvg": "d"}, laptop),
+    ]
+    block_crates = [write_block_crate(r, tmp_path / "provenance" / f"step{i}") for i, r in enumerate(records)]
+    assert cli.main(["merge", str(tmp_path), "-o", str(tmp_path / "wf"), "-m", "/gpfs/u/hpc=/home/u/wf"]) == 0
+    graph = entities(tmp_path / "wf" / "ro-crate-metadata.json")
+
+    # Ordered by time, not by the ISO text (09:30+00:00 is after 10:00+01:00)
+    steps = [graph[graph[c["object"]["@id"]]["@id"]] for c in sorted(of_type(graph, "ControlAction"), key=lambda c: c["@id"])]
+    assert [as_list(s["object"])[0]["@id"] for s in steps] == ["file:///home/u/wf/in.pdb", "file:///home/u/wf/setup.gro", "file:///home/u/wf/md.xtc"]
+    assert graph["#workflow-run"]["object"] == {"@id": "file:///home/u/wf/in.pdb"}
+    assert graph["#workflow-run"]["result"] == {"@id": "file:///home/u/wf/rmsd.xvg"}
+    assert "file:///gpfs/u/hpc/copied.gro" not in graph and "file:///home/u/wf/copied.gro" not in graph
+    assert len(read_graph(tmp_path / "wf").files) == 4
+
+    # One environment per machine, the laptop shared by two steps
+    machines = {s["executionEnvironment"]["@id"] for s in steps}
+    assert len(machines) == 2
+    assert steps[0]["executionEnvironment"] == steps[2]["executionEnvironment"]
+    assert graph[steps[1]["executionEnvironment"]["@id"]]["value"] == "node1 (job 123): Linux 5.14, 112 CPUs"
+    preview = (tmp_path / "wf" / "ro-crate-preview.html").read_text()
+    assert "<th>Machine 2</th>" in preview and "<th>Machine 3</th>" not in preview
+
+    # Without path map nor checksums the steps are not linked
+    block_crates[1].write_text(block_crates[1].read_text().replace('"sha256": "b"', '"sha256": "x"'))
+    graph = entities(merge_block_crates(block_crates, tmp_path / "unlinked"))
+    assert len(as_list(graph["#workflow-run"]["object"])) == 3
+
+    pytest.importorskip("rocrate_validator")
+    from biobb_common.provenance.validation import validate_crate
+    assert validate_crate(tmp_path / "wf") == []
+
+
+def test_restart_only_workflow(tmp_path):
+    """Provenance of a workflow that already ran without provenance, recorded with the restart property."""
+    input_folder = str(Path(__file__).parents[2] / "data" / "generic" / "input_folder")
+    steps = [(input_folder, str(tmp_path / "out1")), (str(tmp_path / "out1"), str(tmp_path / "out2"))]
+    for input_path, output_path in steps:
+        folder_test(input_folder=input_path, output_folder=output_path, properties={"path": str(tmp_path)})
+    with workflow_provenance(path=tmp_path / "wf", workflow_file=__file__):
+        for input_path, output_path in steps:
+            folder_test(input_folder=input_path, output_folder=output_path, properties={"path": str(tmp_path), "restart": True})
+    graph = entities(tmp_path / "wf" / "ro-crate-metadata.json")
+    run = graph["#workflow-run"]
+    assert "startTime" not in run and run["endTime"]
+    assert "restart-only run" in run["description"]
+    assert all("startTime" not in graph[c["object"]["@id"]] for c in of_type(graph, "ControlAction"))
+    assert "Status: restart-only" in (tmp_path / "wf" / "README.md").read_text()
+    assert all(step.skipped for step in read_graph(tmp_path / "wf").steps)
+    pytest.importorskip("rocrate_validator")
+    from biobb_common.provenance.validation import validate_crate
+    assert validate_crate(tmp_path / "wf") == []
