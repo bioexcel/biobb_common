@@ -134,7 +134,8 @@ The context manager enables provenance for all the blocks executed inside it and
 The block crates are written to ``wf_output/provenance/``, unless the blocks set ``provenance_path``,
 so the workflow crate and its block crates are in the same directory.
 Existing ``README.md`` or ``ro-crate-preview.html`` files not written by biobb are never overwritten.
-The workflow script (by default the script being executed) is copied into the crate directory. Files
+The workflow script (by default the script being executed, if it is a file: not in notebooks or with
+``python - < workflow.py``) is copied into the crate directory. Files
 inside the crate directory are referenced with relative paths, so the directory can be moved or shared
 as a whole.
 

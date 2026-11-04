@@ -2,6 +2,7 @@
 import contextvars
 import json
 import shutil
+import sys
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -85,6 +86,15 @@ class TestWorkflowProvenance():
         assert len(list((tmp_path / "custom").glob("step2_FolderTest_*"))) == 1
         graph = entities(tmp_path / "wf" / "ro-crate-metadata.json")
         assert sorted(s["name"] for s in of_type(graph, "HowToStep")) == ["step1", "step2"]
+
+    def test_script_from_stdin(self, tmp_path, monkeypatch):
+        """python - < workflow.py: the script is not a file, the crate has no workflow file (as notebooks)."""
+        monkeypatch.setattr(sys.modules["__main__"], "__file__", "<stdin>", raising=False)
+        with workflow_provenance(path=tmp_path / "wf"):
+            folder_test(input_folder=self.paths['input_folder'], output_folder=str(tmp_path / "out"), properties={"path": str(tmp_path)})
+        graph = entities(tmp_path / "wf" / "ro-crate-metadata.json")
+        assert graph["#workflow-run"]["instrument"] == {"@id": "#workflow"}
+        assert "mainEntity" not in graph["./"]
 
     def test_nested(self, tmp_path):
         with workflow_provenance(path=tmp_path / "outer", workflow_file=__file__):

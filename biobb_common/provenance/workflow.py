@@ -187,12 +187,16 @@ def workflow_provenance(path: Union[str, Path] = ".", name: Optional[str] = None
     Args:
         path (str, Path): (".") Directory where the workflow ro-crate-metadata.json will be written.
         name (str): (None) Name of the workflow, by default the workflow file name.
-        workflow_file (str, Path): (None) Python script of the workflow, by default the script being executed.
+        workflow_file (str, Path): (None) Python script of the workflow, by default the script being executed
+            (none in notebooks or when the code is read from the standard input).
         license (str): (None) License of the workflow script: SPDX identifier (ie: "MIT") or URL.
             By default the provenance_license global property, if set.
     """
     if workflow_file is None:
         workflow_file = getattr(sys.modules.get("__main__"), "__file__", None)
+        # Not a script file, ie: "<stdin>" with python - < workflow.py: as a notebook, without workflow file
+        if workflow_file and not Path(workflow_file).is_file():
+            workflow_file = None
     # Block crates next to the workflow crate, unless the blocks set provenance_path
     with tracker.collect(Path(path) / "provenance") as block_crates:
         try:
