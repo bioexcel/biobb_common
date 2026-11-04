@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterator, Optional, Union
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 from rocrate.model.contextentity import ContextEntity
 from rocrate.rocrate import ROCrate
@@ -66,6 +66,7 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
         license (str): (None) License of the workflow script: SPDX identifier (ie: "MIT") or URL.
         path_map (dict): (None) {path in the block crates: path in this machine}, ie:
             {"/gpfs/scratch/user/wf": "/home/user/wf"}, applied to the file ids before linking the steps.
+            Files that do not exist at the new path (ie: not copied back) keep their original id.
 
     Returns:
         Path: Path to the written ro-crate-metadata.json file.
@@ -230,7 +231,8 @@ def _uri(path: str) -> str:
 
 def _replace_ids(value: Any, mapping: dict[str, str], prefix: bool = False) -> Any:
     """Replace the @id of **value** (and nested references) found in **mapping**. With
-    **prefix**, the keys are URI prefixes: file:///a/b replaces file:///a/b and file:///a/b/c."""
+    **prefix**, the keys are file URI prefixes: file:///a/b replaces file:///a/b and file:///a/b/c,
+    only if the new file exists in this machine (ie: files not copied back from a cluster keep their id)."""
     if not mapping:
         return value
     if isinstance(value, list):
@@ -246,7 +248,9 @@ def _replace_ids(value: Any, mapping: dict[str, str], prefix: bool = False) -> A
             # Longest prefix first, so nested paths can be mapped to other places
             for old in sorted(mapping, key=len, reverse=True):
                 if entity_id == old or entity_id.startswith(old + "/"):
-                    value["@id"] = mapping[old] + entity_id[len(old):]
+                    new_id = mapping[old] + entity_id[len(old):]
+                    if Path(unquote(urlsplit(new_id).path)).exists():
+                        value["@id"] = new_id
                     break
     return value
 

@@ -7,8 +7,8 @@ from html import escape
 from pathlib import Path
 from typing import Any, Union
 
-from biobb_common.provenance.crate import action_time, as_list, is_restart_skipped
-from biobb_common.provenance.graph import read_graph, to_mermaid
+from biobb_common.provenance.crate import action_environment, action_time, as_list, environment_label, is_restart_skipped
+from biobb_common.provenance.graph import machine_color, read_graph, to_mermaid
 
 PREVIEW = "ro-crate-preview.html"
 README = "README.md"
@@ -23,6 +23,7 @@ th { background: #f3f4f6; }
 code, .id { font-family: ui-monospace, monospace; font-size: .9em; overflow-wrap: anywhere; }
 .failed { color: #b91c1c; font-weight: bold; }
 .skipped { color: #6b7280; font-style: italic; }
+.swatch { display: inline-block; width: .8em; height: .8em; border: 2px solid; border-radius: 3px; vertical-align: middle; margin-right: .3em; }
 details { margin-bottom: .5rem; }
 details details { margin-left: 1.2rem; }
 summary { cursor: pointer; }
@@ -233,6 +234,7 @@ def write_readme(crate_dir: Union[str, Path]) -> Path:
         status = _status(action).lower()
         block = entities.get(action["instrument"]["@id"], {}).get("name", action["instrument"]["@id"])
         lines.append(f"| {position} | {action.get('alternateName', '')} | {block} | {status} | {action.get('startTime', '')} | {action.get('endTime', '')} |")
+    lines += _readme_machines(entities)
     for title, key in (("Inputs", "object"), ("Outputs", "result")):
         lines += ["", f"## {title}", ""]
         lines += [f"- `{ref['@id']}`" for ref in as_list(run.get(key))] or ["None"]
@@ -254,6 +256,23 @@ def _actions(entities: dict[str, dict]) -> list[dict]:
     actions = [e for e in entities.values() if "CreateAction" in as_list(e.get("@type"))]
     # The workflow run first, then the steps by start time
     return sorted(actions, key=lambda a: (a["@id"] != "#workflow-run", action_time(a)))
+
+
+def _readme_machines(entities: dict[str, dict]) -> list[str]:
+    """Machines of the steps, numbered as in the graph, if they ran on several machines."""
+    machines: dict[str, tuple[str, list[str]]] = {}
+    steps = [a for a in _actions(entities) if a["@id"] != "#workflow-run"]
+    for position, action in enumerate(steps, start=1):
+        key, values = action_environment(action, entities)
+        if values:
+            label = environment_label({v.get("name"): v.get("value") for v in values})
+            machines.setdefault(key, (label, []))[1].append(str(position))
+    if len(machines) < 2:
+        return []
+    lines = ["", "## Machines", "", "Steps are colored by machine in the graph.", ""]
+    for number, (label, positions) in enumerate(machines.values(), start=1):
+        lines.append(f"- Machine {number} ({machine_color(number)[0]}): {label} (steps {', '.join(positions)})")
+    return lines
 
 
 def _status(action: dict) -> str:
@@ -312,20 +331,14 @@ def _environment_table(entities: dict[str, dict]) -> list[str]:
     # {environment id: (values, steps)}
     environments: dict[str, tuple[list[dict], list[dict]]] = {}
     for action in _actions(entities):
-        refs = as_list(action.get("executionEnvironment"))
-        values = [entities.get(r["@id"], {}) for r in refs]
-        if len(values) == 1 and "valueReference" in values[0]:
-            # One entity per machine, with the values as valueReference
-            key, values = refs[0]["@id"], [entities.get(r["@id"], {}) for r in as_list(values[0]["valueReference"])]
-        else:
-            # Crates of previous biobb_common versions: the values directly
-            key = " ".join(sorted(r["@id"] for r in refs))
+        key, values = action_environment(action, entities)
         if values:
             environments.setdefault(key, (values, []))[1].append(action)
     if not environments:
         return []
     names = list(dict.fromkeys(str(v.get("name")) for values, _ in environments.values() for v in values))
-    html = ["<h2>Execution environment</h2>", "<table><tr><th>Name</th>" + "".join(f"<th>Machine {i}</th>" for i in range(1, len(environments) + 1)) + "</tr>"]
+    html = ["<h2>Execution environment</h2>", "<table><tr><th>Name</th>" + "".join(f"<th>{_machine_swatch(i, len(environments))}Machine {i}</th>"
+                                                                                   for i in range(1, len(environments) + 1)) + "</tr>"]
     for name in names:
         cells = []
         for values, _ in environments.values():
@@ -338,6 +351,14 @@ def _environment_table(entities: dict[str, dict]) -> list[str]:
              for _, steps in environments.values()]
     html.append("<tr><th>steps</th>" + "".join(f"<td>{cell}</td>" for cell in cells) + "</tr>")
     return html + ["</table>"]
+
+
+def _machine_swatch(number: int, machines: int) -> str:
+    """Color of the machine in the graph, only used if the steps ran on several machines."""
+    if machines < 2:
+        return ""
+    name, fill, stroke = machine_color(number)
+    return f'<span class="swatch" style="background:{fill};border-color:{stroke}" title="{name}"></span>'
 
 
 def _groups(entities: dict[str, dict]) -> dict[str, list[dict]]:

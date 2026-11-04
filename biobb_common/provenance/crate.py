@@ -219,6 +219,16 @@ def _add_parameter_set(crate: ROCrate, action_id: str, parameter_set: ParameterS
     return crate.add(ContextEntity(crate, group_id, properties=properties))
 
 
+def action_environment(action: dict, entities: dict[str, dict]) -> tuple[str, list[dict]]:
+    """Return the id of the execution environment of a CreateAction and its values, ("", []) if it has none.
+    Crates of previous biobb_common versions link the values directly: their ids joined are the id."""
+    refs = as_list(action.get("executionEnvironment"))
+    values = [entities.get(r["@id"], {}) for r in refs]
+    if len(values) == 1 and "valueReference" in values[0]:
+        return refs[0]["@id"], [entities.get(r["@id"], {}) for r in as_list(values[0]["valueReference"])]
+    return " ".join(sorted(r["@id"] for r in refs)), values
+
+
 def is_restart_skipped(action: dict) -> bool:
     """Return True if a CreateAction of a crate was skipped by the restart property."""
     return str(action.get("description", "")).startswith(RESTART_SKIPPED)

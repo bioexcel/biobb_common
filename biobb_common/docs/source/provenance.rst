@@ -174,7 +174,8 @@ with the block crates copied to a single directory and merged with ``merge_block
 in two ways:
 
 - **Path mapping**: ``path_map`` (``--path-map OLD=NEW`` in the command line, repeatable) replaces the
-  beginning of the file paths of the block crates before linking them:
+  beginning of the file paths of the block crates before linking them. Only files that exist at the new
+  path are mapped: files that were not copied back (ie: the MD log) keep their original ``file://`` id.
 
   .. code-block:: python
 
@@ -187,6 +188,12 @@ in two ways:
 
 The steps are ordered by time, so the clocks of the machines should be synchronized. Times with
 different time zones are compared correctly.
+
+When the steps ran on several machines, the graph colors the steps by machine and adds a "Machines"
+legend: ``Machine <n>: <hostname> (SLURM cluster <name>, job <id>)`` (only ``Machine <n>`` without
+``provenance_user_host`` or SLURM). The machines are numbered and colored as the columns of the
+"Execution environment" table of the preview, and the README lists them with their color, description
+and steps.
 
 Example
 ~~~~~~~
@@ -225,7 +232,9 @@ Graph formats are chosen by the output file extension: ``.mmd`` (Mermaid), ``.md
 Markdown code block, rendered by GitHub), ``.dot`` (Graphviz) and any format supported by Graphviz
 (``.svg``, ``.png``, ``.pdf``...), which requires the ``graphviz`` Python package and the Graphviz
 binaries: ``conda install python-graphviz`` installs both. Steps are drawn as boxes, files as
-parallelograms and failed steps in red.
+parallelograms, failed steps in red (a thick red border when they are colored by machine), steps skipped
+by the restart property with a dashed border and, if the steps ran on several machines, with one color
+per machine and a legend.
 
 This is the graph of a two-step GROMACS workflow (pdb2gmx and editconf):
 

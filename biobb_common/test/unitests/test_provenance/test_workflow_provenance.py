@@ -13,7 +13,7 @@ from biobb_common.generic.folder_test import folder_test
 from biobb_common.provenance import find_block_crates, merge_block_crates, workflow_provenance
 from biobb_common.provenance import cli
 from biobb_common.provenance.crate import as_list, write_block_crate
-from biobb_common.provenance.graph import read_graph, to_mermaid, write_graph
+from biobb_common.provenance.graph import read_graph, to_dot, to_mermaid, write_graph
 from biobb_common.provenance.preview import GENERATED_MARK
 from biobb_common.provenance.record import BlockRecord, FileRecord
 from biobb_common.provenance.workflow import _web_url
@@ -199,6 +199,9 @@ class TestWorkflowProvenance():
         mermaid = to_mermaid(graph)
         assert mermaid.startswith("flowchart TD")
         assert "file1 --> step1" in mermaid
+        # A single machine: no colors by machine nor legend
+        assert len(graph.machines) == 1
+        assert "legend" not in mermaid and "legend" not in to_dot(graph) and ":::machine" not in mermaid
 
     def test_write_graph(self, tmp_path):
         assert write_graph(self.properties['path'], tmp_path / "graph.dot").read_text().startswith("digraph provenance {")
@@ -237,33 +240,54 @@ def block_record(start, inputs, outputs, environment):
 
 def test_multiple_machines(tmp_path):
     """Setup on a laptop, MD on an HPC cluster (other time zone), analysis on the laptop: steps linked by checksum and path map."""
-    laptop = {"hostname": "laptop", "operating_system": "Linux 6.8", "cpu_count": 8}
-    hpc = {"hostname": "node1", "operating_system": "Linux 5.14", "cpu_count": 112, "slurm_job_id": "123"}
+    laptop_env = {"hostname": "laptop", "operating_system": "Linux 6.8", "cpu_count": 8}
+    hpc_env = {"hostname": "node1", "operating_system": "Linux 5.14", "cpu_count": 112, "slurm_job_id": "123"}
+    # Workflow directory in this machine, with the files copied back from the cluster (md.edr was not)
+    laptop = tmp_path / "laptop"
+    laptop.mkdir()
+    for name in ("in.pdb", "setup.gro", "md.xtc", "rmsd.xvg"):
+        (laptop / name).write_text(name)
     records = [
-        block_record("2026-11-04T10:00:00+01:00", {"/home/u/wf/in.pdb": "a"}, {"/home/u/wf/setup.gro": "b"}, laptop),
-        # Copied to the cluster with another name: linked by checksum. Its output is linked by the path map.
-        block_record("2026-11-04T09:30:00+00:00", {"/gpfs/u/hpc/copied.gro": "b"}, {"/gpfs/u/hpc/md.xtc": "c"}, hpc),
-        block_record("2026-11-04T11:00:00+01:00", {"/home/u/wf/md.xtc": None}, {"/home/u/wf/rmsd.xvg": "d"}, laptop),
+        block_record("2026-11-04T10:00:00+01:00", {laptop / "in.pdb": "a"}, {laptop / "setup.gro": "b"}, laptop_env),
+        # Copied to the cluster with another name: linked by checksum. Its outputs are mapped by the path map.
+        block_record("2026-11-04T09:30:00+00:00", {"/gpfs/u/hpc/copied.gro": "b"}, {"/gpfs/u/hpc/md.xtc": "c", "/gpfs/u/hpc/md.edr": "e"}, hpc_env),
+        block_record("2026-11-04T11:00:00+01:00", {laptop / "md.xtc": None}, {laptop / "rmsd.xvg": "d"}, laptop_env),
     ]
-    block_crates = [write_block_crate(r, tmp_path / "provenance" / f"step{i}") for i, r in enumerate(records)]
-    assert cli.main(["merge", str(tmp_path), "-o", str(tmp_path / "wf"), "-m", "/gpfs/u/hpc=/home/u/wf"]) == 0
-    graph = entities(tmp_path / "wf" / "ro-crate-metadata.json")
+    block_crates = [write_block_crate(r, tmp_path / "crates" / "provenance" / f"step{i}") for i, r in enumerate(records)]
+    assert cli.main(["merge", str(tmp_path / "crates"), "-o", str(laptop), "-m", f"/gpfs/u/hpc={laptop}"]) == 0
+    graph = entities(laptop / "ro-crate-metadata.json")
 
     # Ordered by time, not by the ISO text (09:30+00:00 is after 10:00+01:00)
     steps = [graph[graph[c["object"]["@id"]]["@id"]] for c in sorted(of_type(graph, "ControlAction"), key=lambda c: c["@id"])]
-    assert [as_list(s["object"])[0]["@id"] for s in steps] == ["file:///home/u/wf/in.pdb", "file:///home/u/wf/setup.gro", "file:///home/u/wf/md.xtc"]
-    assert graph["#workflow-run"]["object"] == {"@id": "file:///home/u/wf/in.pdb"}
-    assert graph["#workflow-run"]["result"] == {"@id": "file:///home/u/wf/rmsd.xvg"}
-    assert "file:///gpfs/u/hpc/copied.gro" not in graph and "file:///home/u/wf/copied.gro" not in graph
-    assert len(read_graph(tmp_path / "wf").files) == 4
+    assert [as_list(s["object"])[0]["@id"] for s in steps] == ["in.pdb", "setup.gro", "md.xtc"]
+    assert graph["#workflow-run"]["object"] == {"@id": "in.pdb"}
+    # Not copied back: not in this machine, keeps the id of the cluster
+    assert graph["#workflow-run"]["result"] == [{"@id": "file:///gpfs/u/hpc/md.edr"}, {"@id": "rmsd.xvg"}]
+    assert "file:///gpfs/u/hpc/copied.gro" not in graph and "copied.gro" not in graph and "md.edr" not in graph
+    assert len(read_graph(laptop).files) == 5
 
     # One environment per machine, the laptop shared by two steps
     machines = {s["executionEnvironment"]["@id"] for s in steps}
     assert len(machines) == 2
     assert steps[0]["executionEnvironment"] == steps[2]["executionEnvironment"]
     assert graph[steps[1]["executionEnvironment"]["@id"]]["value"] == "node1 (job 123): Linux 5.14, 112 CPUs"
-    preview = (tmp_path / "wf" / "ro-crate-preview.html").read_text()
-    assert "<th>Machine 2</th>" in preview and "<th>Machine 3</th>" not in preview
+    preview = (laptop / "ro-crate-preview.html").read_text()
+    assert "Machine 2</th>" in preview and "Machine 3</th>" not in preview
+    readme = (laptop / "README.md").read_text()
+    assert "- Machine 1 (blue): laptop: Linux 6.8, 8 CPUs (steps 1, 3)" in readme and "- Machine 2 (green): node1 (job 123): Linux 5.14, 112 CPUs (steps 2)" in readme
+
+    # Graph: steps colored by machine, with a legend
+    provenance_graph = read_graph(laptop)
+    assert list(provenance_graph.machines.values()) == ["Machine 1: laptop", "Machine 2: node1 (job 123)"]
+    mermaid = to_mermaid(provenance_graph)
+    assert '"1: Step"]:::machine0' in mermaid and '"2: Step"]:::machine1' in mermaid and '"3: Step"]:::machine0' in mermaid
+    assert '    subgraph legend["Machines"]\n        legend0["Machine 1: laptop"]:::machine0\n        legend1["Machine 2: node1 (job 123)"]:::machine1\n    end' in mermaid
+    assert "classDef machine1 fill:#dcfce7,stroke:#15803d" in mermaid
+    dot = to_dot(provenance_graph)
+    assert "subgraph cluster_legend" in dot and 'legend1 [label="Machine 2: node1 (job 123)"' in dot
+    assert 'fillcolor="#dcfce7"' in dot.split("\n")[3]
+    assert "- Machine 2 (green): node1 (job 123)" in readme
+    assert 'class="swatch" style="background:#dcfce7' in preview
 
     # Without path map nor checksums the steps are not linked
     block_crates[1].write_text(block_crates[1].read_text().replace('"sha256": "b"', '"sha256": "x"'))
@@ -272,7 +296,7 @@ def test_multiple_machines(tmp_path):
 
     pytest.importorskip("rocrate_validator")
     from biobb_common.provenance.validation import validate_crate
-    assert validate_crate(tmp_path / "wf") == []
+    assert validate_crate(laptop) == []
 
 
 def test_restart_only_workflow(tmp_path):
