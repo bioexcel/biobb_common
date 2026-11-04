@@ -4,9 +4,9 @@
     "github": "https://github.com/bioexcel/biobb_common",
     "readthedocs": "https://biobb-common.readthedocs.io/en/latest/",
     "conda": "https://anaconda.org/bioconda/biobb_common",
-    "docker": "https://quay.io/biocontainers/biobb_common:5.3.2--pyhdfd78af_0",
-    "singularity": "https://depot.galaxyproject.org/singularity/biobb_common:5.3.2--pyhdfd78af_0",
-    "version": "5.3.2",
+    "docker": "https://quay.io/biocontainers/biobb_common:5.3.3--pyhdfd78af_0",
+    "singularity": "https://depot.galaxyproject.org/singularity/biobb_common:5.3.3--pyhdfd78af_0",
+    "version": "5.3.3",
     "tools": [
         {
             "block": "FolderTest",
