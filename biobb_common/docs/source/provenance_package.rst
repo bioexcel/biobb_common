@@ -49,6 +49,15 @@ provenance.environment module
     :show-inheritance:
 
 
+provenance.parameters module
+----------------------------
+
+.. automodule:: provenance.parameters
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 provenance.workflow module
 --------------------------
 
