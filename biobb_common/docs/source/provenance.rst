@@ -183,6 +183,8 @@ in two ways:
       merge_block_crates(find_block_crates('wf_output'), 'wf_output', workflow_file='workflow.py',
                          path_map={'/gpfs/scratch/user/md_setup': '/home/user/md_setup'})
 
+  .. mermaid:: provenance_path_map.mmd
+
 - **Checksum**: with the ``provenance_checksum`` property, an input that no step produced is linked to
   the output of a previous step with the same ``sha256`` and size, even with another name. Empty files
   and directories are not linked by checksum.

@@ -1,0 +1,24 @@
+flowchart TD
+    step0["1: Grompp"]:::machine0
+    step1["2: Mdrun"]:::machine1
+    step2["3: GMXRms"]:::machine0
+    file0[/"structure.gro"/]:::file
+    file1[/"md.tpr"/]:::file
+    file2[/"md.xtc"/]:::file
+    file3[/"rmsd.xvg"/]:::file
+    file0 --> step0
+    step0 --> file1
+    file1 --> step1
+    step1 --> file2
+    file1 --> step2
+    file2 --> step2
+    step2 --> file3
+    subgraph legend["Machines"]
+        legend0["Machine 1: workstation"]:::machine0
+        legend1["Machine 2: s01r1b01 (SLURM cluster mn5, job 4242)"]:::machine1
+    end
+    classDef file fill:#f3f4f6,stroke:#6b7280
+    classDef machine0 fill:#dbeafe,stroke:#1d4ed8
+    classDef machine1 fill:#dcfce7,stroke:#15803d
+    style legend fill:#ffffff,stroke:#9ca3af
+
