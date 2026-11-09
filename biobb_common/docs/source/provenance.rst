@@ -69,9 +69,10 @@ Property                    Default     Description
                                         ``agent`` of the execution: ``{"name": str, "orcid": str,
                                         "affiliation": str, "affiliation_url": str}``, only ``name`` is
                                         required. A string is used as the name.
-``provenance_checksum``     ``False``   Add the ``sha256`` checksum of the input and output files.
+``provenance_checksum``     ``True``    Add the ``sha256`` checksum of the input and output files.
                                         Directories are not hashed. Each file is read only once per
                                         process, ie: the output of a step that is the input of the next one.
+                                        Set it to ``False`` to skip hashing large files (ie: trajectories).
 ``provenance_license``      ``None``    License of the workflow script in the workflow crate: SPDX
                                         identifier (ie: ``"MIT"``) or URL. Only read as a global property
                                         (or the ``license`` argument of ``workflow_provenance``,
@@ -91,7 +92,6 @@ Property                    Default     Description
                               'orcid': 'https://orcid.org/0000-0002-1825-0097',
                               'affiliation': 'IRB Barcelona',
                               'affiliation_url': 'https://www.irbbarcelona.org/'},
-        'provenance_checksum': True,
         'provenance_license': 'MIT',
     })
 

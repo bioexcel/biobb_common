@@ -142,7 +142,7 @@ def file_paths(obj, io: str) -> dict[str, Any]:
 
 
 def _file_records(obj, io: str) -> list[FileRecord]:
-    checksum = getattr(obj, "provenance_checksum", False)
+    checksum = getattr(obj, "provenance_checksum", True)
     records = []
     for argument, file_path in file_paths(obj, io).items():
         if not file_path:
