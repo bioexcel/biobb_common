@@ -5,7 +5,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from rocrate.model.contextentity import ContextEntity
 from rocrate.rocrate import ROCrate
@@ -119,8 +119,9 @@ def write_block_crate(record: BlockRecord, crate_dir: Union[str, Path]) -> Path:
         "name": f"Run of {record.package} {record.class_name}",
         "description": _action_description(record),
         **({"alternateName": record.step} if record.step else {}),
-        **({"startTime": iso(record.start_time)} if record.start_time else {}),
-        **({"endTime": iso(record.end_time)} if record.end_time else {}),
+        # Microseconds, so the steps started in the same second are ordered by time
+        **({"startTime": iso(record.start_time, "microseconds")} if record.start_time else {}),
+        **({"endTime": iso(record.end_time, "microseconds")} if record.end_time else {}),
         "actionStatus": COMPLETED if record.completed else FAILED,
     }
     if record.error:
@@ -240,6 +241,22 @@ def action_time(action: dict) -> datetime:
     return parse_time(action.get("startTime") or action.get("endTime"))
 
 
+def action_order(entities: dict[str, dict]) -> Callable[[dict], tuple]:
+    """Return the key that sorts the CreateActions of a crate in execution order: by time and,
+    if their times are equal, by the position of their workflow step. Crates written by previous
+    versions record the times in seconds, so the steps started in the same second are equal."""
+    positions: dict[str, int] = {}
+    for entity in entities.values():
+        if "ControlAction" not in as_list(entity.get("@type")):
+            continue
+        instrument = entity.get("instrument")
+        step = entities.get(instrument.get("@id"), {}) if isinstance(instrument, dict) else {}
+        if str(step.get("position", "")).isdigit():
+            for ref in as_list(entity.get("object")):
+                positions[ref["@id"]] = int(step["position"])
+    return lambda action: (action_time(action), positions.get(action["@id"], -1))
+
+
 def parse_time(text: Optional[str]) -> datetime:
     """Return an ISO 8601 time as an aware datetime, so times of machines in different time zones
     can be compared. Unknown or invalid times are the oldest possible time."""
@@ -277,8 +294,8 @@ def as_list(value: Any) -> list:
     return value if isinstance(value, list) else [value]
 
 
-def iso(time) -> str:
-    return time.isoformat(timespec="seconds")
+def iso(time, timespec: str = "seconds") -> str:
+    return time.isoformat(timespec=timespec)
 
 
 def _image_reference(image: str) -> dict[str, str]:

@@ -9,7 +9,7 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Callable, Iterator, Optional, Union
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 from rocrate.model.contextentity import ContextEntity
@@ -45,7 +45,9 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     """Merge building block RO-Crates into a workflow RO-Crate (Provenance Run Crate profile).
 
     The steps are ordered by start time (end time for the steps skipped by the
-    restart property) and linked through their files: the output of a step with
+    restart property) and, if their times are equal (crates of previous versions
+    record seconds), by the start time with microseconds in the name of their
+    crate directory. They are linked through their files: the output of a step with
     the same path as the input of another step is the same entity. Steps run on
     other machines (ie: an HPC cluster) are linked with **path_map**, which
     replaces the beginning of their paths, or by checksum (provenance_checksum
@@ -75,14 +77,23 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     output_dir.mkdir(parents=True, exist_ok=True)
     uri_map = {_uri(old): _uri(new) for old, new in (path_map or {}).items()}
     entities: dict[str, dict] = {}
-    for block_crate in block_crates:
+    # Execution order of the block crates (directory name), to order the steps with equal times
+    crate_ranks = {index: rank for rank, index in enumerate(sorted(range(len(block_crates)), key=lambda i: _crate_start(block_crates[i])))}
+    action_ranks: dict[str, int] = {}
+    for index, block_crate in enumerate(block_crates):
         for entity in _read_graph(block_crate):
             entity = _relativize(_replace_ids(entity, uri_map, prefix=True), output_dir)
             if entity["@id"] in SKIPPED_IDS:
                 continue
+            if entity["@type"] == "CreateAction":
+                action_ranks[entity["@id"]] = crate_ranks[index]
             entities.setdefault(entity["@id"], {}).update(entity)
-    entities = _link_by_checksum(entities)
-    step_actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=action_time)
+
+    def order(action: dict) -> tuple:
+        return action_time(action), action_ranks.get(action["@id"], -1)
+
+    entities = _link_by_checksum(entities, order)
+    step_actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=order)
 
     name = name or (Path(workflow_file).stem if workflow_file else "biobb workflow")
     # Without a workflow script the crate can not be a Workflow RO-Crate (its mainEntity must be
@@ -207,6 +218,15 @@ def workflow_provenance(path: Union[str, Path] = ".", name: Optional[str] = None
                                    license=license or biobb_global_properties.get("provenance_license"))
 
 
+def _crate_start(block_crate: Union[str, Path]) -> str:
+    """Return the start time with microseconds in the name of a block crate directory
+    (<step>_<ClassName>_<YYYYmmdd-HHMMSS-ffffff>), or "" if it has none."""
+    block_crate = Path(block_crate)
+    directory = block_crate if block_crate.is_dir() else block_crate.parent
+    match = re.search(r"_(\d{8}-\d{6}-\d{6})$", directory.name)
+    return match.group(1) if match else ""
+
+
 def _read_graph(block_crate: Union[str, Path]) -> list[dict]:
     block_crate = Path(block_crate)
     if block_crate.is_dir():
@@ -259,10 +279,11 @@ def _replace_ids(value: Any, mapping: dict[str, str], prefix: bool = False) -> A
     return value
 
 
-def _link_by_checksum(entities: dict[str, dict]) -> dict[str, dict]:
+def _link_by_checksum(entities: dict[str, dict], order: Callable[[dict], Any] = action_time) -> dict[str, dict]:
     """Link the inputs that no step produced with the output of a previous step with the
-    same sha256 (and size), ie: a file copied to an HPC cluster or back. The id of the output is kept."""
-    actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=action_time)
+    same sha256 (and size), ie: a file copied to an HPC cluster or back. The id of the output is kept.
+    The steps are sorted in execution order with the **order** key."""
+    actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=order)
     produced = {ref["@id"] for a in actions for ref in as_list(a.get("result"))}
     # (sha256, size) -> output id, of the steps executed before
     outputs: dict[tuple, str] = {}

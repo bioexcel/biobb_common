@@ -1,6 +1,7 @@
 # type: ignore
 import contextvars
 import json
+import re
 import shutil
 import sys
 import threading
@@ -307,6 +308,43 @@ def test_multiple_machines(tmp_path):
     pytest.importorskip("rocrate_validator")
     from biobb_common.provenance.validation import validate_crate
     assert validate_crate(laptop) == []
+
+
+def test_steps_started_in_the_same_second(tmp_path):
+    """Fast steps started in the same second keep their execution order, not the alphabetical order of
+    their crate directories (step10 < step4), also with the crates of previous versions (times in seconds)."""
+    # Execution order: step4 -> step5 -> step10, chained by their files
+    runs = [("step4_fix", "2026-11-13T11:39:08.100000+01:00", "in.pdb", "fixed.pdb"),
+            ("step5_pdb2gmx", "2026-11-13T11:39:08.200000+01:00", "fixed.pdb", "pdb2gmx.gro"),
+            ("step10_genrestr", "2026-11-13T11:39:08.300000+01:00", "pdb2gmx.gro", "posres.itp")]
+    expected = [step for step, *_ in runs]
+    block_crates = []
+    for step, start, input_name, output_name in runs:
+        record = block_record(start, {tmp_path / input_name: None}, {tmp_path / output_name: None}, {"hostname": "laptop"})
+        record.step = step
+        crate_dir = tmp_path / "provenance" / f"{step}_Step_{datetime.fromisoformat(start).strftime('%Y%m%d-%H%M%S-%f')}"
+        block_crates.append(write_block_crate(record, crate_dir))
+    action = of_type(entities(block_crates[0]), "CreateAction")[0]
+    assert action["startTime"] == "2026-11-13T11:39:08.100000+01:00"
+
+    def check_order(crate_dir):
+        graph = entities(crate_dir / "ro-crate-metadata.json")
+        assert [s["name"] for s in sorted(of_type(graph, "HowToStep"), key=lambda s: int(s["position"]))] == expected
+        assert [s.label for s in read_graph(crate_dir).steps] == [f"{i}: {step}" for i, step in enumerate(expected, start=1)]
+        readme = (crate_dir / "README.md").read_text()
+        assert readme.index("| step4_fix |") < readme.index("| step5_pdb2gmx |") < readme.index("| step10_genrestr |")
+
+    # find_block_crates returns them in alphabetical order: step10 first
+    assert [p.parent.name.split("_Step_")[0] for p in find_block_crates(tmp_path)] == ["step10_genrestr", "step4_fix", "step5_pdb2gmx"]
+    merge_block_crates(find_block_crates(tmp_path), tmp_path / "wf")
+    check_order(tmp_path / "wf")
+
+    # Previous versions recorded the times in seconds: ordered by the start time in the directory name
+    for block_crate in block_crates:
+        block_crate.write_text(re.sub(r"(T\d{2}:\d{2}:\d{2})\.\d{6}", r"\1", block_crate.read_text()))
+    assert of_type(entities(block_crates[0]), "CreateAction")[0]["startTime"] == "2026-11-13T11:39:08+01:00"
+    merge_block_crates(find_block_crates(tmp_path), tmp_path / "old")
+    check_order(tmp_path / "old")
 
 
 def test_restart_only_workflow(tmp_path):

@@ -7,7 +7,7 @@ from html import escape
 from pathlib import Path
 from typing import Any, Union
 
-from biobb_common.provenance.crate import action_environment, action_time, as_list, environment_label, is_restart_skipped
+from biobb_common.provenance.crate import action_environment, action_order, as_list, environment_label, is_restart_skipped
 from biobb_common.provenance.graph import machine_color, read_graph, to_mermaid
 
 PREVIEW = "ro-crate-preview.html"
@@ -254,8 +254,9 @@ def _entities(crate_dir: Path) -> dict[str, dict]:
 
 def _actions(entities: dict[str, dict]) -> list[dict]:
     actions = [e for e in entities.values() if "CreateAction" in as_list(e.get("@type"))]
-    # The workflow run first, then the steps by start time
-    return sorted(actions, key=lambda a: (a["@id"] != "#workflow-run", action_time(a)))
+    # The workflow run first, then the steps in execution order
+    order = action_order(entities)
+    return sorted(actions, key=lambda a: (a["@id"] != "#workflow-run", *order(a)))
 
 
 def _readme_machines(entities: dict[str, dict]) -> list[str]:
@@ -371,12 +372,17 @@ def _groups(entities: dict[str, dict]) -> dict[str, list[dict]]:
             next((name for name, group_types in GROUPS if types & set(group_types)), "Crate metadata")
         groups[group].append(entity)
     order = {t: i for _, group_types in GROUPS for i, t in enumerate(group_types)}
+    executions = {a["@id"]: i for i, a in enumerate(_actions(entities))}
 
     def key(entity: dict) -> tuple:
-        rank = min((order.get(t, len(order)) for t in as_list(entity.get("@type"))), default=len(order))
-        # Steps and control actions in workflow order (#step-2 before #step-10), the rest by start time and name
-        if {"HowToStep", "ControlAction"} & set(as_list(entity.get("@type"))):
+        types = set(as_list(entity.get("@type")))
+        rank = min((order.get(t, len(order)) for t in types), default=len(order))
+        # Steps and control actions in workflow order (#step-2 before #step-10), executions in
+        # execution order, the rest by start time and name
+        if {"HowToStep", "ControlAction"} & types:
             return rank, "", int(re.sub(r"\D", "", entity["@id"]) or 0), ""
+        if "CreateAction" in types:
+            return rank, "", executions[entity["@id"]], ""
         return rank, entity.get("startTime", ""), 0, _label(entity)
     return {name: sorted(members, key=key) for name, members in groups.items() if members}
 

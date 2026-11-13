@@ -239,7 +239,7 @@ class TestBlockProvenance():
         assert action["result"] == {"@id": output_folder.resolve().as_uri() + "/"}
         # The start of the previous execution is unknown, the end is the last modification of the outputs
         assert "startTime" not in action
-        assert datetime.fromisoformat(action["endTime"]).timestamp() == int((output_folder / "file.txt").stat().st_mtime)
+        assert datetime.fromisoformat(action["endTime"]) == datetime.fromtimestamp((output_folder / "file.txt").stat().st_mtime).astimezone()
         graph = read_graph(crate_dir)
         assert graph.steps[0].skipped
         assert ":::skipped" in to_mermaid(graph)

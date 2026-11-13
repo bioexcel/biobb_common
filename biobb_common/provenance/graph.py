@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Union
 
-from biobb_common.provenance.crate import FAILED, action_environment, action_time, as_list, is_restart_skipped
+from biobb_common.provenance.crate import FAILED, action_environment, action_order, as_list, is_restart_skipped
 
 # (name, fill, stroke) of the steps of each machine, when they ran on several machines. Machine 1 keeps the default step colors.
 MACHINE_COLORS = [
@@ -52,7 +52,7 @@ def read_graph(crate_dir: Union[str, Path]) -> ProvenanceGraph:
     workflows = {i for i, e in entities.items() if "ComputationalWorkflow" in as_list(e.get("@type"))}
     actions = sorted(
         (e for e in entities.values() if e["@type"] == "CreateAction" and e["instrument"]["@id"] not in workflows),
-        key=action_time,
+        key=action_order(entities),
     )
     graph = ProvenanceGraph()
     for position, action in enumerate(actions, start=1):
