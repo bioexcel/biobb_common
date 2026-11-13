@@ -105,7 +105,9 @@ When a block is skipped by the ``restart`` property because its outputs already 
 crate of a previous execution of the same block with the same outputs is reused, so the workflow crate
 records how the outputs were really produced. If there is no such crate (ie: the previous execution
 did not record provenance), a crate of the skipped execution is written, with the description
-"Skipped by the restart property" and without command line, parameters, wrapped software or environment.
+"Skipped by the restart property" and without command line, wrapped software or environment. Its
+simulation parameters (ie: the ``grompp.mdp`` of grompp) are generated again from the properties of the
+block, so they are the ones of the restart, not necessarily the ones of the previous execution.
 The duration of the previous execution is unknown, so it has no ``startTime`` and its ``endTime`` is the
 last modification of its outputs (files inside output directories included), not the time of the restart.
 

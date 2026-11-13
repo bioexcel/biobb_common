@@ -511,6 +511,13 @@ class BiobbObject:
             capture_parameters(self)
             fu.rm_file_list(self.tmp_files, self.out_log)
 
+    def write_parameter_files(self, directory: str) -> list[str]:
+        """Write the parameter files that the block generates from its properties (ie: the grompp.mdp
+        of grompp) to **directory**, without executing the block, and return their paths. Used by the
+        provenance of the executions skipped by the restart property, whose files were not generated.
+        Blocks that generate parameter files override it, by default there are none."""
+        return []
+
     @classmethod
     def get_main(cls, launcher, description, custom_flags=None):
         """Get command line execution of this building block. Please check the command line documentation."""

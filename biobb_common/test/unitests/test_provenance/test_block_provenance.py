@@ -40,12 +40,25 @@ class MdpFolderTest(FolderTest):
         if self.check_restart():
             return 0
         self.stage_files()
-        self.output_mdp_path = str(Path(self.stage_io_dict["unique_dir"]) / "grompp.mdp")
-        Path(self.output_mdp_path).write_text("; Generated\nintegrator = md\nnsteps    = 500 ; steps\nref_t = 300 300\n")
+        self.output_mdp_path, = self.write_parameter_files(self.stage_io_dict["unique_dir"])
         os.makedirs(self.stage_io_dict["out"]["output_folder"], exist_ok=True)
         self.copy_to_host()
         self.remove_tmp_files()
         return 0
+
+    def write_parameter_files(self, directory: str) -> list[str]:
+        path = Path(directory) / "grompp.mdp"
+        path.write_text("; Generated\nintegrator = md\nnsteps    = 500 ; steps\nref_t = 300 300\n")
+        self.written_parameter_files = [str(path)]
+        return self.written_parameter_files
+
+
+class BrokenMdpFolderTest(MdpFolderTest):
+    """MdpFolderTest that can not write its parameter files when its execution is skipped."""
+    __doc__ = FolderTest.__doc__
+
+    def write_parameter_files(self, directory: str) -> list[str]:
+        raise RuntimeError("Can not write the mdp")
 
 
 class WrappingFolderTest(FolderTest):
@@ -244,6 +257,38 @@ class TestBlockProvenance():
         assert graph.steps[0].skipped
         assert ":::skipped" in to_mermaid(graph)
         assert "Skipped (restart)" in (crate_dir / "ro-crate-preview.html").read_text()
+
+    def test_restart_regenerates_parameters(self):
+        """Skipped without a previous crate: the generated parameter files (ie: grompp.mdp) were not
+        written, the block writes them again from its properties in a temporary directory."""
+        output_folder = Path(self.properties['path']) / "restart_mdp_out"
+        output_folder.mkdir()
+        (output_folder / "file.txt").write_text("previous execution")
+        block = MdpFolderTest(properties={**self.properties, 'provenance': True, 'restart': True},
+                              input_folder=self.paths['input_folder'], output_folder=str(output_folder))
+        block.launch()
+        crate = read_crates(self.properties['path'], "MdpFolderTest")[-1]
+        graph = entities(crate)
+        action, = actions(crate)
+        assert action["description"].startswith("Skipped by the restart property")
+        mdp, = [graph[o["@id"]] for o in as_list(action["object"]) if graph[o["@id"]].get("name") == "grompp.mdp"]
+        assert "generated again by the building block from its properties" in mdp["description"]
+        parameters = {graph[r["@id"]]["name"]: graph[r["@id"]]["value"] for r in as_list(mdp["valueReference"])}
+        assert parameters == {"integrator": "md", "nsteps": 500, "ref_t": "300 300"}
+        # The temporary directory is removed
+        assert not Path(block.written_parameter_files[0]).parent.exists()
+
+    def test_restart_parameters_error(self):
+        """Errors writing the parameter files again are logged, the crate is written without parameters."""
+        output_folder = Path(self.properties['path']) / "restart_broken_out"
+        output_folder.mkdir()
+        (output_folder / "file.txt").write_text("previous execution")
+        BrokenMdpFolderTest(properties={**self.properties, 'provenance': True, 'restart': True},
+                            input_folder=self.paths['input_folder'], output_folder=str(output_folder)).launch()
+        crate = read_crates(self.properties['path'], "BrokenMdpFolderTest")[-1]
+        action, = actions(crate)
+        assert action["description"].startswith("Skipped by the restart property")
+        assert not [e for e in crate["@graph"] if str(e.get("description", "")).startswith("Parameters of")]
 
 
 def test_checksum(tmp_path):

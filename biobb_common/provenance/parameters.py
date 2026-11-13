@@ -1,6 +1,7 @@
 """Module containing the parsers of the simulation parameter files (GROMACS mdp, AMBER namelists)
 recorded in the provenance of a building block execution."""
 import re
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional, Union
@@ -24,6 +25,8 @@ class ParameterSet:
     values: dict[str, Value] = field(default_factory=dict)
     # Input file, None for generated files
     path: Optional[Path] = None
+    # Generated again from the properties, because the execution was skipped by the restart property
+    regenerated: bool = False
 
 
 def parse_mdp(text: str) -> dict[str, Value]:
@@ -125,8 +128,28 @@ def block_parameters(obj) -> list[ParameterSet]:
     parameter_sets = getattr(obj, "_provenance_parameters", None)
     if parameter_sets is None:
         parameter_sets = generated_parameters(obj)
-    if parameter_sets:
-        return parameter_sets
+    return parameter_sets or input_parameters(obj)
+
+
+def restart_parameters(obj) -> list[ParameterSet]:
+    """Return the parameters of an execution skipped by the restart property, whose parameter files
+    were not generated: the ones of the files that the block writes again from its properties
+    (BiobbObject.write_parameter_files, ie: the grompp.mdp of grompp) or, if it generates none, the
+    ones of the input parameter files. Errors are logged and no parameters are returned."""
+    try:
+        with tempfile.TemporaryDirectory(prefix="biobb_parameters_") as directory:
+            paths = obj.write_parameter_files(directory) if hasattr(obj, "write_parameter_files") else []
+            parameter_sets = [parameter_set for parameter_set in (parse_file(path, generated=True) for path in paths or []) if parameter_set]
+    except Exception as error:
+        fu.log(f"WARNING: Provenance parameters of the skipped execution could not be generated: {error}", obj.out_log, obj.global_log)
+        return []
+    for parameter_set in parameter_sets:
+        parameter_set.regenerated = True
+    return parameter_sets or input_parameters(obj)
+
+
+def input_parameters(obj) -> list[ParameterSet]:
+    """Return the parameters of the input parameter files of a block (ie: an mdp used as it is)."""
     from biobb_common.provenance.record import file_paths
     inputs = (parse_file(path) for path in file_paths(obj, "in").values() if isinstance(path, (str, Path)) and path)
     return [parameter_set for parameter_set in inputs if parameter_set]

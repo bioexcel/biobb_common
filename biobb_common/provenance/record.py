@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from biobb_common.provenance.environment import execution_environment
-from biobb_common.provenance.parameters import ParameterSet, block_parameters
+from biobb_common.provenance.parameters import ParameterSet, block_parameters, restart_parameters
 from biobb_common.provenance.software import WrappedSoftware, wrapped_software
 
 
@@ -69,8 +69,8 @@ class BlockRecord:
                           return_value: Any = None, error: Optional[BaseException] = None, skipped: bool = False) -> "BlockRecord":
         """Build the record from a BiobbObject after its launch() method has been executed.
         Executions skipped by the restart property have no start time, command line,
-        parameters, wrapped software or environment, and their end time is the last
-        modification of the outputs."""
+        wrapped software or environment, their end time is the last modification of the
+        outputs and their parameters are generated again from the properties."""
         error_str = None
         if error is not None:
             error_str = f"{type(error).__name__}: {error}"
@@ -88,7 +88,7 @@ class BlockRecord:
             inputs=_file_records(obj, "in"),
             outputs=_file_records(obj, "out"),
             properties=_properties(obj),
-            parameters=[] if skipped else block_parameters(obj),
+            parameters=restart_parameters(obj) if skipped else block_parameters(obj),
             command_line=" ".join(map(str, obj.cmd)) if getattr(obj, "cmd", None) and not skipped else None,
             container_image=obj.container_image if getattr(obj, "container_path", None) else None,
             container_runtime=Path(obj.container_path).name if getattr(obj, "container_path", None) else None,
