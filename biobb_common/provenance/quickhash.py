@@ -1,8 +1,9 @@
 """Module containing the sampled xxHash quick-check of the files recorded in the provenance.
 
-The quickhash identifies a file without reading it whole: it is the XXH3-128 (seed 0) of the file
-size (uint64 big-endian) followed by three samples of 32 MiB at offsets 0, floor((size - n) / 2) and
-size - n, or by the whole content when the file is smaller than 3 samples (96 MiB). It is an identity
+The quickhash identifies a file without reading it whole: it is the XXH64 (seed 0) of the file size
+(uint64 big-endian) followed by three samples of 32 MiB at offsets 0, floor((size - n) / 2) and
+size - n. Files smaller than 3 samples (96 MiB) are hashed whole, as they are: their quickhash is the
+plain XXH64 of the file, the same as the MDDB workflow cksum or ``xxhsum -H1``. It is an identity
 check, not an integrity check: changes outside the samples go undetected. The sha256 stays the
 authoritative digest of the files.
 
@@ -23,7 +24,7 @@ from urllib.parse import unquote, urlsplit
 
 import xxhash
 
-ALGO = "xxh3_128-sample"
+ALGO = "xxh64-sample"
 VERSION = 1
 SAMPLE_SIZE = 1 << 25  # 32 MiB
 # Read size of the samples, the files hashed whole and the sha256
@@ -38,17 +39,18 @@ UNSUPPORTED_SCHEME = "unsupported_scheme"
 
 
 def quickhash(path: Union[str, Path], sample_size: int = SAMPLE_SIZE) -> str:
-    """Return the quickhash of a file: the lowercase hex XXH3-128 (seed 0) of its size as uint64
+    """Return the quickhash of a file: the lowercase hex XXH64 (seed 0) of its size as uint64
     big-endian, followed by its samples of **sample_size** bytes at 0, floor((size - n) / 2) and
-    size - n (in that order, without separators), or by its whole content if it is smaller than
-    3 samples. The samples never overlap nor run past the end of the file.
+    size - n (in that order, without separators). Files smaller than 3 samples are hashed whole,
+    without the size prefix: the plain XXH64 of the file. The samples never overlap nor run past
+    the end of the file.
 
     Args:
         path (str, Path): Path to the file.
         sample_size (int): Size of the samples in bytes (n).
 
     Returns:
-        str: 32 characters hex digest.
+        str: 16 characters hex digest.
 
     Raises:
         OSError: If the file is shorter than its size when it is read (ie: truncated during the read).
@@ -56,12 +58,13 @@ def quickhash(path: Union[str, Path], sample_size: int = SAMPLE_SIZE) -> str:
     if sample_size < 1:
         raise ValueError(f"The sample size must be positive: {sample_size}")
     size = os.path.getsize(path)
-    hasher = xxhash.xxh3_128()
-    hasher.update(size.to_bytes(8, "big"))
+    hasher = xxhash.xxh64()
     with open(path, "rb") as file:
         if size < 3 * sample_size:
             _update(hasher, file, size)
         else:
+            # The size prefix tells apart files of different sizes with the same samples
+            hasher.update(size.to_bytes(8, "big"))
             for offset in (0, (size - sample_size) // 2, size - sample_size):
                 file.seek(offset)
                 _update(hasher, file, sample_size)
@@ -75,8 +78,8 @@ def quickhash_scheme(sample_size: int = SAMPLE_SIZE) -> dict[str, Any]:
         "version": VERSION,
         "sample_size": sample_size,
         "positions": "0, floor((size-n)/2), size-n",
-        "size_prefix": "uint64 big-endian",
-        "small_file_rule": "size < 3n -> whole file",
+        "size_prefix": "uint64 big-endian, sampled files only",
+        "small_file_rule": "size < 3n -> whole file, no size prefix",
     }
 
 

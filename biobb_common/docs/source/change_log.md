@@ -2,7 +2,7 @@
 
 ## What's new in the next version (unreleased)?
 
-* [FEATURE] Provenance records a `quickhash` of the input and output files next to their `sha256` (with `provenance_checksum`): a sampled XXH3-128 (three 32 MiB samples, files under 96 MiB hashed whole) that checks a file is the recorded one without reading it whole (an identity check, the sha256 stays the integrity digest). New `biobb_provenance verify` command to check the files of a crate (`--strict` also compares the sha256).
+* [FEATURE] Provenance records a `quickhash` of the input and output files next to their `sha256` (with `provenance_checksum`): a sampled XXH64 (three 32 MiB samples, files under 96 MiB hashed whole) that checks a file is the recorded one without reading it whole (an identity check, the sha256 stays the integrity digest). New `biobb_provenance verify` command to check the files of a crate (`--strict` also compares the sha256).
 * [UPDATE] New dependency: `xxhash`.
 * [FIX] Singularity/Apptainer: a `container_image` given as a URL or registry reference (ie: `https://depot.galaxyproject.org/singularity/biobb_godmd:5.3.1--pyhdfd78af_0`) is pulled to a file named after the full reference (`biobb_godmd_5.3.1--pyhdfd78af_0.sif`). The previous name dropped part of the version and kept the `:` (`biobb_godmd:5.3.sif`): the pull failed and two versions of the same image could share the file.
 * [FEATURE] Pulled Singularity/Apptainer images are kept in `$BIOBB_SINGULARITY_DIR` (default `~/.biobb/singularity`) and reused by every step and every later execution instead of being pulled into the current folder. Pulls are atomic, so parallel steps can request the same image.

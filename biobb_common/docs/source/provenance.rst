@@ -312,16 +312,18 @@ SPDX) defines a partial hash, so it is a custom term that stores the parameters 
 with its value.
 
 =========================== =======================================================================
-Parameter                   Value (``algo`` ``xxh3_128-sample``, ``version`` 1)
+Parameter                   Value (``algo`` ``xxh64-sample``, ``version`` 1)
 =========================== =======================================================================
-Hash                        XXH3-128, seed 0, as a lowercase hex digest (32 characters).
-Size prefix                 The file size in bytes as uint64 big-endian, hashed first: files of
-                            different sizes never share a quickhash.
+Hash                        XXH64, seed 0, as a lowercase hex digest (16 characters).
+Size prefix                 Sampled files only: the file size in bytes as uint64 big-endian,
+                            hashed first, so files of different sizes with the same samples do
+                            not share a quickhash.
 Samples                     ``sample_size`` (n) bytes, 32 MiB by default, at offsets ``0``,
                             ``floor((size - n) / 2)`` and ``size - n``, hashed in that order without
                             separators.
-Small files                 Files smaller than ``3n`` (96 MiB by default) are hashed whole (after
-                            the size prefix), so the samples never overlap nor run past the end of
+Small files                 Files smaller than ``3n`` (96 MiB by default) are hashed whole, as
+                            they are: the plain XXH64 of the file (``xxhsum -H1``, the hash of the
+                            MDDB workflow cksum). The samples never overlap nor run past the end of
                             the file.
 =========================== =======================================================================
 
@@ -482,7 +484,7 @@ Terms used in the crates that are not defined by schema.org or the
 
 ``quickhash``
     Sampled hash of a ``File`` (see `File quick check`_): a ``PropertyValue`` named ``quickhash``, with
-    the hash as ``value`` and the parameters of its scheme: ``algo`` (``xxh3_128-sample``), ``version``
+    the hash as ``value`` and the parameters of its scheme: ``algo`` (``xxh64-sample``), ``version``
     (1), ``sample_size`` (n, in bytes), ``positions`` (offsets of the samples), ``size_prefix``
     (encoding of the size hashed first) and ``small_file_rule`` (files hashed whole). Its id is
     ``#quickhash-<value>``, shared by the files with the same content:
@@ -490,16 +492,16 @@ Terms used in the crates that are not defined by schema.org or the
     .. code-block:: json
 
         {
-          "@id": "#quickhash-0b2c5d8e9f1a3c4b5d6e7f8091a2b3c4",
+          "@id": "#quickhash-5c2e9b7d1f3a8c46",
           "@type": "PropertyValue",
           "name": "quickhash",
-          "algo": "xxh3_128-sample",
+          "algo": "xxh64-sample",
           "version": 1,
           "sample_size": 33554432,
           "positions": "0, floor((size-n)/2), size-n",
-          "size_prefix": "uint64 big-endian",
-          "small_file_rule": "size < 3n -> whole file",
-          "value": "0b2c5d8e9f1a3c4b5d6e7f8091a2b3c4"
+          "size_prefix": "uint64 big-endian, sampled files only",
+          "small_file_rule": "size < 3n -> whole file, no size prefix",
+          "value": "5c2e9b7d1f3a8c46"
         }
 
 Limitations
