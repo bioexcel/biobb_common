@@ -140,6 +140,10 @@ The context manager enables provenance for all the blocks executed inside it and
 The block crates are written to ``wf_output/provenance/``, unless the blocks set ``provenance_path``,
 so the workflow crate and its block crates are in the same directory.
 Existing ``README.md`` or ``ro-crate-preview.html`` files not written by biobb are never overwritten.
+Both include the Mermaid graph of the workflow. Graphs over the default limits of Mermaid (500 edges or
+50000 characters, ie: workflows with loops) are drawn as a summary, with the iterations of a step as a
+single step ``<name> ×<n>`` and only the workflow inputs and outputs. The preview can draw the full
+graph on demand (slow for large graphs), and ``biobb_provenance graph`` writes it to a file.
 The workflow script (by default the script being executed, if it is a file: not in notebooks or with
 ``python - < workflow.py``) is copied into the crate directory. Files
 inside the crate directory are referenced with relative paths, so the directory can be moved or shared

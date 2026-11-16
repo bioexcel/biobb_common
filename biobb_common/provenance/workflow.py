@@ -537,6 +537,8 @@ def _link_through_zips(entities: dict[str, dict], order: Callable[[dict], Any], 
             "@id": action_id,
             "@type": "CreateAction",
             "name": name,
+            # Name of the step in the graphs (the building block steps have the name of the configuration step)
+            "alternateName": name,
             "description": description,
             "instrument": {"@id": ZIP_TOOL},
             "object": single([{"@id": i} for i in objects]),

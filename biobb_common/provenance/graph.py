@@ -1,7 +1,7 @@
 """Module containing the functions to draw the graph of a provenance RO-Crate."""
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Optional, Union
 
 from biobb_common.provenance.crate import FAILED, action_environment, action_order, as_list, entity_label, is_restart_skipped
@@ -16,6 +16,9 @@ MACHINE_COLORS = [
     ("cyan", "#cffafe", "#0e7490"),
 ]
 FAILED_STROKE = "#b91c1c"
+# Default limits of Mermaid (maxEdges, maxTextSize): it refuses larger graphs
+MERMAID_MAX_EDGES = 500
+MERMAID_MAX_TEXT = 50000
 
 
 @dataclass
@@ -72,6 +75,67 @@ def read_graph(crate_dir: Union[str, Path]) -> ProvenanceGraph:
                 graph.files[ref["@id"]] = entity_label(entity, ref["@id"])
                 graph.edges.append((ref["@id"], action["@id"]) if is_input else (action["@id"], ref["@id"]))
     return graph
+
+
+def fits_mermaid(graph: ProvenanceGraph) -> bool:
+    """Return True if Mermaid draws the graph with its default limits (maxEdges, maxTextSize).
+    Larger graphs (ie: workflows with loops) are refused, or are slow to lay out once the limits are raised."""
+    return len(graph.edges) <= MERMAID_MAX_EDGES and len(to_mermaid(graph)) <= MERMAID_MAX_TEXT
+
+
+def summarize(graph: ProvenanceGraph) -> ProvenanceGraph:
+    """Return a summary of a graph too large to draw: the repetitions of a step (ie: the iterations of a loop) are one step.
+
+    Steps with the same name, without the prefix of the loop iteration (stateA/frame3/step1_pmx_mutate ->
+    step1_pmx_mutate), whose inputs come from the same summary steps (or the same workflow inputs) are
+    one step "<position of the first>: <name> ×<n>". The files between steps become edges between the
+    steps. The workflow inputs are kept and the outputs are grouped by step and extension: "<name> ×<n>"
+    if they have the same name, otherwise "<n> <extension> files".
+    """
+    step_ids = {step.id for step in graph.steps}
+    producer = {target: source for source, target in graph.edges if source in step_ids}
+    inputs: dict[str, list[str]] = {}
+    for source, target in graph.edges:
+        if target in step_ids:
+            inputs.setdefault(target, []).append(source)
+    consumed = {source for source, target in graph.edges if target in step_ids}
+    group_of: dict[str, str] = {}
+    groups: dict[tuple, list[Step]] = {}
+    for step in graph.steps:
+        position, _, label = step.label.partition(": ")
+        name = label.rsplit("/", 1)[-1]
+        sources = frozenset(group_of.get(producer[f], f) if f in producer else f for f in inputs.get(step.id, []))
+        key = (name, sources)
+        groups.setdefault(key, []).append(step)
+        group_of[step.id] = f"#summary-{list(groups).index(key)}"
+    summary = ProvenanceGraph(machines=graph.machines)
+    for index, ((name, _), steps) in enumerate(groups.items()):
+        position = steps[0].label.partition(": ")[0]
+        machines = {s.machine for s in steps}
+        summary.steps.append(Step(id=f"#summary-{index}", label=f"{position}: {name}" + (f" ×{len(steps)}" if len(steps) > 1 else ""),
+                                  failed=any(s.failed for s in steps), skipped=all(s.skipped for s in steps),
+                                  machine=steps[0].machine if len(machines) == 1 else None))
+    edges: dict[tuple[str, str], None] = {}
+    outputs: dict[tuple[str, str], list[str]] = {}
+    for source, target in graph.edges:
+        if target in step_ids:
+            if source in producer:
+                edges[group_of[producer[source]], group_of[target]] = None
+            else:
+                summary.files[source] = graph.files[source]
+                edges[source, group_of[target]] = None
+        elif target not in consumed:
+            outputs.setdefault((group_of[source], PurePosixPath(graph.files[target].split(" (version ")[0]).suffix), []).append(target)
+    for index, ((group, suffix), files) in enumerate(outputs.items()):
+        names = {graph.files[f].split(" (version ")[0] for f in files}
+        if len(names) == 1:
+            label = names.pop() + (f" ×{len(files)}" if len(files) > 1 else "")
+        else:
+            label = f"{len(files)} {suffix or 'other'} files"
+        summary.files[f"#outputs-{index}"] = label
+        edges[group, f"#outputs-{index}"] = None
+    summary.edges = list(edges)
+    return summary
 
 
 def to_mermaid(graph: ProvenanceGraph) -> str:

@@ -18,7 +18,8 @@ from biobb_common.generic.folder_test import folder_test
 from biobb_common.provenance import find_block_crates, merge_block_crates, workflow_provenance
 from biobb_common.provenance import cli
 from biobb_common.provenance.crate import as_list, write_block_crate
-from biobb_common.provenance.graph import read_graph, to_dot, to_mermaid, write_graph
+from biobb_common.provenance import preview
+from biobb_common.provenance.graph import ProvenanceGraph, Step, read_graph, summarize, to_dot, to_mermaid, write_graph
 from biobb_common.provenance.preview import GENERATED_MARK
 from biobb_common.provenance.record import BlockRecord, FileRecord
 from biobb_common.provenance.workflow import _web_url
@@ -498,6 +499,63 @@ def test_steps_started_in_the_same_second(tmp_path):
     assert of_type(entities(block_crates[0]), "CreateAction")[0]["startTime"] == "2026-11-13T11:39:08+01:00"
     merge_block_crates(find_block_crates(tmp_path), tmp_path / "old")
     check_order(tmp_path / "old")
+
+
+def test_summary():
+    """A loop over the frames of an extracted zip: the iterations of each step are one step of the summary, the files
+    between steps are edges, the outputs are grouped. A step with the same name but other inputs is another step."""
+    graph = ProvenanceGraph()
+
+    def step(step_id, label, inputs, outputs):
+        graph.steps.append(Step(id=step_id, label=label))
+        for file_id in inputs:
+            graph.files.setdefault(file_id, file_id.rsplit("/", 1)[-1])
+            graph.edges.append((file_id, step_id))
+        for file_id in outputs:
+            graph.files[file_id] = file_id.rsplit("/", 1)[-1]
+            graph.edges.append((step_id, file_id))
+
+    step("#s0", "1: step0_trjconv", ["in.xtc"], ["frames.zip"])
+    step("#s1", "2: Extraction of frames.zip", ["frames.zip"], [f"frame{i}.pdb" for i in range(3)])
+    for i in range(3):
+        step(f"#m{i}", f"{3 + 2 * i}: frame{i}/step1_mutate", [f"frame{i}.pdb"], [f"frame{i}/mut.pdb"])
+        step(f"#r{i}", f"{4 + 2 * i}: frame{i}/step2_run", [f"frame{i}/mut.pdb"], [f"frame{i}/out.gro", f"frame{i}/run.log", f"frame{i}/{i}.csv"])
+    step("#x", "9: other/step2_run", ["other.pdb"], ["other/out.gro"])
+    step("#a", "10: step3_analyse", [f"frame{i}/out.gro" for i in range(3)], ["result.dat"])
+
+    summary = summarize(graph)
+    labels = {s.id: s.label for s in summary.steps}
+    assert list(labels.values()) == ["1: step0_trjconv", "2: Extraction of frames.zip", "3: step1_mutate ×3", "4: step2_run ×3", "9: step2_run",
+                                     "10: step3_analyse"]
+    ids = {label: i for i, label in labels.items()}
+    files = {name: i for i, name in summary.files.items()}
+    # The out.gro read by step3_analyse are not outputs, the one of other/step2_run is
+    assert set(files) == {"in.xtc", "other.pdb", "run.log ×3", "3 .csv files", "out.gro", "result.dat"}
+    assert (files["in.xtc"], ids["1: step0_trjconv"]) in summary.edges
+    assert (ids["1: step0_trjconv"], ids["2: Extraction of frames.zip"]) in summary.edges
+    assert (ids["3: step1_mutate ×3"], ids["4: step2_run ×3"]) in summary.edges
+    assert (ids["4: step2_run ×3"], ids["10: step3_analyse"]) in summary.edges and (ids["9: step2_run"], ids["10: step3_analyse"]) not in summary.edges
+    assert (ids["4: step2_run ×3"], files["run.log ×3"]) in summary.edges and (ids["9: step2_run"], files["out.gro"]) in summary.edges
+    assert len(summary.edges) == len(set(summary.edges))
+    assert "×3" in to_mermaid(summary) and "×3" in to_dot(summary)
+
+
+def test_large_graph_preview(tmp_path, monkeypatch):
+    """Graphs over the default limits of Mermaid: the preview draws the summary and the full graph on demand, the README the summary."""
+    wf = tmp_path / "wf"
+    wf.mkdir()
+    for name in ("in.pdb", "out.pdb"):
+        (wf / name).write_text("0123456789")
+    records = [block_record("2026-11-16T10:00:00+01:00", {wf / "in.pdb": "a"}, {wf / "out.pdb": "b"}, {"hostname": "laptop"})]
+    block_crates = [write_block_crate(r, tmp_path / "crates" / "provenance" / "step0") for r in records]
+    merge_block_crates(block_crates, wf, workflow_file=__file__)
+    html = (wf / "ro-crate-preview.html").read_text()
+    assert 'class="graph-full"' not in html and "maxEdges: 500" in html
+    monkeypatch.setattr(preview, "fits_mermaid", lambda graph: False)
+    html = preview.write_preview(wf).read_text()
+    assert 'class="graph-full"' in html and '<pre class="full-graph" hidden>' in html and "too many to draw quickly" in html
+    readme = preview.write_readme(wf).read_text()
+    assert "too many to draw quickly" in readme and "biobb_provenance graph" in readme and readme.count("```mermaid") == 1
 
 
 def test_restart_only_workflow(tmp_path):

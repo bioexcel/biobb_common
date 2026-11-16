@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, Union
 
 from biobb_common.provenance.crate import action_environment, action_order, as_list, entity_label, environment_label, is_restart_skipped
-from biobb_common.provenance.graph import machine_color, read_graph, to_mermaid
+from biobb_common.provenance.graph import (MERMAID_MAX_EDGES, MERMAID_MAX_TEXT, ProvenanceGraph, fits_mermaid, machine_color, read_graph, summarize,
+                                           to_mermaid)
 
 PREVIEW = "ro-crate-preview.html"
 README = "README.md"
@@ -30,6 +31,7 @@ summary { cursor: pointer; }
 h3 summary { font-size: 1.1rem; }
 .muted { color: #6b7280; font-size: .85em; }
 .graph { position: relative; }
+.graph-note { color: #6b7280; font-size: .9em; padding-right: 2.5rem; }
 .graph-btn { border: 1px solid #9ca3af; background: #fff; border-radius: 4px; cursor: pointer; font-size: 1rem;
              width: 2rem; height: 2rem; box-shadow: 0 1px 4px rgba(0, 0, 0, .2); }
 .graph-btn:hover { background: #f3f4f6; }
@@ -81,6 +83,18 @@ GRAPH_JS = """
   viewport.addEventListener("pointermove", event => { if (drag) { x = event.clientX - drag[0]; y = event.clientY - drag[1]; apply(); } });
   viewport.addEventListener("pointerup", () => drag = null);
 })();
+"""
+# Draw the full graph instead of its summary (graphs too large for the default limits of Mermaid)
+FULL_GRAPH_JS = """
+const fullButton = document.querySelector(".graph-full");
+if (fullButton) fullButton.addEventListener("click", async () => {
+  fullButton.disabled = true; fullButton.textContent = "Drawing the full graph...";
+  // Show the new text before the layout blocks the page
+  await new Promise(resolve => setTimeout(resolve, 50));
+  const { svg } = await mermaid.render("full-graph-svg", document.querySelector(".graph pre.full-graph").textContent);
+  document.querySelector(".graph pre.mermaid").innerHTML = svg;
+  fullButton.closest("p").textContent = "Full graph: open it in fullscreen to zoom in.";
+});
 """
 GRAPH_MODAL = """<div class="graph-modal" role="dialog" aria-modal="true" aria-label="Graph viewer">
 <div class="viewport"><div class="content"></div></div>
@@ -153,9 +167,21 @@ def write_preview(crate_dir: Union[str, Path]) -> Path:
     html.append("<h2>Graph</h2>")
     html.append('<div class="graph"><button class="graph-btn" title="Fullscreen: zoom with the mouse wheel, drag to pan" '
                 'aria-label="Open the graph in fullscreen">&#x26F6;</button>')
-    html.append(f'<pre class="mermaid">{escape(to_mermaid(read_graph(crate_dir)))}</pre></div>')
+    graph = read_graph(crate_dir)
+    full_graph = to_mermaid(graph)
+    if fits_mermaid(graph):
+        html.append(f'<pre class="mermaid">{escape(full_graph)}</pre></div>')
+    else:
+        # Too large to draw quickly: the summary, and the full graph drawn on demand
+        html.append(f'<p class="graph-note">{escape(_summary_note(graph))} '
+                    '<button class="graph-full">Draw the full graph (slow)</button></p>')
+        html.append(f'<pre class="mermaid">{escape(to_mermaid(summarize(graph)))}</pre>')
+        html.append(f'<pre class="full-graph" hidden>{escape(full_graph)}</pre></div>')
     html.append(GRAPH_MODAL)
-    html.append(f'<script type="module">import mermaid from "{MERMAID_JS}"; mermaid.initialize({{startOnLoad: true}});</script>')
+    # The limits of Mermaid (500 edges, 50000 characters by default) raised to draw the full graph
+    limits = f"maxTextSize: {max(MERMAID_MAX_TEXT, 2 * len(full_graph))}, maxEdges: {max(MERMAID_MAX_EDGES, 2 * len(graph.edges))}"
+    html.append(f'<script type="module">import mermaid from "{MERMAID_JS}"; mermaid.initialize({{startOnLoad: true, {limits}}});'
+                f'{FULL_GRAPH_JS}</script>')
 
     html.append("<h2>Executions</h2>")
     html.append("<table><tr><th>Name</th><th>Step</th><th>Status</th><th>Start</th><th>End</th><th>Software</th></tr>")
@@ -241,11 +267,22 @@ def write_readme(crate_dir: Union[str, Path]) -> Path:
     if any(map(is_restart_skipped, _actions(entities))):
         lines += ["", "Skipped (restart) steps were skipped by the restart property: their outputs come from a previous execution that "
                   "was not recorded, the start time is unknown and the end time is the last modification of the outputs."]
-    lines += ["", "## Graph", "", "```mermaid", to_mermaid(read_graph(crate_dir)).rstrip(), "```", ""]
+    graph = read_graph(crate_dir)
+    lines += ["", "## Graph", ""]
+    if not fits_mermaid(graph):
+        # Renderers of Markdown (ie: GitHub) use the default limits of Mermaid
+        lines += [_summary_note(graph) + " The full graph: `biobb_provenance graph . -o graph.svg` (or .dot, .mmd).", ""]
+        graph = summarize(graph)
+    lines += ["```mermaid", to_mermaid(graph).rstrip(), "```", ""]
 
     readme_path = crate_dir / README
     readme_path.write_text("\n".join(lines), encoding="utf-8")
     return readme_path
+
+
+def _summary_note(graph: ProvenanceGraph) -> str:
+    return (f"The graph has {len(graph.steps)} steps and {len(graph.files)} files, too many to draw quickly. This summary draws the "
+            "repetitions of a step (ie: the iterations of a loop) as one step ×n, with only the workflow inputs and outputs.")
 
 
 def _entities(crate_dir: Path) -> dict[str, dict]:
