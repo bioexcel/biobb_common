@@ -338,6 +338,62 @@ def test_multiple_machines(tmp_path):
     assert validate_crate(laptop) == []
 
 
+def test_rewritten_files(tmp_path):
+    """A pipeline that writes each step to the same path and renames it to tmp.pdb for the next step
+    (as biobb_wf_haddock): one version per write, each step reads the version written before it."""
+    wf = tmp_path / "wf"
+    wf.mkdir()
+    # Files left by the pipeline (tmp.pdb was renamed to out.pdb), with the size of the records
+    for name in ("in.pdb", "out.pdb", "result.txt", "other.txt"):
+        (wf / name).write_text("0123456789")
+    env = {"hostname": "laptop"}
+    records = [
+        block_record("2026-11-16T10:00:00+01:00", {wf / "in.pdb": "a"}, {wf / "out.pdb": "b"}, env),
+        # Renamed to tmp.pdb, the same content again (ie: pdb_delhetatm without HETATM)
+        block_record("2026-11-16T10:00:01+01:00", {wf / "tmp.pdb": "b"}, {wf / "out.pdb": "b"}, env),
+        block_record("2026-11-16T10:00:02+01:00", {wf / "tmp.pdb": "b"}, {wf / "out.pdb": "c"}, env),
+        block_record("2026-11-16T10:00:03+01:00", {wf / "tmp.pdb": "c"}, {wf / "out.pdb": "d"}, env),
+        block_record("2026-11-16T10:00:04+01:00", {wf / "out.pdb": "d"}, {wf / "result.txt": "e"}, env),
+        # The workflow input read again
+        block_record("2026-11-16T10:00:05+01:00", {wf / "in.pdb": "a"}, {wf / "other.txt": "f"}, env),
+    ]
+    block_crates = [write_block_crate(r, tmp_path / "crates" / "provenance" / f"step{i}") for i, r in enumerate(records)]
+    graph = entities(merge_block_crates(block_crates, wf, workflow_file=__file__))
+
+    steps = [graph[c["object"]["@id"]] for c in sorted(of_type(graph, "ControlAction"), key=lambda c: int(c["@id"].rsplit("-", 1)[1]))]
+    old = (wf / "out.pdb").as_uri()
+    assert [s["object"]["@id"] for s in steps] == ["in.pdb", f"{old}#version-1", f"{old}#version-2", f"{old}#version-3", "out.pdb", "in.pdb"]
+    assert [s["result"]["@id"] for s in steps[:4]] == [f"{old}#version-1", f"{old}#version-2", f"{old}#version-3", "out.pdb"]
+    # Linked by checksum: no tmp.pdb, no cycles, the input read twice is a single entity
+    assert not [i for i in graph if "tmp.pdb" in i]
+    assert graph["#workflow-run"]["object"] == {"@id": "in.pdb"}
+    assert {r["@id"] for r in as_list(graph["#workflow-run"]["result"])} == {"result.txt", "other.txt"}
+    # The version on disk keeps the id of the path, the others are not part of the payload
+    assert (graph["out.pdb"]["version"], graph["out.pdb"]["sha256"]) == ("4", "d")
+    assert "description" not in graph["out.pdb"]
+    assert (graph[f"{old}#version-2"]["version"], graph[f"{old}#version-2"]["sha256"]) == ("2", "b")
+    assert graph[f"{old}#version-2"]["description"].startswith("Version 2 of 4 of out.pdb: the path was written again later")
+    assert "out.pdb (version 2)" in read_graph(wf).files.values()
+    assert "out.pdb (version 2)" in (wf / "ro-crate-preview.html").read_text()
+    if importlib.util.find_spec("rocrate_validator"):
+        from biobb_common.provenance.validation import validate_crate
+        assert validate_crate(wf) == []
+
+    # Without checksums tmp.pdb can not be linked: a file not in the payload (absolute id), read by three steps.
+    # out.pdb was modified after the workflow (another size): its last version is not the file there.
+    for block_crate in block_crates:
+        block_crate.write_text(re.sub(r',\s*"sha256": "\w"', "", block_crate.read_text()))
+    (wf / "out.pdb").write_text("modified")
+    graph = entities(merge_block_crates(block_crates, tmp_path / "wf", workflow_file=__file__))
+    tmp = (wf / "tmp.pdb").as_uri()
+    assert [s["@id"] for s in as_list(graph["#workflow-run"]["object"])] == ["in.pdb", tmp]
+    assert [graph[c["object"]["@id"]]["object"]["@id"] for c in sorted(of_type(graph, "ControlAction"), key=lambda c: int(c["@id"].rsplit("-", 1)[1]))][1:4] == [tmp] * 3
+    assert "out.pdb" not in graph
+    assert graph[f"{old}#version-4"]["description"].startswith("Version 4 of 4 of out.pdb: not at this path when the provenance was merged")
+    if importlib.util.find_spec("rocrate_validator"):
+        assert validate_crate(wf) == []
+
+
 def test_steps_started_in_the_same_second(tmp_path):
     """Fast steps started in the same second keep their execution order, not the alphabetical order of
     their crate directories (step10 < step4), also with the crates of previous versions (times in seconds)."""

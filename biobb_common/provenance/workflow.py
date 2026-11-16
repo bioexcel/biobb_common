@@ -32,6 +32,8 @@ PROFILES = {
 }
 # Entities of the block crates that are replaced by the ones of the workflow crate
 SKIPPED_IDS = {"./", "ro-crate-metadata.json", LICENSE, PUBLISHER, README, PREVIEW, *PROFILES}
+# Fragment of the ids of the versions of a file written several times: <file URI>#version-<n>
+VERSION = "#version-"
 
 
 def find_block_crates(directory: Union[str, Path]) -> list[Path]:
@@ -76,23 +78,31 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     uri_map = {_uri(old): _uri(new) for old, new in (path_map or {}).items()}
-    entities: dict[str, dict] = {}
     # Execution order of the block crates (directory name), to order the steps with equal times
     crate_ranks = {index: rank for rank, index in enumerate(sorted(range(len(block_crates)), key=lambda i: _crate_start(block_crates[i])))}
     action_ranks: dict[str, int] = {}
+    crate_graphs: list[list[dict]] = []
     for index, block_crate in enumerate(block_crates):
+        graph = []
         for entity in _read_graph(block_crate):
-            entity = _relativize(_replace_ids(entity, uri_map, prefix=True), output_dir)
+            entity = _replace_ids(entity, uri_map, prefix=True)
             if entity["@id"] in SKIPPED_IDS:
                 continue
             if entity["@type"] == "CreateAction":
                 action_ranks[entity["@id"]] = crate_ranks[index]
-            entities.setdefault(entity["@id"], {}).update(entity)
+            graph.append(entity)
+        crate_graphs.append(graph)
 
     def order(action: dict) -> tuple:
         return action_time(action), action_ranks.get(action["@id"], -1)
 
-    entities = _link_by_checksum(entities, order)
+    entities = _final_versions(_merge_inputs(_link_by_checksum(_version_files(crate_graphs, order), order)))
+    relative: dict[str, dict] = {}
+    for entity in entities.values():
+        entity = _relativize(entity, output_dir)
+        if entity["@id"] not in SKIPPED_IDS:
+            relative.setdefault(entity["@id"], {}).update(entity)
+    entities = relative
     step_actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=order)
 
     name = name or (Path(workflow_file).stem if workflow_file else "biobb workflow")
@@ -305,16 +315,157 @@ def _link_by_checksum(entities: dict[str, dict], order: Callable[[dict], Any] = 
     return linked
 
 
+def _version_files(crate_graphs: list[list[dict]], order: Callable[[dict], Any]) -> dict[str, dict]:
+    """Merge the entities of the block crates, with one entity per version of each file.
+
+    A path written by several steps (ie: a file rewritten in a loop, or renamed and written
+    again) holds a different content after each of them. Following the execution order, each
+    step that writes a path creates a new version, and the steps that read it use the version
+    written last before them. Each read of a path that no previous step wrote, or whose checksum
+    (or size, without checksums) differs from the version written last (modified outside the
+    steps, ie: renamed over), is a new version not produced by any step: _link_by_checksum links
+    it to the output it comes from and _merge_inputs merges the ones of the same content left
+    (ie: a workflow input read by several steps). Versions get the provisional id
+    <path>#version-<n>, see _final_versions.
+    """
+    versions: dict[str, list[dict]] = {}
+    current: dict[str, dict] = {}
+    produced: set[str] = set()
+    entities: dict[str, dict] = {}
+
+    def new_version(path: str, entity: dict) -> dict:
+        version = {**entity, "@id": f"{path}{VERSION}{len(versions.setdefault(path, [])) + 1}"}
+        versions[path].append(version)
+        entities[version["@id"]] = version
+        return version
+
+    steps = sorted(((e, graph) for graph in crate_graphs for e in graph if e["@type"] == "CreateAction"), key=lambda step: order(step[0]))
+    seen: set[str] = set()
+    for action, graph in steps:
+        # The same crate twice (ie: reused by the restart property) is the same execution
+        if action["@id"] in seen:
+            continue
+        seen.add(action["@id"])
+        files = {e["@id"]: e for e in graph if e["@type"] in ("File", "Dataset")}
+        inputs: dict[str, str] = {}
+        for ref in as_list(action.get("object")):
+            if ref["@id"] in files:
+                version = current.get(ref["@id"])
+                # A file with the same content may have been renamed over it (ie: tmp.pdb of a pipeline)
+                if version is None or version["@id"] not in produced or not _same_content(version, files[ref["@id"]]):
+                    version = current[ref["@id"]] = new_version(ref["@id"], files[ref["@id"]])
+                inputs[ref["@id"]] = version["@id"]
+        outputs: dict[str, str] = {}
+        for ref in as_list(action.get("result")):
+            if ref["@id"] in files:
+                version = current[ref["@id"]] = new_version(ref["@id"], files[ref["@id"]])
+                produced.add(version["@id"])
+                outputs[ref["@id"]] = version["@id"]
+        # Other references to the files of the crate (ie: subjectOf of a parameter file) are to its inputs
+        references = {**outputs, **inputs}
+        for entity in graph:
+            if entity["@id"] in references:
+                version = entities[inputs[entity["@id"]]] if entity["@id"] in inputs else None
+                if version is not None:
+                    # The input already read by the previous steps, completed with what this step recorded
+                    version.update({k: v for k, v in entity.items() if k != "@id" and k not in version})
+                continue
+            entity = {k: _replace_ids(v, references) for k, v in entity.items() if k not in ("object", "result") or entity is not action}
+            if entity["@id"] == action["@id"]:
+                for key, mapping in (("object", inputs), ("result", outputs)):
+                    if key in action:
+                        entity[key] = _replace_ids(action[key], mapping)
+            entities.setdefault(entity["@id"], {}).update(entity)
+    return entities
+
+
+def _same_content(version: dict, entity: dict) -> bool:
+    """Return False if a file entity has another sha256 (or size, without checksums) than a version of the file."""
+    if version.get("sha256") and entity.get("sha256"):
+        return (version["sha256"], version.get("contentSize")) == (entity["sha256"], entity.get("contentSize"))
+    if "contentSize" in version and "contentSize" in entity:
+        return version["contentSize"] == entity["contentSize"]
+    return True
+
+
+def _merge_inputs(entities: dict[str, dict]) -> dict[str, dict]:
+    """Merge the versions of a path that no step produced and have the same content (sha256 and
+    size), ie: a workflow input read by several steps, that _version_files kept apart so that
+    _link_by_checksum could link each read to the output it comes from. The first one is kept."""
+    produced = {ref["@id"] for e in entities.values() if e["@type"] == "CreateAction" for ref in as_list(e.get("result"))}
+    first: dict[tuple, str] = {}
+    mapping: dict[str, str] = {}
+    # In creation order, which is the execution order
+    for entity_id, entity in entities.items():
+        path, _, number = entity_id.rpartition(VERSION)
+        if not path or not number.isdigit() or entity_id in produced:
+            continue
+        key = (path, entity.get("sha256"), entity.get("contentSize"))
+        if key in first:
+            mapping[entity_id] = first[key]
+        else:
+            first[key] = entity_id
+    return {i: _replace_ids(e, mapping) for i, e in entities.items() if i not in mapping}
+
+
+def _final_versions(entities: dict[str, dict]) -> dict[str, dict]:
+    """Replace the provisional ids of the file versions (<path>#version-<n>) by their final ids.
+
+    A path with a single version keeps its id. Of the paths written several times, the last
+    version keeps the id of the path if the file is still there (with the same size), the
+    others keep the fragment, renumbered in execution order (versions linked by checksum to
+    the output of another step are no longer there), and all of them get their version number.
+    """
+    versions: dict[str, list[str]] = {}
+    for entity_id in entities:
+        path, _, number = entity_id.rpartition(VERSION)
+        if path and number.isdigit():
+            versions.setdefault(path, []).append(entity_id)
+    mapping: dict[str, str] = {}
+    for path, ids in versions.items():
+        ids.sort(key=lambda i: int(i.rpartition(VERSION)[2]))
+        if len(ids) == 1:
+            mapping[ids[0]] = path
+            continue
+        for number, entity_id in enumerate(ids, start=1):
+            mapping[entity_id] = f"{path}{VERSION}{number}"
+            entity = entities[entity_id]
+            entity["version"] = str(number)
+            entity["description"] = (f"Version {number} of {len(ids)} of {entity.get('name', path)}: the path was written again later, "
+                                     "this content is no longer there.")
+        if _on_disk(path, entities[ids[-1]]):
+            mapping[ids[-1]] = path
+            del entities[ids[-1]]["description"]
+        else:
+            entities[ids[-1]]["description"] = (f"Version {len(ids)} of {len(ids)} of {entities[ids[-1]].get('name', path)}: "
+                                                "not at this path when the provenance was merged (ie: renamed, removed or on another machine).")
+    return {mapping.get(i, i): _replace_ids(e, mapping) for i, e in entities.items()}
+
+
+def _on_disk(file_id: str, entity: dict) -> bool:
+    """Return True if a file (or directory) URI exists in this machine with the size recorded in **entity**."""
+    if not file_id.startswith("file:"):
+        return False
+    path = Path(unquote(urlsplit(file_id).path))
+    if not path.exists():
+        return False
+    return "Dataset" in as_list(entity.get("@type")) or "contentSize" not in entity or str(path.stat().st_size) == str(entity["contentSize"])
+
+
 def _relativize(value: Any, output_dir: Path) -> Any:
-    """Replace the file URIs inside **output_dir** by paths relative to it, in all the @id of **value**."""
+    """Replace the file URIs inside **output_dir** by paths relative to it, in all the @id of **value**.
+    Only the files that exist: the others (ie: renamed or removed, earlier versions of a file
+    written several times) keep their absolute URI, they are not part of the crate payload."""
     if isinstance(value, list):
         return [_relativize(v, output_dir) for v in value]
     if not isinstance(value, dict):
         return value
     value = {k: _relativize(v, output_dir) for k, v in value.items()}
     prefix = output_dir.as_uri() + "/"
-    if isinstance(value.get("@id"), str) and value["@id"].startswith(prefix):
-        value["@id"] = value["@id"][len(prefix):]
+    entity_id = value.get("@id")
+    if isinstance(entity_id, str) and entity_id.startswith(prefix) and not urlsplit(entity_id).fragment \
+            and Path(unquote(urlsplit(entity_id).path)).exists():
+        value["@id"] = entity_id[len(prefix):]
     return value
 
 

@@ -297,6 +297,15 @@ def as_list(value: Any) -> list:
     return value if isinstance(value, list) else [value]
 
 
+def entity_label(entity: dict, default: str = "") -> str:
+    """Return the name of an entity, with the version of the files written several times
+    by the steps of a workflow, ie: tmp.pdb (version 2)."""
+    name = str(entity.get("name") or default or entity.get("@id", ""))
+    if entity.get("version") and {"File", "Dataset"} & set(as_list(entity.get("@type"))):
+        return f"{name} (version {entity['version']})"
+    return name
+
+
 def iso(time, timespec: str = "seconds") -> str:
     return time.isoformat(timespec=timespec)
 
