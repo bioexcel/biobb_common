@@ -7,6 +7,7 @@ import os
 import errno
 import pathlib
 import re
+import shlex
 import shutil
 import uuid
 import warnings
@@ -602,6 +603,81 @@ def copy_to_host(container_path: str, container_io_dict: dict, io_dict: dict):
                 shutil.copy2(container_file_path, io_dict["out"][file_ref])
 
 
+def singularity_sif_name(container_image: Union[str, Path]) -> str:
+    """Local ``.sif`` file name for a Singularity/Apptainer image reference.
+
+    The name is the last component of the reference with ``:`` replaced by ``_``,
+    so the full version and build are kept and two versions never share a file::
+
+        https://depot.galaxyproject.org/singularity/biobb_godmd:5.3.1--pyhdfd78af_0
+        docker://quay.io/biocontainers/biobb_godmd:5.3.1--pyhdfd78af_0
+            -> biobb_godmd_5.3.1--pyhdfd78af_0.sif
+
+    (``Path(ref).with_suffix(".sif")`` would treat ``.1--pyhdfd78af_0`` as the
+    extension and give ``biobb_godmd:5.3.sif``.)
+    """
+    ref = str(container_image).split("://", 1)[-1].rstrip("/")
+    name = ref.rsplit("/", 1)[-1].replace(":", "_")
+    return name if name.endswith(".sif") else name + ".sif"
+
+
+def singularity_images_dir() -> Path:
+    """Folder where pulled Singularity/Apptainer images are kept and reused:
+    ``$BIOBB_SINGULARITY_DIR`` if set, else ``~/.biobb/singularity``."""
+    return Path(os.environ.get("BIOBB_SINGULARITY_DIR") or Path.home().joinpath(".biobb", "singularity"))
+
+
+def get_singularity_image(
+    container_image: Union[str, Path],
+    container_path: Union[str, Path] = "singularity",
+    shell_path: Optional[Union[str, Path]] = None,
+    out_log: Optional[logging.Logger] = None,
+    global_log: Optional[logging.Logger] = None,
+) -> str:
+    """Return a local image file for **container_image**, pulling it only once.
+
+    * An existing local path is returned unchanged.
+    * Otherwise (a URL / registry reference) the image is looked up in
+      :func:`singularity_images_dir` as :func:`singularity_sif_name`; if it is
+      not there yet it is pulled to a temporary name and atomically renamed, so
+      parallel steps pulling the same image never see a half-written file.
+
+    Raises:
+        FileNotFoundError: the pull failed or produced no file.
+    """
+    if Path(str(container_image)).exists():
+        return str(container_image)
+
+    images_dir = singularity_images_dir()
+    images_dir.mkdir(parents=True, exist_ok=True)
+    sif_path = images_dir.joinpath(singularity_sif_name(container_image))
+    if sif_path.exists():
+        log(f"Using cached image {sif_path} for {container_image}", out_log, global_log)
+        return str(sif_path)
+
+    log(f"{container_image} not found locally, pulling it to {sif_path}", out_log, global_log)
+    tmp_path = sif_path.with_name(f"{sif_path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex[:8]}")
+    # CmdWrapper runs the joined command through a shell: quote the paths
+    pull_cmd = [shlex.quote(str(container_path)), "pull", "--name",
+                shlex.quote(str(tmp_path)), shlex.quote(str(container_image))]
+
+    from biobb_common.command_wrapper import cmd_wrapper
+    wrapper_kwargs = {"out_log": out_log, "global_log": global_log}
+    if shell_path:
+        wrapper_kwargs["shell_path"] = shell_path
+    return_code = cmd_wrapper.CmdWrapper(pull_cmd, **wrapper_kwargs).launch()
+
+    if return_code != 0 or not tmp_path.exists():
+        if tmp_path.exists():
+            tmp_path.unlink()
+        msg = (f"Could not pull {container_image} to {sif_path} "
+               f"('{' '.join(pull_cmd)}' exit code {return_code})")
+        log(msg, out_log, global_log)
+        raise FileNotFoundError(msg)
+    os.replace(tmp_path, sif_path)
+    return str(sif_path)
+
+
 def create_cmd_line(
     cmd: list[str],
     container_path: Optional[Union[str, Path]] = "",
@@ -617,31 +693,12 @@ def create_cmd_line(
     container_path = container_path or ""
     if str(container_path).endswith("singularity"):
         log("Using Singularity image %s" % container_image, out_log, global_log)
-        if not Path(str(container_image)).exists():
-            log(
-                f"{container_image} does not exist trying to pull it",
-                out_log,
-                global_log,
-            )
-            container_image_name = str(Path(str(container_image)).with_suffix(".sif").name)
-            singularity_pull_cmd = [
-                str(container_path),
-                "pull",
-                "--name",
-                str(container_image_name),
-                str(container_image),
-            ]
-            try:
-                from biobb_common.command_wrapper import cmd_wrapper
-
-                cmd_wrapper.CmdWrapper(cmd=singularity_pull_cmd, out_log=out_log).launch()
-                if Path(container_image_name).exists():
-                    container_image = container_image_name
-                else:
-                    raise FileNotFoundError
-            except FileNotFoundError:
-                log(f"{' '.join(singularity_pull_cmd)} not found", out_log, global_log)
-                raise FileNotFoundError
+        container_image = get_singularity_image(
+            container_image=str(container_image),
+            container_path=container_path,
+            out_log=out_log,
+            global_log=global_log,
+        )
         singularity_cmd: list[str] = [
             str(container_path),
             "exec",

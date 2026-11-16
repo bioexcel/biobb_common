@@ -29,7 +29,7 @@ class BiobbObject:
 
             * **io_dict** (*dict*) - ({}) Input/Output files dictionary.
             * **container_path** (*str*) - (None)  Path to the binary executable of your container.
-            * **container_image** (*str*) - (None) Container Image identifier.
+            * **container_image** (*str*) - (None) Container Image identifier. For Singularity/Apptainer, a local image file or a URL/registry reference; references are pulled once to $BIOBB_SINGULARITY_DIR (default ~/.biobb/singularity) and reused.
             * **container_volume_path** (*str*) - ("/data") Path to an internal directory in the container.
             * **container_working_dir** (*str*) - (None) Path to the internal CWD in the container.
             * **container_user_id** (*str*) - (None) User number id to be mapped inside the container.
@@ -285,39 +285,15 @@ class BiobbObject:
                 self.out_log,
                 self.global_log,
             )
-            if not Path(self.container_image).exists():
-                fu.log(
-                    f"{self.container_image} does not exist trying to pull it",
-                    self.out_log,
-                    self.global_log,
-                )
-                container_image_name = str(
-                    Path(self.container_image).with_suffix(".sif").name
-                )
-                singularity_pull_cmd = [
-                    self.container_path,
-                    "pull",
-                    "--name",
-                    container_image_name,
-                    self.container_image,
-                ]
-                try:
-                    from biobb_common.command_wrapper import cmd_wrapper
-
-                    cmd_wrapper.CmdWrapper(
-                        singularity_pull_cmd, self.shell_path, self.out_log
-                    ).launch()
-                    if Path(container_image_name).exists():
-                        self.container_image = container_image_name
-                    else:
-                        raise FileNotFoundError
-                except FileNotFoundError:
-                    fu.log(
-                        f"{' '.join(singularity_pull_cmd)} not found",
-                        self.out_log,
-                        self.global_log,
-                    )
-                    raise FileNotFoundError
+            # a URL / registry reference is pulled once into
+            # fu.singularity_images_dir() and reused; a local path is used as is
+            self.container_image = fu.get_singularity_image(
+                container_image=self.container_image,
+                container_path=self.container_path,
+                shell_path=self.shell_path,
+                out_log=self.out_log,
+                global_log=self.global_log,
+            )
             singularity_cmd = [
                 self.container_path,
                 self.container_generic_command,

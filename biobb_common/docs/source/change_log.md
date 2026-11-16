@@ -1,5 +1,10 @@
 # Biobb_common ChangeLog
 
+## What's new in the next version (unreleased)?
+
+* [FIX] Singularity/Apptainer: a `container_image` given as a URL or registry reference (ie: `https://depot.galaxyproject.org/singularity/biobb_godmd:5.3.1--pyhdfd78af_0`) is pulled to a file named after the full reference (`biobb_godmd_5.3.1--pyhdfd78af_0.sif`). The previous name dropped part of the version and kept the `:` (`biobb_godmd:5.3.sif`): the pull failed and two versions of the same image could share the file.
+* [FEATURE] Pulled Singularity/Apptainer images are kept in `$BIOBB_SINGULARITY_DIR` (default `~/.biobb/singularity`) and reused by every step and every later execution instead of being pulled into the current folder. Pulls are atomic, so parallel steps can request the same image.
+
 ## What's new in version [5.3.3](https://github.com/bioexcel/biobb_common/releases/tag/v5.3.3)?
 
 * [FEATURE] Provenance of workflows run on several machines (ie: setup on a laptop, MD on a cluster): one execution environment per machine, `biobb_provenance merge --path-map OLD=NEW` and checksum linking of the steps run elsewhere. Graphs, preview and README color the steps by machine.
