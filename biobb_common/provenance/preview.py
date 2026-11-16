@@ -7,7 +7,7 @@ from html import escape
 from pathlib import Path
 from typing import Any, Union
 
-from biobb_common.provenance.crate import action_environment, action_order, as_list, environment_label, is_restart_skipped
+from biobb_common.provenance.crate import action_environment, action_order, as_list, entity_label, environment_label, is_restart_skipped
 from biobb_common.provenance.graph import machine_color, read_graph, to_mermaid
 
 PREVIEW = "ro-crate-preview.html"
@@ -388,7 +388,7 @@ def _groups(entities: dict[str, dict]) -> dict[str, list[dict]]:
 
 
 def _label(entity: dict) -> str:
-    return str(entity.get("name") or entity["@id"])
+    return entity_label(entity)
 
 
 def _size(size: Any) -> str:
@@ -414,7 +414,7 @@ def _value(value: Any, entities: dict[str, dict]) -> str:
                     f'{_value(entity["valueReference"], entities)}</details>')
         if "PropertyValue" in as_list(entity.get("@type")):
             return f'<code>{escape(str(entity.get("name")))} = {escape(str(entity.get("value")))}</code>'
-        label = escape(str(entities.get(entity_id, {}).get("name", entity_id)))
+        label = escape(entity_label(entities.get(entity_id, {}), entity_id))
         if entity_id in entities:
             return f'<a href="#{_anchor(entity_id)}">{label}</a>'
         if entity_id.startswith(("http://", "https://")):

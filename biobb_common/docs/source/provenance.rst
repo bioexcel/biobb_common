@@ -143,7 +143,8 @@ Existing ``README.md`` or ``ro-crate-preview.html`` files not written by biobb a
 The workflow script (by default the script being executed, if it is a file: not in notebooks or with
 ``python - < workflow.py``) is copied into the crate directory. Files
 inside the crate directory are referenced with relative paths, so the directory can be moved or shared
-as a whole.
+as a whole. Files that are no longer at their path when the crate is written (ie: renamed or removed by
+the workflow script) keep their absolute ``file://`` URI: they are not part of the crate.
 
 The global properties are not modified: only the blocks executed by the same thread (or asyncio task)
 are recorded and collected. To include blocks executed in other threads, run them in a copy of the
@@ -170,6 +171,22 @@ Block crates can also be merged afterwards, ie: when the steps run in different 
     from biobb_common.provenance import find_block_crates, merge_block_crates
 
     merge_block_crates(find_block_crates('wf_output'), 'wf_output', workflow_file='workflow.py')
+
+Files written several times
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A path can be written by several steps, ie: a pipeline of blocks that write to the same file, or a loop
+that renames the output of each step to ``tmp.pdb`` to be the input of the next one. Each write is a
+version of the file, with its own entity, and each step reads the version written last before it:
+
+- The last version keeps the id of the path if the file is still there with the same size. The earlier
+  versions (and the last one, if the file is not there) have the id ``<file URI>#version-<n>``: their
+  content is no longer in the crate. All of them have their ``version`` number and the graphs, the
+  README and the preview label them as ``out.pdb (version 2)``.
+- With ``provenance_checksum``, a file renamed by the workflow script (ie: ``os.rename``) is linked to
+  the version it comes from, which has the same ``sha256``. Without checksums the renamed file is an
+  input of the next step that no step produced.
+- An input read by several steps without being written in between is a single entity.
 
 Steps on different machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -414,6 +431,10 @@ Limitations
 - Steps skipped by the ``restart`` property without a previous crate have no start time: the duration
   of the original execution is unknown. Their end time is the last modification of the outputs, which
   changes if the files are copied without keeping their modification time (ie: ``cp`` without ``-p``).
+- Only the building blocks are recorded: the operations of the workflow script (ie: ``zipfile``,
+  ``os.rename``, ``shutil.copy``) are not steps. Their outputs are workflow inputs, unless they have the
+  checksum of the output of a previous step (see `Files written several times`_), and the files they read
+  are workflow outputs.
 - Data is never copied into the crates. Files outside the crate directory (all the files of a block
   crate, and the workflow inputs or outputs written outside the workflow directory) are referenced by
   their absolute ``file://`` URI. RO-Crate 1.1 allows data entities with absolute URIs, but recommends

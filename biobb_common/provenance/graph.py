@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Union
 
-from biobb_common.provenance.crate import FAILED, action_environment, action_order, as_list, is_restart_skipped
+from biobb_common.provenance.crate import FAILED, action_environment, action_order, as_list, entity_label, is_restart_skipped
 
 # (name, fill, stroke) of the steps of each machine, when they ran on several machines. Machine 1 keeps the default step colors.
 MACHINE_COLORS = [
@@ -69,7 +69,7 @@ def read_graph(crate_dir: Union[str, Path]) -> ProvenanceGraph:
                 entity = entities.get(ref["@id"], {})
                 if entity.get("@type") not in ("File", "Dataset"):
                     continue
-                graph.files[ref["@id"]] = entity.get("name", ref["@id"])
+                graph.files[ref["@id"]] = entity_label(entity, ref["@id"])
                 graph.edges.append((ref["@id"], action["@id"]) if is_input else (action["@id"], ref["@id"]))
     return graph
 
