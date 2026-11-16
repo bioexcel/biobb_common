@@ -1,5 +1,6 @@
 # type: ignore
 import contextvars
+import importlib.util
 import json
 import re
 import shutil
@@ -87,6 +88,33 @@ class TestWorkflowProvenance():
         assert len(list((tmp_path / "custom").glob("step2_FolderTest_*"))) == 1
         graph = entities(tmp_path / "wf" / "ro-crate-metadata.json")
         assert sorted(s["name"] for s in of_type(graph, "HowToStep")) == ["step1", "step2"]
+
+    def test_loop(self, tmp_path):
+        """Steps run in a loop with ConfReader prefixes (ie: one directory per mutation) whose
+        paths have characters encoded in URIs (A:Gly4Lys -> A%3AGly4Lys, space -> %20)."""
+        with workflow_provenance(path=tmp_path, workflow_file=__file__):
+            for prefix in ("A:Gly4Lys", "stateA/frame 0"):
+                folder = tmp_path / "wf" / prefix
+                properties = {"path": str(folder), "step": "step1", "prefix": prefix}
+                folder_test(input_folder=self.paths['input_folder'], output_folder=str(folder / "step1"), properties=properties)
+                folder_test(input_folder=str(folder / "step1"), output_folder=str(folder / "step2"), properties={**properties, "step": "step2"})
+        graph = entities(tmp_path / "ro-crate-metadata.json")
+        steps = sorted(of_type(graph, "HowToStep"), key=lambda s: int(s["position"]))
+        assert [s["name"] for s in steps] == ["A:Gly4Lys/step1", "A:Gly4Lys/step2", "stateA/frame 0/step1", "stateA/frame 0/step2"]
+        # Encoded once, as the references of the steps: the output of step1 is the input of step2 in each iteration
+        controls = {c["instrument"]["@id"]: c for c in of_type(graph, "ControlAction")}
+        step_actions = [graph[controls[s["@id"]]["object"]["@id"]] for s in steps]
+        assert graph["wf/A%3AGly4Lys/step1/"]["@type"] == "Dataset"
+        assert step_actions[0]["result"] == {"@id": "wf/A%3AGly4Lys/step1/"}
+        assert {"@id": "wf/A%3AGly4Lys/step1/"} in as_list(step_actions[1]["object"])
+        assert step_actions[3]["result"] == {"@id": "wf/stateA/frame%200/step2/"}
+        files = [ref["@id"] for a in step_actions for key in ("object", "result") for ref in as_list(a[key])]
+        assert all(file_id in graph for file_id in files)
+        assert not [i for i in graph if "%25" in i]
+        assert {r["@id"] for r in as_list(graph["#workflow-run"]["result"])} == {"wf/A%3AGly4Lys/step2/", "wf/stateA/frame%200/step2/"}
+        if importlib.util.find_spec("rocrate_validator"):
+            from biobb_common.provenance.validation import validate_crate
+            assert validate_crate(tmp_path) == []
 
     def test_script_from_stdin(self, tmp_path, monkeypatch):
         """python - < workflow.py: the script is not a file, the crate has no workflow file (as notebooks)."""

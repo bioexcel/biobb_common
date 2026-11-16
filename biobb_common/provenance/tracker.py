@@ -81,9 +81,20 @@ def provenance_dir(obj) -> Path:
     return _default_dir.get() or (Path(obj.path) if getattr(obj, "path", "") else Path.cwd()) / "provenance"
 
 
-def crate_name(obj) -> str:
-    """Return the prefix of the block crate directories: <step>_<ClassName> or <ClassName>."""
-    step = re.sub(r"[^A-Za-z0-9.-]+", "_", str(getattr(obj, "step", "") or "")).strip("_")
+def step_name(obj) -> Optional[str]:
+    """Return the step name of the configuration file preceded by the prefix of the step, if any,
+    ie: A:Gly4Lys/step3_mutate for the steps run in a loop with ConfReader.get_prop_dic(prefix="A:Gly4Lys"),
+    so each iteration of the loop has its own name. None if the block has no step name nor prefix."""
+    prefix = str(getattr(obj, "prefix", "") or "")
+    parts = (Path(prefix).as_posix().strip("/") if prefix else "", str(getattr(obj, "step", "") or ""))
+    return "/".join(p for p in parts if p) or None
+
+
+def crate_name(obj, prefix: bool = True) -> str:
+    """Return the prefix of the block crate directories: <prefix>_<step>_<ClassName>, <step>_<ClassName>
+    or <ClassName>. Without **prefix**, the name of the crates written by biobb_common 5.3.3 and older."""
+    name = step_name(obj) if prefix else getattr(obj, "step", "")
+    step = re.sub(r"[^A-Za-z0-9.-]+", "_", str(name or "")).strip("_")
     return f"{step}_{type(obj).__name__}" if step else type(obj).__name__
 
 
@@ -99,7 +110,10 @@ def previous_crate(obj) -> Optional[Path]:
     from biobb_common.provenance.record import output_uris
 
     outputs = output_uris(obj)
-    for metadata_path in sorted(provenance_dir(obj).glob(f"{crate_name(obj)}_*/ro-crate-metadata.json"), reverse=True):
+    # Also the crates of previous versions, named without the prefix of the step: the outputs tell the iterations apart
+    names = dict.fromkeys((crate_name(obj), crate_name(obj, prefix=False)))
+    crates = {path for name in names for path in provenance_dir(obj).glob(f"{name}_*/ro-crate-metadata.json")}
+    for metadata_path in sorted(crates, key=lambda path: path.parent.name.rsplit("_", 1)[-1], reverse=True):
         try:
             graph = json.loads(metadata_path.read_text())["@graph"]
         except (OSError, ValueError, KeyError):

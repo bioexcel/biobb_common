@@ -74,7 +74,7 @@ def read_crates(path, class_name="*"):
 def crate_dirs(path, class_name="*"):
     """Return the block crate directories (<step>_<ClassName>_<timestamp>) written in path, oldest first."""
     pattern = re.compile(rf"^(.+_)?{'.+' if class_name == '*' else class_name}_\d{{8}}-")
-    return sorted(p for p in Path(path).glob("provenance/*") if pattern.match(p.name))
+    return sorted((p for p in Path(path).glob("provenance/*") if pattern.match(p.name)), key=lambda p: p.name.rsplit("_", 1)[-1])
 
 
 def entities(crate):
@@ -237,6 +237,28 @@ class TestBlockProvenance():
         # No new crate, the one of the previous execution is reused
         assert crate_dirs(self.properties['path'], "FolderTest") == crates_before
         assert collected == [crates_before[-1] / "ro-crate-metadata.json"]
+
+    def test_step_prefix(self):
+        """Steps of a workflow loop (ConfReader.get_prop_dic(prefix=...)): the prefix is part of the step name."""
+        output_folder = Path(self.properties['path']) / "prefix_out"
+        for prefix, crate_prefix in (("A:Gly4Lys", "A_Gly4Lys_"), (str(Path("stateA") / "frame0"), "stateA_frame0_")):
+            folder_test(properties={**self.properties, 'provenance': True, 'step': 'step3_mutate', 'prefix': prefix},
+                        input_folder=self.paths['input_folder'], output_folder=str(output_folder))
+            crate_dir = crate_dirs(self.properties['path'], "FolderTest")[-1]
+            assert crate_dir.name.startswith(f"{crate_prefix}step3_mutate_FolderTest_")
+            action, = actions(json.loads((crate_dir / "ro-crate-metadata.json").read_text()))
+            assert action["alternateName"] == f"{Path(prefix).as_posix()}/step3_mutate"
+
+    def test_restart_reuses_crate_without_prefix(self):
+        """The crates of biobb_common 5.3.3 and older are named without the prefix of the step."""
+        properties = {**self.properties, 'provenance': True, 'step': 'step3_mutate', 'prefix': 'A:Leu8Met'}
+        paths = {"input_folder": self.paths['input_folder'], "output_folder": str(Path(self.properties['path']) / "prefix_restart_out")}
+        folder_test(properties=properties, **paths)
+        crate_dir = crate_dirs(self.properties['path'], "FolderTest")[-1]
+        old_dir = crate_dir.rename(crate_dir.with_name(crate_dir.name.removeprefix("A_Leu8Met_")))
+        with tracker.collect() as collected:
+            folder_test(properties={**properties, 'restart': True}, **paths)
+        assert collected == [old_dir / "ro-crate-metadata.json"]
 
     def test_restart_without_previous_crate(self):
         # Outputs of an execution without provenance

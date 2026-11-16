@@ -47,7 +47,10 @@ Each execution writes its crate to ``<provenance_path>/<step>_<ClassName>_<times
 together with an HTML preview (``ro-crate-preview.html``). ``<provenance_path>`` is the
 ``provenance_path`` property or, by default, ``<path>/provenance``, where ``<path>`` is the ``path``
 property of the block or the current directory. ``<step>`` is the step name of the configuration file
-(ie: ``step3_sander_mdrun_minH``), omitted when the block has none. Input and output files are referenced by their absolute
+(ie: ``step3_sander_mdrun_minH``), omitted when the block has none. In workflow loops, the steps read with
+``ConfReader.get_prop_dic(prefix=...)`` (ie: one directory per mutation) are named with their prefix:
+``A:Gly4Lys/step3_mutate``, in the directory name ``A_Gly4Lys_step3_mutate``, so each iteration has its own
+name in the crates, the graphs and the README. Input and output files are referenced by their absolute
 ``file://`` URI and never copied.
 Block crates are therefore a record tied to the machine where the block ran. To move or share the
 provenance, use a workflow crate (see below), which references the files inside its directory with
@@ -103,7 +106,8 @@ Restart
 
 When a block is skipped by the ``restart`` property because its outputs already exist, the latest
 crate of a previous execution of the same block with the same outputs is reused, so the workflow crate
-records how the outputs were really produced. If there is no such crate (ie: the previous execution
+records how the outputs were really produced (also the crates of biobb_common 5.3.3 and older, named without
+the prefix of the step). If there is no such crate (ie: the previous execution
 did not record provenance), a crate of the skipped execution is written, with the description
 "Skipped by the restart property" and without command line, wrapped software or environment. Its
 simulation parameters (ie: the ``grompp.mdp`` of grompp) are generated again from the properties of the
@@ -305,7 +309,8 @@ Entity                      Content
                             ``exampleOfWork``.
 ``HowToStep``               One per block execution, with its ``position``, the block as
                             ``workExample`` and, as ``name``, the step name of the configuration file
-                            (the ``alternateName`` of the block ``CreateAction``) or the block name.
+                            preceded by its prefix, if any (the ``alternateName`` of the block
+                            ``CreateAction``), or the block name.
 ``ControlAction``           Links each ``HowToStep`` with the ``CreateAction`` of the block execution.
 ``CreateAction``            ``#workflow-run``: the whole execution. Its inputs are the files no step
                             produced and its outputs the files no step consumed. The authors of the

@@ -11,6 +11,7 @@ from typing import Any, Optional
 from biobb_common.provenance.environment import execution_environment
 from biobb_common.provenance.parameters import ParameterSet, block_parameters, restart_parameters
 from biobb_common.provenance.software import WrappedSoftware, wrapped_software
+from biobb_common.provenance.tracker import step_name
 
 
 @dataclass
@@ -57,7 +58,8 @@ class BlockRecord:
     author: Optional[dict[str, str]] = None
     # Execution skipped by the restart property, the outputs come from a previous execution
     skipped: bool = False
-    # Step name in the workflow configuration file, ie: step3_sander_mdrun_minH
+    # Step name in the workflow configuration file, ie: step3_sander_mdrun_minH, preceded by
+    # the prefix of the step in workflow loops, ie: A:Gly4Lys/step3_mutate
     step: Optional[str] = None
 
     @property
@@ -96,7 +98,7 @@ class BlockRecord:
             wrapped_software=None if skipped else wrapped_software(obj),
             environment={} if skipped else execution_environment(bool(getattr(obj, "provenance_user_host", True))),
             author=_author(getattr(obj, "provenance_author", None)),
-            step=getattr(obj, "step", None) or None,
+            step=step_name(obj),
             skipped=skipped,
         )
 

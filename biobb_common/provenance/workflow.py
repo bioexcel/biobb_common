@@ -327,7 +327,8 @@ def _add_entity(crate: ROCrate, entity: dict) -> None:
         if entity_id.startswith("file:"):
             add(entity_id, properties=properties)
         else:
-            add(dest_path=entity_id, properties=properties)
+            # Relative ids are URI encoded (ie: A%3AGly4Lys for A:Gly4Lys) and rocrate encodes dest_path again
+            add(dest_path=unquote(entity_id), properties=properties)
     else:
         crate.add_jsonld(entity)
 
