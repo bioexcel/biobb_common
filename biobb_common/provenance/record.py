@@ -1,5 +1,4 @@
 """Module containing the provenance record of a single building block execution."""
-import hashlib
 import json
 import subprocess
 from dataclasses import dataclass, field
@@ -10,6 +9,7 @@ from typing import Any, Optional
 
 from biobb_common.provenance.environment import execution_environment
 from biobb_common.provenance.parameters import ParameterSet, block_parameters, restart_parameters
+from biobb_common.provenance.quickhash import SAMPLE_SIZE, quickhash, quickhash_scheme, sha256
 from biobb_common.provenance.software import WrappedSoftware, wrapped_software
 from biobb_common.provenance.tracker import step_name
 
@@ -23,6 +23,8 @@ class FileRecord:
     edam_format: Optional[str] = None
     size: Optional[int] = None
     sha256: Optional[str] = None
+    # Sampled xxHash quick-check: scheme parameters and value (see the quickhash module)
+    quickhash: Optional[dict[str, Any]] = None
 
     @property
     def uri(self) -> str:
@@ -156,13 +158,16 @@ def _file_records(obj, io: str) -> list[FileRecord]:
             continue
         doc = obj.doc_arguments_dict.get(argument, {})
         is_dir = doc.get("type") == "dir" or path.is_dir()
+        stat = path.stat()
+        checksums = checksum and path.is_file()
         records.append(FileRecord(
             argument=argument,
             path=path,
             is_dir=is_dir,
             edam_format=_edam_format(path, doc.get("formats", {}), is_dir),
-            size=path.stat().st_size if path.is_file() else None,
-            sha256=_sha256(path, path.stat().st_size, path.stat().st_mtime_ns) if checksum and path.is_file() else None,
+            size=stat.st_size if path.is_file() else None,
+            sha256=_sha256(path, stat.st_size, stat.st_mtime_ns) if checksums else None,
+            quickhash={**quickhash_scheme(SAMPLE_SIZE), "value": _quickhash(path, stat.st_size, stat.st_mtime_ns)} if checksums else None,
         ))
     return records
 
@@ -180,11 +185,13 @@ def _last_modification(obj) -> Optional[datetime]:
 def _sha256(path: Path, size: int, mtime_ns: int) -> str:
     """Return the sha256 of a file. Size and modification time are part of the cache key,
     so the output of a step used as input of the next one is only read once."""
-    digest = hashlib.sha256()
-    with open(path, "rb") as file:
-        for chunk in iter(lambda: file.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return sha256(path)
+
+
+@lru_cache(maxsize=None)
+def _quickhash(path: Path, size: int, mtime_ns: int) -> str:
+    """Return the quickhash of a file with the default sample size, cached like the sha256."""
+    return quickhash(path, SAMPLE_SIZE)
 
 
 def _author(author: Any) -> Optional[dict[str, str]]:

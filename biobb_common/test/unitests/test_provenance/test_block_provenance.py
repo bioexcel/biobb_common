@@ -162,7 +162,7 @@ class TestBlockProvenance():
         assert software["@id"].startswith(software["url"] + "#") and software["url"].startswith("https://")
         # Only the detected version, not the documented 0.0.1
         assert "0.0.1" not in json.dumps(software)
-        assert set(crate["@context"][-1]) == {"executionEnvironment"}
+        assert set(crate["@context"][-1]) == {"executionEnvironment", "quickhash", "algo", "sample_size", "positions", "size_prefix", "small_file_rule"}
 
     def test_provenance_failed_block(self):
         crates_before = len(read_crates(self.properties['path'], "FailingFolderTest"))

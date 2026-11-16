@@ -21,9 +21,11 @@ LICENSE = "https://www.apache.org/licenses/LICENSE-2.0"
 PUBLISHER = "https://bioexcel.eu/"
 COMPLETED = "http://schema.org/CompletedActionStatus"
 FAILED = "http://schema.org/FailedActionStatus"
-# Terms not covered by schema.org or the workflow-run vocabulary
+# Terms not covered by schema.org or the workflow-run vocabulary: the quickhash of the files and
+# the parameters of its scheme (version and value are schema.org terms)
 BIOBB_TERMS = "https://biobb-common.readthedocs.io/en/latest/provenance.html#"
-EXTRA_TERMS = {"executionEnvironment": BIOBB_TERMS + "executionEnvironment"}
+EXTRA_TERMS = {term: BIOBB_TERMS + term for term in (
+    "executionEnvironment", "quickhash", "algo", "sample_size", "positions", "size_prefix", "small_file_rule")}
 # Start of the description of the executions skipped by the restart property
 RESTART_SKIPPED = "Skipped by the restart property"
 
@@ -356,6 +358,13 @@ def _add_file(crate: ROCrate, file_record: FileRecord):
         properties["contentSize"] = str(file_record.size)
     if file_record.sha256:
         properties["sha256"] = file_record.sha256
+    if file_record.quickhash:
+        # Flattened JSON-LD: the record is an entity of its own, shared by the files with the same content
+        properties["quickhash"] = crate.add(ContextEntity(crate, "#quickhash-" + file_record.quickhash["value"], properties={
+            "@type": "PropertyValue",
+            "name": "quickhash",
+            **file_record.quickhash,
+        }))
     if file_record.is_dir:
         return crate.add_dataset(file_record.uri, properties=properties)
     return crate.add_file(file_record.uri, properties=properties)

@@ -72,7 +72,8 @@ Property                    Default     Description
                                         ``agent`` of the execution: ``{"name": str, "orcid": str,
                                         "affiliation": str, "affiliation_url": str}``, only ``name`` is
                                         required. A string is used as the name.
-``provenance_checksum``     ``True``    Add the ``sha256`` checksum of the input and output files.
+``provenance_checksum``     ``True``    Add the ``sha256`` checksum and the ``quickhash`` (see
+                                        `File quick check`_) of the input and output files.
                                         Directories are not hashed. Each file is read only once per
                                         process, ie: the output of a step that is the input of the next one.
                                         Set it to ``False`` to skip hashing large files (ie: trajectories).
@@ -280,6 +281,9 @@ The ``biobb_provenance`` command merges, draws and validates the crates:
     # Validate a crate (requires: pip install roc-validator)
     biobb_provenance validate wf_output
 
+    # Check that the files are the ones recorded in the crate: size and quickhash (--strict: also sha256)
+    biobb_provenance verify wf_output
+
 Graph formats are chosen by the output file extension: ``.mmd`` (Mermaid), ``.md`` (Mermaid inside a
 Markdown code block, rendered by GitHub), ``.dot`` (Graphviz) and any format supported by Graphviz
 (``.svg``, ``.png``, ``.pdf``...), which requires the ``graphviz`` Python package and the Graphviz
@@ -296,6 +300,50 @@ Validation uses `rocrate-validator <https://github.com/crs4/rocrate-validator>`_
 dependency of biobb_common. By default it checks the ``REQUIRED`` requirements of the
 ``process-run-crate`` profile for block crates and the ``provenance-run-crate`` profile for workflow
 crates; use ``--severity RECOMMENDED`` for a stricter check.
+
+File quick check
+----------------
+
+With ``provenance_checksum``, each file records a ``quickhash`` next to its ``sha256``: a check that a
+file is the recorded one (ie: the same trajectory after a copy or a move) without reading it whole. It is
+an **identity check, not an integrity check**: changes in the bytes outside the samples go undetected,
+the ``sha256`` stays the authoritative digest. No provenance standard (W3C PROV, RO-Crate, BagIt,
+SPDX) defines a partial hash, so it is a custom term that stores the parameters of its scheme
+with its value.
+
+=========================== =======================================================================
+Parameter                   Value (``algo`` ``xxh3_128-sample``, ``version`` 1)
+=========================== =======================================================================
+Hash                        XXH3-128, seed 0, as a lowercase hex digest (32 characters).
+Size prefix                 The file size in bytes as uint64 big-endian, hashed first: files of
+                            different sizes never share a quickhash.
+Samples                     ``sample_size`` (n) bytes, 32 MiB by default, at offsets ``0``,
+                            ``floor((size - n) / 2)`` and ``size - n``, hashed in that order without
+                            separators.
+Small files                 Files smaller than ``3n`` (96 MiB by default) are hashed whole (after
+                            the size prefix), so the samples never overlap nor run past the end of
+                            the file.
+=========================== =======================================================================
+
+The default sample size is chosen for molecular dynamics trajectories, the large files of the workflows:
+32 MiB holds complete frames of a 1 million atom system in the usual formats (XTC ~3.8 MB per frame;
+DCD, AMBER NetCDF or TRR ~12 MB), so a change to some atoms of every frame (ie: the periodic images
+of a ligand fixed) is detected even when the file size does not change. Structures, topologies and the
+other files smaller than 96 MiB are hashed whole: a same-size edit (ie: a renamed residue) is detected.
+Checking a large file reads 96 MiB, about 0.15 s from a local SSD.
+
+``biobb_provenance verify`` and ``biobb_common.provenance.quickhash.verify_file`` check a file in this order:
+
+1. Its size against ``contentSize``: ``size_mismatch`` if it differs, without reading the file.
+2. The scheme (``algo`` and ``version``): ``unsupported_scheme`` if it is not supported, unless the
+   check is strict, which then only compares the ``sha256``.
+3. Its quickhash, computed with the ``sample_size`` of the record (not the current default):
+   ``quickhash_mismatch`` if it differs.
+4. With ``--strict`` (``strict=True``), its ``sha256``: ``sha256_mismatch`` if it differs.
+
+Otherwise the status is ``match``. The `MDDB workflow <https://github.com/mmb-irb/MDDB-workflow>`_
+implements the same scheme, so its files can be checked against the biobb provenance: both
+implementations are tested against the same golden vectors.
 
 Recorded metadata
 -----------------
@@ -320,7 +368,7 @@ Wrapped software            ``SoftwareApplication`` with name, version, license 
 ``File`` / ``Dataset``      Inputs (``object``) and outputs (``result``) with their EDAM format as
                             ``encodingFormat`` (a reference to the EDAM term, described as a
                             ``WebSite``), their size and, with ``provenance_checksum``, their
-                            ``sha256``.
+                            ``sha256`` and ``quickhash``.
 ``Person``                  With ``provenance_author``: crate ``author`` and action ``agent``,
                             identified by the ORCID, with its ``affiliation`` (``Organization``).
 ``Organization``            The BioExcel Centre of Excellence, crate ``publisher``.
@@ -416,7 +464,7 @@ numbers when possible, otherwise text (ie: ``ref_t = "300 300"``).
 Terms
 -----
 
-Term used in the crates that is not defined by schema.org or the
+Terms used in the crates that are not defined by schema.org or the
 `workflow-run <https://w3id.org/ro/terms/workflow-run>`_ vocabulary:
 
 .. raw:: html
@@ -427,6 +475,32 @@ Term used in the crates that is not defined by schema.org or the
     ``PropertyValue`` describing the machine where a ``CreateAction`` was executed, with its values
     (``PropertyValue`` entities) as ``valueReference``. Crates written by previous versions of
     biobb_common link the values directly.
+
+.. raw:: html
+
+    <span id="quickhash"></span><span id="algo"></span><span id="sample_size"></span><span id="positions"></span><span id="size_prefix"></span><span id="small_file_rule"></span>
+
+``quickhash``
+    Sampled hash of a ``File`` (see `File quick check`_): a ``PropertyValue`` named ``quickhash``, with
+    the hash as ``value`` and the parameters of its scheme: ``algo`` (``xxh3_128-sample``), ``version``
+    (1), ``sample_size`` (n, in bytes), ``positions`` (offsets of the samples), ``size_prefix``
+    (encoding of the size hashed first) and ``small_file_rule`` (files hashed whole). Its id is
+    ``#quickhash-<value>``, shared by the files with the same content:
+
+    .. code-block:: json
+
+        {
+          "@id": "#quickhash-0b2c5d8e9f1a3c4b5d6e7f8091a2b3c4",
+          "@type": "PropertyValue",
+          "name": "quickhash",
+          "algo": "xxh3_128-sample",
+          "version": 1,
+          "sample_size": 33554432,
+          "positions": "0, floor((size-n)/2), size-n",
+          "size_prefix": "uint64 big-endian",
+          "small_file_rule": "size < 3n -> whole file",
+          "value": "0b2c5d8e9f1a3c4b5d6e7f8091a2b3c4"
+        }
 
 Limitations
 -----------

@@ -19,7 +19,7 @@ setuptools.setup(
     },
     packages=setuptools.find_packages(exclude=["docs"]),
     package_data={'biobb_common': ['py.typed']},
-    install_requires=["pyyaml", "requests", "biopython", "jsonschema", "rocrate"],
+    install_requires=["pyyaml", "requests", "biopython", "jsonschema", "rocrate", "xxhash>=2.0"],
     extras_require={"graph": ["graphviz"]},
     python_requires='>=3.10',
     entry_points={

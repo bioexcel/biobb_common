@@ -1,4 +1,4 @@
-"""Command line interface to merge, draw and validate the provenance RO-Crates."""
+"""Command line interface to merge, draw, validate and verify the provenance RO-Crates."""
 import argparse
 import sys
 from pathlib import Path
@@ -31,6 +31,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     validate.add_argument("-p", "--profile", help="rocrate-validator profile, by default process-run-crate or provenance-run-crate.")
     validate.add_argument("-s", "--severity", default="REQUIRED", choices=["REQUIRED", "RECOMMENDED", "OPTIONAL"], help="Minimum severity of the checks.")
 
+    verify = subparsers.add_parser("verify", help="Check that the files of an RO-Crate are the ones it records: size and quickhash.")
+    verify.add_argument("crate", help="Directory containing the ro-crate-metadata.json file.")
+    verify.add_argument("--strict", action="store_true", help="Also compare the sha256 of the whole files (reads them whole).")
+
     args = parser.parse_args(argv)
 
     if args.command == "merge":
@@ -59,6 +63,15 @@ def main(argv: Optional[list[str]] = None) -> int:
             print(issue)
         print("Valid RO-Crate" if not issues else f"{len(issues)} issues found")
         return 1 if issues else 0
+    elif args.command == "verify":
+        from biobb_common.provenance.quickhash import MATCH, crate_file_records, verify_file
+        records = crate_file_records(args.crate)
+        statuses = {path: verify_file(path, record, strict=args.strict) if path.is_file() else "missing" for path, record in records.items()}
+        for path, status in statuses.items():
+            print(f"{status}\t{path}")
+        failed = sum(status != MATCH for status in statuses.values())
+        print(f"{len(statuses) - failed} of {len(statuses)} files match")
+        return 1 if failed else 0
     return 0
 
 

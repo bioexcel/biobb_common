@@ -58,6 +58,15 @@ provenance.parameters module
     :show-inheritance:
 
 
+provenance.quickhash module
+---------------------------
+
+.. automodule:: provenance.quickhash
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 provenance.workflow module
 --------------------------
 
