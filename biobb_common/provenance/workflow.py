@@ -6,9 +6,11 @@ import re
 import shutil
 import subprocess
 import sys
+import zipfile
+import zlib
 from contextlib import contextmanager
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterator, Optional, Union
 from urllib.parse import unquote, urlsplit, urlunsplit
 
@@ -34,6 +36,8 @@ PROFILES = {
 SKIPPED_IDS = {"./", "ro-crate-metadata.json", LICENSE, PUBLISHER, README, PREVIEW, *PROFILES}
 # Fragment of the ids of the versions of a file written several times: <file URI>#version-<n>
 VERSION = "#version-"
+# Tool of the steps inferred from the content of zip files: extractions and zips done by the workflow script
+ZIP_TOOL = "#workflow-script-zip"
 
 
 def find_block_crates(directory: Union[str, Path]) -> list[Path]:
@@ -54,7 +58,9 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     other machines (ie: an HPC cluster) are linked with **path_map**, which
     replaces the beginning of their paths, or by checksum (provenance_checksum
     property): an input that no step produced is the output of a previous step
-    with the same sha256. Without **workflow_file** (ie: Jupyter notebooks) the crate only
+    with the same sha256. Files that the workflow script extracted from the zip of a
+    step, or zipped for the next one, are linked by steps inferred from the content of
+    the zip members. Without **workflow_file** (ie: Jupyter notebooks) the crate only
     conforms to the Process Run Crate profile, because a Workflow RO-Crate
     requires the workflow file. Files inside **output_dir** get relative ids, so the workflow crate
     can be moved together with its files. The workflow file is copied into
@@ -96,7 +102,8 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     def order(action: dict) -> tuple:
         return action_time(action), action_ranks.get(action["@id"], -1)
 
-    entities = _final_versions(_merge_inputs(_link_by_checksum(_version_files(crate_graphs, order), order)))
+    entities = _merge_inputs(_link_by_checksum(_version_files(crate_graphs, order), order))
+    entities = _final_versions(_link_through_zips(entities, order, action_ranks))
     relative: dict[str, dict] = {}
     for entity in entities.values():
         entity = _relativize(entity, output_dir)
@@ -144,10 +151,15 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     _add_formal_parameters(crate, workflow, inputs, outputs)
     if authors:
         workflow["creator"] = single(authors)
+    inferred = [a for a in step_actions if a["instrument"]["@id"] == ZIP_TOOL]
+    description = _run_description(name, [a for a in step_actions if a["instrument"]["@id"] != ZIP_TOOL])
+    if inferred:
+        description += (f" {len(inferred)} more steps, the extraction and creation of zip files by the workflow script, "
+                        "are inferred from the content of the files.")
     properties: dict[str, Any] = {
         "@type": "CreateAction",
         "name": f"Run of {name}",
-        "description": _run_description(name, step_actions),
+        "description": description,
         "actionStatus": FAILED if any(a.get("actionStatus") == FAILED for a in step_actions) else COMPLETED,
     }
     start_times = [a["startTime"] for a in step_actions if a.get("startTime")]
@@ -406,6 +418,148 @@ def _merge_inputs(entities: dict[str, dict]) -> dict[str, dict]:
         else:
             first[key] = entity_id
     return {i: _replace_ids(e, mapping) for i, e in entities.items() if i not in mapping}
+
+
+def _link_through_zips(entities: dict[str, dict], order: Callable[[dict], Any], ranks: dict[str, Any]) -> dict[str, dict]:
+    """Add the steps of the workflow script that extract files from a zip, or make a zip, between building blocks.
+
+    An input that no step produced, with the content (sha256 and size, or CRC-32 and size
+    without checksums) and the name of a member of a zip written by a previous step, was
+    extracted from it (ie: with zipfile): an extraction step links the zip to the files. A zip
+    input that no step produced, whose members have the content and name of outputs of previous
+    steps, was made from them: a step links those outputs to the zip. Member names may have a
+    prefix (ie: file_1_<name> of file_utils.zip_list). Only the zips still on disk are read. These
+    steps are inferred, not recorded: their time is the end of the last step they depend on, and
+    **ranks** (order of the steps with equal times) gets theirs, right after that step.
+    """
+    actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=order)
+    producer = {ref["@id"]: i for i, a in enumerate(actions) for ref in as_list(a.get("result"))}
+    first_use: dict[str, int] = {}
+    for i, action in enumerate(actions):
+        for ref in as_list(action.get("object")):
+            first_use.setdefault(ref["@id"], i)
+    last_version: dict[str, int] = {}
+    for entity_id in entities:
+        path, _, number = entity_id.rpartition(VERSION)
+        if path and number.isdigit():
+            last_version[path] = max(last_version.get(path, 0), int(number))
+    members: dict[Path, list[zipfile.ZipInfo]] = {}
+    digests: dict[tuple[Path, str], str] = {}
+
+    def zip_members(entity_id: str) -> list[zipfile.ZipInfo]:
+        """Members of a zip file with the content recorded in its entity, empty if it is not."""
+        path, _, number = entity_id.rpartition(VERSION)
+        file = _file_path(entity_id)
+        if file is None or file.suffix.lower() != ".zip" or (number.isdigit() and int(number) != last_version.get(path)) \
+                or not _on_disk(path or entity_id, entities[entity_id]):
+            return []
+        if file not in members:
+            try:
+                with zipfile.ZipFile(file) as archive:
+                    members[file] = [m for m in archive.infolist() if not m.is_dir() and m.file_size]
+            except (OSError, zipfile.BadZipFile):
+                members[file] = []
+        return members[file]
+
+    def is_member(file_id: str, archive: Path, member: zipfile.ZipInfo, same_name: bool) -> bool:
+        """Return True if a file entity has the content (and with **same_name**, the name) of a zip member.
+        Without sha256 the name is always required, the CRC-32 is a weaker check."""
+        entity, file = entities[file_id], _file_path(file_id)
+        name = PurePosixPath(member.filename).name
+        if file is None or str(member.file_size) != str(entity.get("contentSize")):
+            return False
+        if (same_name or not entity.get("sha256")) and not (name == file.name or name.endswith("_" + file.name)):
+            return False
+        if entity.get("sha256"):
+            if (archive, member.filename) not in digests:
+                digest = hashlib.sha256()
+                with zipfile.ZipFile(archive) as zip_file, zip_file.open(member) as content:
+                    for chunk in iter(lambda: content.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                digests[archive, member.filename] = digest.hexdigest()
+            return digests[archive, member.filename] == entity["sha256"]
+        return file.is_file() and file.stat().st_size == member.file_size and _crc32(file) == member.CRC
+
+    files = [i for i, e in entities.items() if e["@type"] == "File"]
+    produced_files = sorted((i for i in files if i in producer), key=producer.__getitem__)
+    produced_zips = [i for i in produced_files if zip_members(i)]
+    new_steps: list[tuple[str, str, list[str], list[str], int]] = []
+    # Extractions: inputs that are members of a zip written before they are read (latest zip first,
+    # a member with the same name first)
+    extracted: dict[str, list[str]] = {}
+    for file_id in files:
+        if file_id in producer or file_id not in first_use:
+            continue
+        zip_id = next((z for same_name in (True, False) for z in reversed(produced_zips) if producer[z] < first_use[file_id]
+                       and any(is_member(file_id, _file_path(z), m, same_name) for m in zip_members(z))), None)
+        if zip_id:
+            extracted.setdefault(zip_id, []).append(file_id)
+    for zip_id, file_ids in extracted.items():
+        new_steps.append(("extract", zip_id, [zip_id], file_ids, producer[zip_id]))
+    # Zips made by the script: each member is the latest output with its content (and name, first) written before the zip is read
+    linked = {i for ids in extracted.values() for i in ids}
+    for zip_id in files:
+        if zip_id in producer or zip_id in linked or zip_id not in first_use or not zip_members(zip_id):
+            continue
+        archive = _file_path(zip_id)
+        sources: list[str] = []
+        for member in zip_members(zip_id):
+            source = next((f for same_name in (True, False) for f in reversed(produced_files) if producer[f] < first_use[zip_id]
+                           and f not in sources and is_member(f, archive, member, same_name)), None)
+            if source:
+                sources.append(source)
+        if sources:
+            new_steps.append(("zip", zip_id, sources, [zip_id], max(producer[i] for i in sources)))
+    if not new_steps:
+        return entities
+
+    entities[ZIP_TOOL] = {
+        "@id": ZIP_TOOL,
+        "@type": "SoftwareApplication",
+        "name": "Workflow script (zip files)",
+        "description": "Extraction and creation of zip files by the workflow script, outside the building blocks (ie: with the Python zipfile "
+                       "module). Its steps are inferred from the content and names of the files and the zip members, they were not recorded.",
+    }
+    for number, (kind, zip_id, objects, results, after) in enumerate(new_steps, start=1):
+        previous = actions[after]
+        zip_name = entities[zip_id].get("name") or _file_path(zip_id).name
+        if kind == "extract":
+            name = f"Extraction of {zip_name}"
+            description = (f"{len(results)} files extracted from {zip_name} by the workflow script, outside the building blocks: "
+                           "inferred from their content and names, the members of the zip. The time is the end of the step that wrote the zip.")
+        else:
+            name = f"Creation of {zip_name}"
+            description = (f"{zip_name} made by the workflow script from {len(objects)} outputs of previous steps, outside the building blocks: "
+                           "inferred from the content and names of its members. The time is the end of the last step that wrote them.")
+        action_id = f"#workflow-script-{kind}-{number}"
+        time = previous.get("endTime") or previous.get("startTime")
+        entities[action_id] = {
+            "@id": action_id,
+            "@type": "CreateAction",
+            "name": name,
+            "description": description,
+            "instrument": {"@id": ZIP_TOOL},
+            "object": single([{"@id": i} for i in objects]),
+            "result": single([{"@id": i} for i in results]),
+            "actionStatus": COMPLETED,
+            **({"startTime": time, "endTime": time} if time else {}),
+        }
+        ranks[action_id] = ranks.get(previous["@id"], -1) + 0.5
+    return entities
+
+
+def _file_path(entity_id: str) -> Optional[Path]:
+    """Return the local path of a file URI (without the version fragment), None for other ids."""
+    uri = entity_id.rpartition(VERSION)[0] or entity_id
+    return Path(unquote(urlsplit(uri).path)) if uri.startswith("file:") else None
+
+
+def _crc32(path: Path) -> int:
+    crc = 0
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            crc = zlib.crc32(chunk, crc)
+    return crc
 
 
 def _final_versions(entities: dict[str, dict]) -> dict[str, dict]:

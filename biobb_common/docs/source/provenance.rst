@@ -188,6 +188,27 @@ version of the file, with its own entity, and each step reads the version writte
   input of the next step that no step produced.
 - An input read by several steps without being written in between is a single entity.
 
+Zip files of the workflow script
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Workflow scripts often extract the zip written by a step for the next steps (ie: the Canal output of
+``biobb_wf_dna_helparms``, the frames of ``biobb_wf_pmx_tutorial``), or zip the outputs of several steps
+for the next one (ie: with ``file_utils.zip_list``). These operations are not building blocks, so
+``merge_block_crates`` infers them from the content of the files, to keep the steps linked:
+
+- An input that no step produced, with the ``sha256`` and size of a member of a zip written by a
+  previous step, was extracted from it: a step *Extraction of <zip>* goes from the zip to the files.
+- A zip input that no step produced, whose members have the ``sha256`` and size of outputs of previous
+  steps, was made from them: a step *Creation of <zip>* goes from those outputs to the zip.
+- A member with the same name as the file is preferred, the name can have a prefix (ie:
+  ``file_1_<name>`` of ``zip_list``). Without ``provenance_checksum`` the names must match and the
+  CRC-32 of the file on disk is compared, so the files removed by the script are not linked.
+- Only the zips still on disk with the recorded size are read.
+
+These steps are marked as inferred: their tool is ``#workflow-script-zip`` and their description and the
+description of the workflow run say so. Their time is the end of the last step they depend on, the real
+time of the operation is not recorded.
+
 Steps on different machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -431,10 +452,10 @@ Limitations
 - Steps skipped by the ``restart`` property without a previous crate have no start time: the duration
   of the original execution is unknown. Their end time is the last modification of the outputs, which
   changes if the files are copied without keeping their modification time (ie: ``cp`` without ``-p``).
-- Only the building blocks are recorded: the operations of the workflow script (ie: ``zipfile``,
-  ``os.rename``, ``shutil.copy``) are not steps. Their outputs are workflow inputs, unless they have the
-  checksum of the output of a previous step (see `Files written several times`_), and the files they read
-  are workflow outputs.
+- Only the building blocks are recorded: the operations of the workflow script (ie: ``os.rename``,
+  ``shutil.copy``, other file formats than zip) are not steps. Their outputs are workflow inputs, unless
+  they have the checksum of the output of a previous step (see `Files written several times`_) or of a
+  zip member (see `Zip files of the workflow script`_), and the files they read are workflow outputs.
 - Data is never copied into the crates. Files outside the crate directory (all the files of a block
   crate, and the workflow inputs or outputs written outside the workflow directory) are referenced by
   their absolute ``file://`` URI. RO-Crate 1.1 allows data entities with absolute URIs, but recommends

@@ -1,11 +1,13 @@
 # type: ignore
 import contextvars
+import hashlib
 import importlib.util
 import json
 import re
 import shutil
 import sys
 import threading
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -20,6 +22,7 @@ from biobb_common.provenance.graph import read_graph, to_dot, to_mermaid, write_
 from biobb_common.provenance.preview import GENERATED_MARK
 from biobb_common.provenance.record import BlockRecord, FileRecord
 from biobb_common.provenance.workflow import _web_url
+from biobb_common.tools import file_utils as fu
 from biobb_common.tools import test_fixtures as fx
 
 
@@ -392,6 +395,72 @@ def test_rewritten_files(tmp_path):
     assert graph[f"{old}#version-4"]["description"].startswith("Version 4 of 4 of out.pdb: not at this path when the provenance was merged")
     if importlib.util.find_spec("rocrate_validator"):
         assert validate_crate(wf) == []
+
+
+def test_zip_files(tmp_path):
+    """The workflow script extracts the zip of a step for the next steps and zips their outputs for the
+    last one (as biobb_wf_dna_helparms and biobb_wf_pmx_tutorial): steps inferred from the content of the
+    files link them, with checksums or, without them, with the names and the CRC-32 of the files on disk."""
+    wf = tmp_path / "wf"
+    (wf / "extracted").mkdir(parents=True)
+    (wf / "in.dat").write_text("input")
+    (wf / "params.txt").write_text("parameters")
+    with zipfile.ZipFile(wf / "out.zip", "w") as archive:
+        archive.writestr("a.ser", "series a")
+        archive.writestr("b.ser", "series b")
+    with zipfile.ZipFile(wf / "out.zip") as archive:
+        archive.extractall(wf / "extracted")
+    for folder, content in (("a", "result a"), ("b", "result b")):
+        (wf / folder).mkdir()
+        (wf / folder / "res.txt").write_text(content)
+    # Two members named res.txt: the second one is file_1_res.txt
+    fu.zip_list(wf / "all.zip", [wf / "a" / "res.txt", wf / "b" / "res.txt"])
+    (wf / "final.txt").write_text("final")
+
+    def record(start, inputs, outputs, checksum=True):
+        def files(paths):
+            return [FileRecord(argument="path", path=p, is_dir=False, size=p.stat().st_size,
+                               sha256=hashlib.sha256(p.read_bytes()).hexdigest() if checksum else None) for p in paths]
+        start = datetime.fromisoformat(start)
+        return BlockRecord(class_name="Step", module="biobb_test.test.step", package="biobb_test", package_version="1.0",
+                           start_time=start, end_time=start, inputs=files(inputs), outputs=files(outputs), environment={"hostname": "laptop"})
+
+    def records(checksum):
+        return [
+            record("2026-11-16T10:00:00+01:00", [wf / "in.dat"], [wf / "out.zip"], checksum),
+            record("2026-11-16T10:00:01+01:00", [wf / "extracted" / "a.ser", wf / "params.txt"], [wf / "a" / "res.txt"], checksum),
+            record("2026-11-16T10:00:02+01:00", [wf / "extracted" / "b.ser"], [wf / "b" / "res.txt"], checksum),
+            record("2026-11-16T10:00:03+01:00", [wf / "all.zip"], [wf / "final.txt"], checksum),
+        ]
+
+    for checksum in (True, False):
+        crates_dir = tmp_path / f"crates_{checksum}" / "provenance"
+        block_crates = [write_block_crate(r, crates_dir / f"step{i}") for i, r in enumerate(records(checksum))]
+        graph = entities(merge_block_crates(block_crates, wf, workflow_file=__file__))
+        steps = [graph[c["object"]["@id"]] for c in sorted(of_type(graph, "ControlAction"), key=lambda c: int(c["@id"].rsplit("-", 1)[1]))]
+        block = "Run of biobb_test Step"
+        assert [s["name"] for s in steps] == [block, "Extraction of out.zip", block, block, "Creation of all.zip", block]
+        assert steps[1]["object"] == {"@id": "out.zip"}
+        assert steps[1]["result"] == [{"@id": "extracted/a.ser"}, {"@id": "extracted/b.ser"}]
+        assert steps[4]["object"] == [{"@id": "a/res.txt"}, {"@id": "b/res.txt"}] and steps[4]["result"] == {"@id": "all.zip"}
+        assert steps[1]["instrument"] == steps[4]["instrument"] == {"@id": "#workflow-script-zip"}
+        assert "inferred" in graph["#workflow-script-zip"]["description"] and "inferred" in steps[1]["description"]
+        # Linked: the only inputs are the ones no step or zip produced
+        run = graph["#workflow-run"]
+        assert run["object"] == [{"@id": "in.dat"}, {"@id": "params.txt"}] and run["result"] == {"@id": "final.txt"}
+        assert run["description"].startswith("Execution of the test_workflow_provenance workflow with 4 building blocks. 2 more steps")
+        assert {i["@id"] for i in as_list(graph["./"]["hasPart"])} >= {"extracted/a.ser", "all.zip"}
+        assert "Extraction of out.zip" in (wf / "ro-crate-preview.html").read_text()
+        if importlib.util.find_spec("rocrate_validator"):
+            from biobb_common.provenance.validation import validate_crate
+            assert validate_crate(wf) == []
+
+    # Not linked: a file with the content of a member, read before the zip was written
+    block_crates = [write_block_crate(r, tmp_path / "late" / "provenance" / f"step{i}")
+                    for i, r in enumerate([record("2026-11-16T10:00:00+01:00", [wf / "extracted" / "b.ser"], [wf / "b" / "res.txt"]),
+                                           record("2026-11-16T10:00:01+01:00", [wf / "in.dat"], [wf / "out.zip"])])]
+    graph = entities(merge_block_crates(block_crates, wf, workflow_file=__file__))
+    assert "#workflow-script-zip" not in graph and len(of_type(graph, "HowToStep")) == 2
 
 
 def test_steps_started_in_the_same_second(tmp_path):
