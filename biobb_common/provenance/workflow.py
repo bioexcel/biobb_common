@@ -38,6 +38,10 @@ SKIPPED_IDS = {"./", "ro-crate-metadata.json", LICENSE, PUBLISHER, README, PREVI
 VERSION = "#version-"
 # Tool of the steps inferred from the content of zip files: extractions and zips done by the workflow script
 ZIP_TOOL = "#workflow-script-zip"
+# Tool of the steps inferred from the checksums of the files: changes of a file by the workflow script between two steps
+EDIT_TOOL = "#workflow-script-edit"
+# What the inferred steps of each tool are, for the description of the workflow run
+INFERRED_TOOLS = {ZIP_TOOL: "the extraction and creation of zip files", EDIT_TOOL: "the changes of files"}
 
 
 def find_block_crates(directory: Union[str, Path]) -> list[Path]:
@@ -60,7 +64,9 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     property): an input that no step produced is the output of a previous step
     with the same sha256. Files that the workflow script extracted from the zip of a
     step, or zipped for the next one, are linked by steps inferred from the content of
-    the zip members. Without **workflow_file** (ie: Jupyter notebooks) the crate only
+    the zip members. A file that the workflow script changed between the step that wrote it and the
+    step that read it (another sha256 or size) is linked by an inferred step too. Without
+    **workflow_file** (ie: Jupyter notebooks) the crate only
     conforms to the Process Run Crate profile, because a Workflow RO-Crate
     requires the workflow file. Files inside **output_dir** get relative ids, so the workflow crate
     can be moved together with its files. The workflow file is copied into
@@ -103,13 +109,16 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
         return action_time(action), action_ranks.get(action["@id"], -1)
 
     entities = _merge_inputs(_link_by_checksum(_version_files(crate_graphs, order), order))
-    entities = _final_versions(_link_through_zips(entities, order, action_ranks))
+    entities = _final_versions(_link_edits(_link_through_zips(entities, order, action_ranks), order, action_ranks))
     relative: dict[str, dict] = {}
     for entity in entities.values():
         entity = _relativize(entity, output_dir)
         if entity["@id"] not in SKIPPED_IDS:
             relative.setdefault(entity["@id"], {}).update(entity)
-    entities = relative
+    # rocrate ends the Dataset ids with "/" (ie: the versions of a directory written by several steps,
+    # <uri>/#version-<n> -> <uri>/#version-<n>/): the references must have the same id
+    datasets = {i: i.rstrip("/") + "/" for i, e in relative.items() if "Dataset" in as_list(e["@type"]) and not i.endswith("/")}
+    entities = {datasets.get(i, i): _replace_ids(e, datasets) for i, e in relative.items()}
     step_actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=order)
 
     name = name or (Path(workflow_file).stem if workflow_file else "biobb workflow")
@@ -151,11 +160,13 @@ def merge_block_crates(block_crates: list[Union[str, Path]], output_dir: Union[s
     _add_formal_parameters(crate, workflow, inputs, outputs)
     if authors:
         workflow["creator"] = single(authors)
-    inferred = [a for a in step_actions if a["instrument"]["@id"] == ZIP_TOOL]
-    description = _run_description(name, [a for a in step_actions if a["instrument"]["@id"] != ZIP_TOOL])
+    inferred = [a for a in step_actions if a["instrument"]["@id"] in INFERRED_TOOLS]
+    description = _run_description(name, [a for a in step_actions if a["instrument"]["@id"] not in INFERRED_TOOLS])
     if inferred:
-        description += (f" {len(inferred)} more steps, the extraction and creation of zip files by the workflow script, "
-                        "are inferred from the content of the files.")
+        kinds = " and ".join(text for tool, text in INFERRED_TOOLS.items() if any(a["instrument"]["@id"] == tool for a in inferred))
+        plural = len(inferred) > 1
+        description += (f" {len(inferred)} more step{'s' if plural else ''}, {kinds} by the workflow script, "
+                        f"{'are' if plural else 'is'} inferred from the content of the files.")
     properties: dict[str, Any] = {
         "@type": "CreateAction",
         "name": f"Run of {name}",
@@ -547,6 +558,71 @@ def _link_through_zips(entities: dict[str, dict], order: Callable[[dict], Any], 
             **({"startTime": time, "endTime": time} if time else {}),
         }
         ranks[action_id] = ranks.get(previous["@id"], -1) + 0.5
+    return entities
+
+
+def _link_edits(entities: dict[str, dict], order: Callable[[dict], Any], ranks: dict[str, Any]) -> dict[str, dict]:
+    """Add the steps of the workflow script that change a file between two building blocks.
+
+    A version of a path that no step produced (see _version_files), read after a step wrote the
+    previous version of the path with another content (sha256 or size), was changed outside the
+    building blocks: ie: a log edited in place by a notebook cell before the next step parses it, or
+    a file replaced by one no step wrote (renamed files with the content of an output are already
+    linked by _link_by_checksum, files extracted from a zip by _link_through_zips). A step links
+    the version written to the version read. These steps are inferred, not recorded: their time is
+    the end of the step that wrote the file, and **ranks** gets theirs, right after that step.
+    """
+    actions = sorted((e for e in entities.values() if e["@type"] == "CreateAction"), key=order)
+    producer = {ref["@id"]: i for i, a in enumerate(actions) for ref in as_list(a.get("result"))}
+    first_use: dict[str, int] = {}
+    for i, action in enumerate(actions):
+        for ref in as_list(action.get("object")):
+            first_use.setdefault(ref["@id"], i)
+    versions: dict[str, dict[int, str]] = {}
+    for entity_id in entities:
+        path, _, number = entity_id.rpartition(VERSION)
+        if path and number.isdigit():
+            versions.setdefault(path, {})[int(number)] = entity_id
+    # (version written, version read), in execution order
+    edits = sorted(((numbered[number - 1], entity_id) for numbered in versions.values() for number, entity_id in numbered.items()
+                    if entity_id not in producer and entity_id in first_use and numbered.get(number - 1) in producer
+                    and producer[numbered[number - 1]] < first_use[entity_id]
+                    and not _same_content(entities[numbered[number - 1]], entities[entity_id])),
+                   key=lambda edit: first_use[edit[1]])
+    if not edits:
+        return entities
+
+    entities[EDIT_TOOL] = {
+        "@id": EDIT_TOOL,
+        "@type": "SoftwareApplication",
+        "name": "Workflow script (file changes)",
+        "description": "Changes of files by the workflow script between two building blocks, outside them (ie: a file edited in place by a "
+                       "notebook cell). Its steps are inferred from the checksums (or sizes) of the files, they were not recorded.",
+    }
+    for number, (written, read) in enumerate(edits, start=1):
+        writer, reader = actions[producer[written]], actions[first_use[read]]
+        writer_name, reader_name = (a.get("alternateName") or a["name"].removeprefix("Run of ") for a in (writer, reader))
+        file_name = entities[read].get("name") or _file_path(read).name
+        name = f"Modification of {file_name}"
+        checked = "sha256" if entities[written].get("sha256") and entities[read].get("sha256") else "size"
+        action_id = f"#workflow-script-edit-{number}"
+        time = writer.get("endTime") or writer.get("startTime")
+        entities[action_id] = {
+            "@id": action_id,
+            "@type": "CreateAction",
+            "name": name,
+            "alternateName": name,
+            "description": (f"{file_name} changed by the workflow script, outside the building blocks: "
+                            f"{writer_name} wrote it and {reader_name} read another {checked}. "
+                            "Inferred from the files, the change is not recorded. "
+                            "The time is the end of the step that wrote the file."),
+            "instrument": {"@id": EDIT_TOOL},
+            "object": {"@id": written},
+            "result": {"@id": read},
+            "actionStatus": COMPLETED,
+            **({"startTime": time, "endTime": time} if time else {}),
+        }
+        ranks[action_id] = ranks.get(writer["@id"], -1) + 0.5
     return entities
 
 

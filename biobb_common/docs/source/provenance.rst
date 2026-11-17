@@ -185,8 +185,9 @@ that renames the output of each step to ``tmp.pdb`` to be the input of the next 
 version of the file, with its own entity, and each step reads the version written last before it:
 
 - The last version keeps the id of the path if the file is still there with the same size. The earlier
-  versions (and the last one, if the file is not there) have the id ``<file URI>#version-<n>``: their
-  content is no longer in the crate. All of them have their ``version`` number and the graphs, the
+  versions (and the last one, if the file is not there) have the id ``<file URI>#version-<n>``
+  (``<directory URI>/#version-<n>/`` for directories, ie: the ``haddock_wf_data`` of the biobb_haddock
+  steps, as Dataset ids end with ``/``): their content is no longer in the crate. All of them have their ``version`` number and the graphs, the
   README and the preview label them as ``out.pdb (version 2)``.
 - With ``provenance_checksum``, a file renamed by the workflow script (ie: ``os.rename``) is linked to
   the version it comes from, which has the same ``sha256``. Without checksums the renamed file is an
@@ -213,6 +214,19 @@ for the next one (ie: with ``file_utils.zip_list``). These operations are not bu
 These steps are marked as inferred: their tool is ``#workflow-script-zip`` and their description and the
 description of the workflow run say so. Their time is the end of the last step they depend on, the real
 time of the operation is not recorded.
+
+Files changed by the workflow script
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A workflow script or a notebook cell can change a file between the step that writes it and the step
+that reads it, ie: ``biobb_wf_amber_abc_setup`` fixes the spacing of the pressure in ``sander.eq6.log``
+before ``process_mdout`` parses it. The step reads another content than the one written, so
+``merge_block_crates`` infers a step *Modification of <file>* from the version written to the version
+read, if no other link explains the new content: a file renamed over it with the content of an output
+is linked by checksum (see `Files written several times`_), a member of a zip by its extraction. The
+change is detected by the ``sha256`` or, without ``provenance_checksum``, by the size only. These steps
+have the tool ``#workflow-script-edit``, their time is the end of the step that wrote the file, and the
+change itself is not recorded.
 
 Steps on different machines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -535,7 +549,8 @@ Limitations
 - Only the building blocks are recorded: the operations of the workflow script (ie: ``os.rename``,
   ``shutil.copy``, other file formats than zip) are not steps. Their outputs are workflow inputs, unless
   they have the checksum of the output of a previous step (see `Files written several times`_) or of a
-  zip member (see `Zip files of the workflow script`_), and the files they read are workflow outputs.
+  zip member (see `Zip files of the workflow script`_), or they change a file written by a previous step
+  (see `Files changed by the workflow script`_), and the files they read are workflow outputs.
 - Data is never copied into the crates. Files outside the crate directory (all the files of a block
   crate, and the workflow inputs or outputs written outside the workflow directory) are referenced by
   their absolute ``file://`` URI. RO-Crate 1.1 allows data entities with absolute URIs, but recommends

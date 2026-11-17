@@ -464,6 +464,90 @@ def test_zip_files(tmp_path):
     assert "#workflow-script-zip" not in graph and len(of_type(graph, "HowToStep")) == 2
 
 
+def test_edited_files(tmp_path):
+    """A notebook cell edits the log of a step in place before the next steps parse it (as
+    biobb_wf_amber_abc_setup normalizes sander.eq6.log): an inferred step links the log written to
+    the log read. A file renamed over with the content of an output is linked by checksum instead."""
+    wf = tmp_path / "wf"
+    wf.mkdir()
+    for name in ("in.top", "eq.log", "eq.dat", "other.dat", "new.log"):
+        (wf / name).write_text("0123456789")
+    env = {"hostname": "laptop"}
+    records = [
+        block_record("2026-11-17T10:00:00+01:00", {wf / "in.top": "a"}, {wf / "eq.log": "b"}, env),
+        # Edited by the notebook ("b" -> "c"), read by two steps
+        block_record("2026-11-17T10:00:01+01:00", {wf / "eq.log": "c"}, {wf / "eq.dat": "d"}, env),
+        block_record("2026-11-17T10:00:02+01:00", {wf / "eq.log": "c"}, {wf / "other.dat": "e"}, env),
+    ]
+    block_crates = [write_block_crate(r, tmp_path / "crates" / "provenance" / f"step{i}") for i, r in enumerate(records)]
+    graph = entities(merge_block_crates(block_crates, wf, workflow_file=__file__))
+    steps = [graph[c["object"]["@id"]] for c in sorted(of_type(graph, "ControlAction"), key=lambda c: int(c["@id"].rsplit("-", 1)[1]))]
+    block = "Run of biobb_test Step"
+    assert [s["name"] for s in steps] == [block, "Modification of eq.log", block, block]
+    old = (wf / "eq.log").as_uri()
+    assert steps[0]["result"] == steps[1]["object"] == {"@id": f"{old}#version-1"}
+    assert steps[1]["result"] == steps[2]["object"] == steps[3]["object"] == {"@id": "eq.log"}
+    assert steps[1]["instrument"] == {"@id": "#workflow-script-edit"} and "inferred" in graph["#workflow-script-edit"]["description"]
+    assert steps[1]["description"].startswith("eq.log changed by the workflow script, outside the building blocks: biobb_test Step wrote it "
+                                              "and biobb_test Step read another sha256.")
+    assert steps[1]["endTime"] == steps[0]["endTime"]
+    assert graph[f"{old}#version-1"]["sha256"] == "b" and graph["eq.log"]["sha256"] == "c"
+    run = graph["#workflow-run"]
+    assert run["object"] == {"@id": "in.top"}
+    assert run["description"].endswith("with 3 building blocks. 1 more step, the changes of files by the workflow script, "
+                                       "is inferred from the content of the files.")
+    assert "Modification of eq.log" in (wf / "ro-crate-preview.html").read_text()
+    if importlib.util.find_spec("rocrate_validator"):
+        from biobb_common.provenance.validation import validate_crate
+        assert validate_crate(wf) == []
+
+    # Renamed over with the content of another output: linked by checksum, nothing inferred
+    records[0] = block_record("2026-11-17T10:00:00+01:00", {wf / "in.top": "a"}, {wf / "eq.log": "b", wf / "new.log": "c"}, env)
+    block_crates = [write_block_crate(r, tmp_path / "renamed" / "provenance" / f"step{i}") for i, r in enumerate(records)]
+    graph = entities(merge_block_crates(block_crates, wf, workflow_file=__file__))
+    assert "#workflow-script-edit" not in graph and len(of_type(graph, "HowToStep")) == 3
+    assert graph["#workflow-run"]["object"] == {"@id": "in.top"}
+
+
+def test_rewritten_directory(tmp_path):
+    """A directory read and written again by each step (as the haddock_wf_data of the biobb_haddock
+    steps): its versions are Datasets with the id rocrate gives them, ending with "/", and the steps
+    reference them, so the drawn graph is connected."""
+    wf = tmp_path / "wf"
+    (wf / "run").mkdir(parents=True)
+    for name in ("in.pdb", "top.zip", "sel.zip", "final.zip"):
+        (wf / name).write_text("content")
+
+    def record(start, inputs, outputs):
+        def files(paths):
+            return [FileRecord(argument="path", path=p, is_dir=p.is_dir(), size=None if p.is_dir() else p.stat().st_size) for p in paths]
+        start = datetime.fromisoformat(start)
+        return BlockRecord(class_name="Step", module="biobb_test.test.step", package="biobb_test", package_version="1.0",
+                           start_time=start, end_time=start, inputs=files(inputs), outputs=files(outputs), environment={"hostname": "laptop"})
+
+    records = [
+        record("2026-11-17T10:00:00+01:00", [wf / "in.pdb"], [wf / "run", wf / "top.zip"]),
+        record("2026-11-17T10:00:01+01:00", [wf / "run"], [wf / "run", wf / "sel.zip"]),
+        record("2026-11-17T10:00:02+01:00", [wf / "run"], [wf / "run", wf / "final.zip"]),
+    ]
+    block_crates = [write_block_crate(r, tmp_path / "crates" / "provenance" / f"step{i}") for i, r in enumerate(records)]
+    graph = entities(merge_block_crates(block_crates, wf, workflow_file=__file__))
+    steps = [graph[c["object"]["@id"]] for c in sorted(of_type(graph, "ControlAction"), key=lambda c: int(c["@id"].rsplit("-", 1)[1]))]
+    old = (wf / "run").as_uri()
+    assert [s["result"][0]["@id"] for s in steps] == [f"{old}/#version-1/", f"{old}/#version-2/", "run/"]
+    assert [s["object"]["@id"] for s in steps[1:]] == [f"{old}/#version-1/", f"{old}/#version-2/"]
+    # Every file a step references is an entity of the crate
+    for step in steps:
+        for ref in as_list(step["object"]) + as_list(step["result"]):
+            assert graph[ref["@id"]]["@type"] in ("File", "Dataset")
+    assert graph[f"{old}/#version-1/"]["@type"] == "Dataset" and graph[f"{old}/#version-1/"]["version"] == "1"
+    drawn = read_graph(wf)
+    assert len(drawn.edges) == 9 and "run (version 2)" in drawn.files.values()
+    if importlib.util.find_spec("rocrate_validator"):
+        from biobb_common.provenance.validation import validate_crate
+        assert validate_crate(wf) == []
+
+
 def test_steps_started_in_the_same_second(tmp_path):
     """Fast steps started in the same second keep their execution order, not the alphabetical order of
     their crate directories (step10 < step4), also with the crates of previous versions (times in seconds)."""
